@@ -1,0 +1,36 @@
+#ifndef PHOSPHOR_COMMON_HPP
+#define PHOSPHOR_COMMON_HPP
+
+#include <cstdint>
+#include <cstdio>
+#include <stdexcept>
+
+#include "glad/gl.h"
+#define GLFW_INCLUDE_GLU 1
+#include "GLFW/glfw3.h"
+#define GLM_ENABLE_EXPERIMENTAL
+#include "glm/glm.hpp"
+
+#include "backends/imgui_impl_glfw.h"
+#include "backends/imgui_impl_opengl3.h"
+#include "imgui.h"
+#include "imgui_internal.h"
+
+using glm::vec2, glm::vec3, glm::vec4, glm::mat3, glm::mat4, glm::quat;
+
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+
+typedef int8_t i8;
+typedef int16_t i16;
+typedef int32_t i32;
+typedef int64_t i64;
+
+typedef std::size_t usize;
+
+typedef float f32;
+typedef double f64;
+
+#endif // PHOSPHOR_COMMON_HPP
