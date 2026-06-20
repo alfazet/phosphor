@@ -1,12 +1,7 @@
-#include "app.hpp"
+#include <cstdio>
 
 int main(int argc, char **argv) {
-    try {
-        App app{};
-        app.run();
-    } catch (std::exception &e) {
-        printf("error %s\n", e.what());
-    }
+    printf("hello world");
 
     return 0;
 }
