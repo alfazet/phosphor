@@ -5,16 +5,8 @@
 #include <cstdio>
 #include <stdexcept>
 
-#include "glad/gl.h"
-#define GLFW_INCLUDE_GLU 1
-#include "GLFW/glfw3.h"
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/glm.hpp"
-
-#include "backends/imgui_impl_glfw.h"
-#include "backends/imgui_impl_opengl3.h"
-#include "imgui.h"
-#include "imgui_internal.h"
 
 using glm::vec2, glm::vec3, glm::vec4, glm::mat3, glm::mat4, glm::quat;
 
