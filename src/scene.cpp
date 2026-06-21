@@ -1,6 +1,6 @@
 #include "scene.hpp"
-#include "random.hpp"
-#include <limits>
+
+#include <ostream>
 
 void Scene::AddLight(const Pointlight &light) { lights_.push_back(light); }
 
@@ -59,6 +59,8 @@ void Scene::trace_photon(const Ray &r, vec3 power, int depth, int max_bounces) {
     }
 }
 
+
+
 void Scene::Emit(int photons_per_light, int max_bounces) {
     for (const auto &light : lights_) {
         const vec3 photon_power = vec3(light.power / static_cast<f32>(photons_per_light));
@@ -67,4 +69,27 @@ void Scene::Emit(int photons_per_light, int max_bounces) {
             trace_photon(Ray(light.pos, dir), photon_power, 0, max_bounces);
         }
     }
+}
+
+// naive and slow (and probably wrong)
+vec3 Scene::GetColor(const vec3 &pos, int n) const {
+    if (photons_.empty())
+        return vec3(0.0f);
+
+    std::vector<std::pair<f32, const Photon *>> dists;
+    dists.reserve(photons_.size());
+    for (const auto &p : photons_) {
+        const vec3 diff = p.pos - pos;
+        dists.emplace_back(glm::dot(diff, diff), &p);
+    }
+
+    std::sort(dists.begin(), dists.end(),[](const auto &a, const auto &b) { return a.first < b.first; });
+    vec3 flux(0.0f);
+    for (int i = 0; i < n; ++i)
+        flux += dists[i].second->power;
+
+    const f32 radius = glm::sqrt(dists[n - 1].first);
+    const f32 area = glm::pi<f32>() * radius * radius;
+
+    return flux / area;
 }
