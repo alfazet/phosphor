@@ -8,6 +8,9 @@
 #include "ray.hpp"
 #include "sphere.hpp"
 #include <vector>
+#include "random.hpp"
+#include <algorithm>
+#include <limits>
 
 class Scene {
   public:
@@ -21,6 +24,7 @@ class Scene {
     void Emit(int photons_per_light, int max_bounces = 8);
 
     const std::vector<Photon> &photons() const { return photons_; }
+    vec3 GetColor(const vec3 &pos, int n) const;
 
   private:
     void trace_photon(const Ray &r, vec3 power, int depth, int max_bounces);
