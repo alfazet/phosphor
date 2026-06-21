@@ -15,7 +15,7 @@ add_executable(phosphor ${SOURCES}
 FetchContent_Declare(
         glm
         GIT_REPOSITORY https://github.com/g-truc/glm
-        GIT_TAG 8d1fd52e5ab5590e2c81768ace50c72bae28f2ed # v1.0.3
+        GIT_TAG 8d1fd52e5ab5590e2c81768ace50c72bae28f2ed
 )
 FetchContent_MakeAvailable(glm)
 target_link_libraries(phosphor glm)

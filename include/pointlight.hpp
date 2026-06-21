@@ -2,10 +2,8 @@
 #define PHOSPHOR_POINTLIGHT_HPP
 
 #include "common.hpp"
-#include "ray.hpp"
-#include <vector>
 
-struct Pointlight {
+struct PointLight {
     vec3 pos;
     f32 power;
 };

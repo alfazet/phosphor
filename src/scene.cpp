@@ -1,10 +1,8 @@
 #include "scene.hpp"
 
-#include <ostream>
+void Scene::add_light(const PointLight &light) { lights_.push_back(light); }
 
-void Scene::AddLight(const Pointlight &light) { lights_.push_back(light); }
-
-void Scene::AddObject(const Sphere &object) { spheres_.push_back(object); }
+void Scene::add_object(const Sphere &object) { spheres_.push_back(object); }
 
 bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out) const {
     HitRecord temp;
@@ -27,7 +25,7 @@ bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &ma
     return hit_anything;
 }
 
-void Scene::trace_photon(const Ray &r, vec3 power, int depth, int max_bounces) {
+void Scene::trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
     if (depth >= max_bounces)
         return;
 
@@ -36,35 +34,32 @@ void Scene::trace_photon(const Ray &r, vec3 power, int depth, int max_bounces) {
     if (!hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat))
         return;
 
-    Photon p;
-    p.pos = rec.point;
-    p.power = power;
-    p.phi = glm::atan(r.direction.y, r.direction.x);
-    p.theta = glm::acos(glm::clamp(r.direction.z, -1.0f, 1.0f));
-    photons_.push_back(p);
+    f32 phi = glm::atan(r.direction.y, r.direction.x);
+    f32 theta = glm::acos(glm::clamp(r.direction.z, -1.0f, 1.0f));
+    photons_.emplace_back(rec.point, power, phi, theta);
 
+    // source: page 63
     const f32 xi = random_float();
     vec3 d = mat.diff;
     vec3 s = mat.spec;
-    f32 P_r = glm::max(d.r + s.r, glm::max(d.g + s.g, d.b + s.b));
-    f32 P_d = P_r*(d.r+d.g+d.b)/(d.r+d.g+d.b + s.r+s.g+s.b);
-    f32 P_s = P_r - P_d;
+    f32 rho_r = glm::max(d.r + s.r, glm::max(d.g + s.g, d.b + s.b));
+    f32 rho_d = rho_r * (d.r + d.g + d.b) / (d.r + d.g + d.b + s.r + s.g + s.b);
+    f32 rho_s = rho_r - rho_d;
 
-    if (xi < P_d) {
+    if (xi < rho_d) {
         const vec3 new_dir = random_in_hemisphere(rec.normal);
-        trace_photon(Ray(rec.point, new_dir), power * mat.diff / P_d, depth + 1, max_bounces);
-    } else if (xi < P_s + P_d) {
+        trace_photon(Ray(rec.point, new_dir), power * mat.diff / rho_d, depth + 1, max_bounces);
+    } else if (xi < rho_s + rho_d) {
         const vec3 new_dir = glm::reflect(r.direction, rec.normal);
-        trace_photon(Ray(rec.point, new_dir), power * mat.spec / P_s, depth + 1, max_bounces);
+        trace_photon(Ray(rec.point, new_dir), power * mat.spec / rho_s, depth + 1, max_bounces);
     }
+    // else the photon is absorbed
 }
 
-
-
-void Scene::Emit(int photons_per_light, int max_bounces) {
+void Scene::emit(u32 photons_per_light, u32 max_bounces) {
     for (const auto &light : lights_) {
         const vec3 photon_power = vec3(light.power / static_cast<f32>(photons_per_light));
-        for (int i = 0; i < photons_per_light; ++i) {
+        for (u32 i = 0; i < photons_per_light; i++) {
             const vec3 dir = random_unit_vector();
             trace_photon(Ray(light.pos, dir), photon_power, 0, max_bounces);
         }
@@ -72,8 +67,8 @@ void Scene::Emit(int photons_per_light, int max_bounces) {
 }
 
 // naive and slow (and probably wrong)
-vec3 Scene::GetColor(const vec3 &pos, const int n) const {
-    int k = n;
+vec3 Scene::get_color(const vec3 &pos, const u32 n) const {
+    u32 k = n;
     if (photons_.empty())
         return vec3(0.0f);
 
@@ -88,11 +83,10 @@ vec3 Scene::GetColor(const vec3 &pos, const int n) const {
         k = dists.size();
 
     // this will take a long time
-    std::sort(dists.begin(), dists.end(),[](const auto &a, const auto &b) { return a.first < b.first; });
+    std::sort(dists.begin(), dists.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
     vec3 flux(0.0f);
-    for (int i = 0; i < k; ++i)
+    for (u32 i = 0; i < k; i++)
         flux += dists[i].second->power;
-
     const f32 radius = glm::sqrt(dists[k - 1].first);
     const f32 area = glm::pi<f32>() * radius * radius;
 

@@ -1,8 +1,8 @@
 #ifndef PHOSPHOR_SPHERE_HPP
 #define PHOSPHOR_SPHERE_HPP
 
-#include "Material.hpp"
 #include "common.hpp"
+#include "material.hpp"
 #include "ray.hpp"
 
 struct HitRecord {
