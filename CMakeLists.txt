@@ -6,7 +6,11 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include_directories(include)
-add_executable(phosphor src/main.cpp src/camera.cpp src/image.cpp)
+file(GLOB SOURCES CONFIGURE_DEPENDS src/*.cpp)
+add_executable(phosphor ${SOURCES}
+        include/random.hpp
+        src/scene.cpp
+)
 
 FetchContent_Declare(
         glm
