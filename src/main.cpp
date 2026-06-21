@@ -10,11 +10,11 @@
 #include <sphere.hpp>
 
 int main(int argc, char **argv) {
-    srand(time(0));
+    srand(time(nullptr));
 
-    const int image_width = 200;
-    const int image_height = 200;
-    const int n = 20;
+    const int image_width = 100;
+    const int image_height = 100;
+    const int n = 50;
     Image img(image_width, image_height);
     Camera cam(vec3(0, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1), 60.0f, image_width/image_height);
 
