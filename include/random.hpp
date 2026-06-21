@@ -2,7 +2,6 @@
 #define PHOSPHOR_RANDOM_HPP
 
 #include "common.hpp"
-#include <cstdlib>
 
 inline f32 random_float() {
     // Source - https://stackoverflow.com/a/686373

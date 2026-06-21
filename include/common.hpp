@@ -6,8 +6,8 @@
 #include <stdexcept>
 
 #define GLM_ENABLE_EXPERIMENTAL
-#include "glm/glm.hpp"
 #include "glm/ext/scalar_constants.hpp"
+#include "glm/glm.hpp"
 
 using glm::vec2, glm::vec3, glm::vec4, glm::mat3, glm::mat4, glm::quat;
 

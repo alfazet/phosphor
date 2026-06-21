@@ -8,6 +8,8 @@ struct Photon {
     vec3 power;
     f32 phi;
     f32 theta;
+
+    Photon(vec3 pos, vec3 power, f32 phi, f32 theta) : pos(pos), power(power), phi(phi), theta(theta) {}
 };
 
 #endif // PHOSPHOR_PHOTON_HPP
