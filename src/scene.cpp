@@ -52,10 +52,10 @@ void Scene::trace_photon(const Ray &r, vec3 power, int depth, int max_bounces) {
 
     if (xi < P_d) {
         const vec3 new_dir = random_in_hemisphere(rec.normal);
-        trace_photon(Ray(rec.point, new_dir), power * mat.color / P_d, depth + 1, max_bounces);
+        trace_photon(Ray(rec.point, new_dir), power * mat.diff / P_d, depth + 1, max_bounces);
     } else if (xi < P_s + P_d) {
         const vec3 new_dir = glm::reflect(r.direction, rec.normal);
-        trace_photon(Ray(rec.point, new_dir), power / P_s, depth + 1, max_bounces);
+        trace_photon(Ray(rec.point, new_dir), power * mat.spec / P_s, depth + 1, max_bounces);
     }
 }
 
@@ -72,7 +72,8 @@ void Scene::Emit(int photons_per_light, int max_bounces) {
 }
 
 // naive and slow (and probably wrong)
-vec3 Scene::GetColor(const vec3 &pos, int n) const {
+vec3 Scene::GetColor(const vec3 &pos, const int n) const {
+    int k = n;
     if (photons_.empty())
         return vec3(0.0f);
 
@@ -83,12 +84,16 @@ vec3 Scene::GetColor(const vec3 &pos, int n) const {
         dists.emplace_back(glm::dot(diff, diff), &p);
     }
 
+    if (dists.size() < n)
+        k = dists.size();
+
+    // this will take a long time
     std::sort(dists.begin(), dists.end(),[](const auto &a, const auto &b) { return a.first < b.first; });
     vec3 flux(0.0f);
-    for (int i = 0; i < n; ++i)
+    for (int i = 0; i < k; ++i)
         flux += dists[i].second->power;
 
-    const f32 radius = glm::sqrt(dists[n - 1].first);
+    const f32 radius = glm::sqrt(dists[k - 1].first);
     const f32 area = glm::pi<f32>() * radius * radius;
 
     return flux / area;

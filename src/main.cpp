@@ -12,19 +12,20 @@
 int main(int argc, char **argv) {
     srand(time(0));
 
-    const int image_width = 800;
-    const int image_height = 450;
-    const int n = 3;
+    const int image_width = 200;
+    const int image_height = 200;
+    const int n = 20;
     Image img(image_width, image_height);
-    Camera cam(vec3(0, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1), 60.0f, 16.0f / 9.0f);
+    Camera cam(vec3(0, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1), 60.0f, image_width/image_height);
 
     Scene scene;
     scene.AddLight(Pointlight(vec3(0, 1, 2), 1000.0f));
 
-    Material sphere_mat{vec3(0.8f, 0.8f, 0.8f), vec3(0.1f, 0.1f, 0.1f), vec3(1.0f, 1.0f, 1.0f)};
+    // Material sphere_mat{vec3(0.8f, 0.8f, 0.8f), vec3(0.1f, 0.1f, 0.1f)};
+    Material sphere_mat{vec3(0.1f, 0.1f, 0.1f), vec3(0.1f, 0.1f, 0.1f)};
     scene.AddObject(Sphere(vec3(0, 1, 0), 0.5f, sphere_mat));
 
-    scene.Emit(50000, 5);
+    scene.Emit(10000000, 2);
 
     // for (auto i : scene.photons()) {
     //     printf("[%f,%f,%f] [%f,%f,%f] [%f,%f]\n", i.pos.x, i.pos.y, i.pos.z, i.power.x, i.power.y, i.power.z, i.phi, i.theta);
