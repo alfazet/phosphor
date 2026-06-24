@@ -36,7 +36,7 @@ void Scene::trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
 
     f32 phi = glm::atan(r.direction.y, r.direction.x);
     f32 theta = glm::acos(glm::clamp(r.direction.z, -1.0f, 1.0f));
-    photons_.emplace_back(rec.point, power, phi, theta);
+    photon_map_.store({rec.point, power, phi, theta});
 
     // source: page 63
     const f32 xi = random_float();
@@ -64,31 +64,24 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces) {
             trace_photon(Ray(light.pos, dir), photon_power, 0, max_bounces);
         }
     }
+
+    photon_map_.build();
 }
 
-// naive and slow (and probably wrong)
 vec3 Scene::get_color(const vec3 &pos, const u32 n) const {
-    u32 k = n;
-    if (photons_.empty())
+    std::vector<const Photon*> nearest;
+    photon_map_.locate(pos, n, 1.0f, nearest);
+    if (nearest.empty())
         return vec3(0.0f);
 
-    std::vector<std::pair<f32, const Photon *>> dists;
-    dists.reserve(photons_.size());
-    for (const auto &p : photons_) {
-        const vec3 diff = p.pos - pos;
-        dists.emplace_back(glm::dot(diff, diff), &p);
-    }
-
-    if (dists.size() < n)
-        k = dists.size();
-
-    // this will take a long time
-    std::sort(dists.begin(), dists.end(), [](const auto &a, const auto &b) { return a.first < b.first; });
     vec3 flux(0.0f);
-    for (u32 i = 0; i < k; i++)
-        flux += dists[i].second->power;
-    const f32 radius = glm::sqrt(dists[k - 1].first);
-    const f32 area = glm::pi<f32>() * radius * radius;
+    float max_dist_sq = 0.0f;
+    for (auto p : nearest) {
+        float dist = glm::dot(p->pos - pos, p->pos - pos);
+        max_dist_sq = glm::max(max_dist_sq, dist);
+        flux += p->power;
+    }
+    f32 area = glm::pi<f32>() * max_dist_sq;
 
     return flux / area;
 }
