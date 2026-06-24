@@ -4,6 +4,7 @@
 #include "common.hpp"
 #include "material.hpp"
 #include "photon.hpp"
+#include "photonmap.hpp"
 #include "pointlight.hpp"
 #include "random.hpp"
 #include "ray.hpp"
@@ -23,7 +24,6 @@ class Scene {
 
     void emit(u32 photons_per_light, u32 max_bounces = 8);
 
-    const std::vector<Photon> &photons() const { return photons_; }
     vec3 get_color(const vec3 &pos, u32 n) const;
 
   private:
@@ -31,7 +31,7 @@ class Scene {
 
     std::vector<Sphere> spheres_;
     std::vector<PointLight> lights_;
-    std::vector<Photon> photons_;
+    PhotonMap photon_map_;
 };
 
 #endif // PHOSPHOR_SCENE_HPP
