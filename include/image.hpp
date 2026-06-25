@@ -22,7 +22,12 @@ class Image {
     u32 height() const { return height_; }
 
   private:
-    static u8 to_byte(f32 c) { return static_cast<u8>(std::clamp(c, 0.0f, 1.0f) * 255.0f + 0.5f); }
+    static u8 to_byte(f32 c) {
+        c = std::clamp(c, 0.0f, 1.0f);
+        c = glm::pow(c, 1.0f / 2.2f);
+
+        return static_cast<u8>(c * 255.0f + 0.5f);
+    }
 
     u32 width_, height_;
     std::vector<u8> pixels_;
