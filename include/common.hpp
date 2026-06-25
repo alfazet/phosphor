@@ -26,4 +26,7 @@ typedef std::size_t usize;
 typedef float f32;
 typedef double f64;
 
+constexpr f32 EPS = 1e-9;
+constexpr f32 INF = 1e9;
+
 #endif // PHOSPHOR_COMMON_HPP

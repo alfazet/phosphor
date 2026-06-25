@@ -68,8 +68,8 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces) {
     photon_map_.build();
 }
 
-vec3 Scene::get_color(const vec3 &pos, const u32 n) const {
-    std::vector<const Photon*> nearest;
+vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n) const {
+    std::vector<const Photon *> nearest;
     photon_map_.locate(pos, n, 1.0f, nearest);
     if (nearest.empty())
         return vec3(0.0f);
@@ -77,11 +77,17 @@ vec3 Scene::get_color(const vec3 &pos, const u32 n) const {
     vec3 flux(0.0f);
     float max_dist_sq = 0.0f;
     for (auto p : nearest) {
+        vec3 from(glm::cos(p->phi) * glm::sin(p->theta), glm::sin(p->phi) * glm::sin(p->theta), glm::cos(p->theta));
+        // don't count photons coming from "inside" the surface
+        if (glm::dot(from, normal) > 0.0f)
+            continue;
         float dist = glm::dot(p->pos - pos, p->pos - pos);
         max_dist_sq = glm::max(max_dist_sq, dist);
         flux += p->power;
     }
     f32 area = glm::pi<f32>() * max_dist_sq;
+    if (area < EPS)
+        return vec3(0.0f);
 
     return flux / area;
 }

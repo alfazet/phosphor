@@ -24,7 +24,7 @@ class Scene {
 
     void emit(u32 photons_per_light, u32 max_bounces = 8);
 
-    vec3 get_color(const vec3 &pos, u32 n) const;
+    vec3 get_color(const vec3 &pos, const vec3 &normal, u32 n) const;
 
   private:
     void trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces);

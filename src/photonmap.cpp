@@ -1,7 +1,7 @@
 #include "photonmap.hpp"
 #include <algorithm>
 
-void PhotonMap::store(const Photon& p) {
+void PhotonMap::store(const Photon &p) {
     photons_.push_back(p);
     photons_.back().plane = 0;
 }
@@ -14,9 +14,9 @@ void PhotonMap::build() {
     balance(1, 0, photons_.size());
 }
 
-static u8 choose_axis(std::vector<Photon>& photons, usize start, usize end) {
-    vec3 minp(1e30f);
-    vec3 maxp(-1e30f);
+static u8 choose_axis(std::vector<Photon> &photons, usize start, usize end) {
+    vec3 minp(INF);
+    vec3 maxp(-INF);
 
     for (usize i = start; i < end; i++) {
         minp = glm::min(minp, photons[i].pos);
@@ -25,8 +25,10 @@ static u8 choose_axis(std::vector<Photon>& photons, usize start, usize end) {
 
     vec3 ext = maxp - minp;
 
-    if (ext.x > ext.y && ext.x > ext.z) return 0;
-    if (ext.y > ext.z) return 1;
+    if (ext.x > ext.y && ext.x > ext.z)
+        return 0;
+    if (ext.y > ext.z)
+        return 1;
     return 2;
 }
 
@@ -37,13 +39,8 @@ void PhotonMap::balance(usize index, usize start, usize end) {
     u8 axis = choose_axis(photons_, start, end);
     usize median = (start + end) / 2;
 
-    std::nth_element(
-        photons_.begin() + start,
-        photons_.begin() + median,
-        photons_.begin() + end,
-        [axis](const Photon& a, const Photon& b) {
-            return a.pos[axis] < b.pos[axis];
-        });
+    std::nth_element(photons_.begin() + start, photons_.begin() + median, photons_.begin() + end,
+                     [axis](const Photon &a, const Photon &b) { return a.pos[axis] < b.pos[axis]; });
 
     photons_[median].plane = axis;
     kd_tree_[index] = &photons_[median];
@@ -52,24 +49,13 @@ void PhotonMap::balance(usize index, usize start, usize end) {
     balance(index * 2 + 1, median + 1, end);
 }
 
-void PhotonMap::locate(
-    const vec3& pos,
-    u32 k,
-    f32 max_dist2,
-    std::vector<const Photon*>& result
-) const {
+void PhotonMap::locate(const vec3 &pos, u32 k, f32 max_dist2, std::vector<const Photon *> &result) const {
     result.clear();
     std::vector<f32> dist2;
     locate_rec(1, pos, k, max_dist2, result, dist2);
 }
 
-static void try_insert(
-    const Photon* p,
-    f32 d2,
-    u32 k,
-    std::vector<const Photon*>& result,
-    std::vector<f32>& dist2)
-{
+static void try_insert(const Photon *p, f32 d2, u32 k, std::vector<const Photon *> &result, std::vector<f32> &dist2) {
     if ((u32)result.size() < k) {
         result.push_back(p);
         dist2.push_back(d2);
@@ -88,18 +74,12 @@ static void try_insert(
     }
 }
 
-void PhotonMap::locate_rec(
-    usize index,
-    const vec3& pos,
-    u32 k,
-    f32 max_dist2,
-    std::vector<const Photon*>& result,
-    std::vector<f32>& dist2
-) const {
+void PhotonMap::locate_rec(usize index, const vec3 &pos, u32 k, f32 max_dist2, std::vector<const Photon *> &result,
+                           std::vector<f32> &dist2) const {
     if (index >= kd_tree_.size())
         return;
 
-    Photon* p = kd_tree_[index];
+    Photon *p = kd_tree_[index];
     if (!p)
         return;
 
@@ -107,7 +87,7 @@ void PhotonMap::locate_rec(
     f32 delta = pos[axis] - p->pos[axis];
 
     usize near = delta < 0 ? index * 2 : index * 2 + 1;
-    usize far  = delta < 0 ? index * 2 + 1 : index * 2;
+    usize far = delta < 0 ? index * 2 + 1 : index * 2;
 
     locate_rec(near, pos, k, max_dist2, result, dist2);
 
