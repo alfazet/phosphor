@@ -7,10 +7,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include_directories(include)
 file(GLOB SOURCES CONFIGURE_DEPENDS src/*.cpp)
-add_executable(phosphor ${SOURCES}
-        include/random.hpp
-        src/scene.cpp
-)
+add_executable(phosphor ${SOURCES})
 
 FetchContent_Declare(
         glm
@@ -27,6 +24,19 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(stb)
 target_include_directories(phosphor PRIVATE ${stb_SOURCE_DIR})
+
+set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "Build Assimp as a static library")
+set(ASSIMP_BUILD_TESTS OFF CACHE INTERNAL "Turn off Assimp tests")
+set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE INTERNAL "Turn off Assimp viewer/tools")
+set(ASSIMP_INSTALL OFF CACHE INTERNAL "Turn off Assimp installation rules")
+
+FetchContent_Declare(
+        assimp
+        GIT_REPOSITORY https://github.com/assimp/assimp.git
+        GIT_TAG v5.4.3
+)
+FetchContent_MakeAvailable(assimp)
+target_link_libraries(phosphor assimp::assimp)
 
 target_compile_definitions(phosphor PRIVATE PROJECT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "debug")

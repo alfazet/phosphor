@@ -6,12 +6,14 @@
 
 class Camera {
   public:
-    Camera(vec3 position, vec3 target, vec3 up, f32 vfov_degrees, f32 aspect_ratio);
+    Camera() = default;
+    Camera(vec3 position, vec3 target, vec3 up, f32 vfov_degrees, f32 aspect_ratio=16.0/9.0);
 
     Ray get_ray(f32 s, f32 t) const;
 
     void set_position(const vec3 &position);
     const vec3 &position() const { return position_; }
+    const f32 aspect_ratio() const { return aspect_ratio_; }
 
   private:
     void update();

@@ -1,26 +1,28 @@
 #include "scene.hpp"
 
-void Scene::add_light(const PointLight &light) { lights_.push_back(light); }
+#include "random.hpp"
 
-void Scene::add_object(const Sphere &object) { spheres_.push_back(object); }
+void Scene::add_light(const PointLight &light) { lights_.push_back(light); }
+void Scene::add_triangle(const Triangle &object) { triangles_.push_back(object); }
 
 bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out) const {
     HitRecord temp;
     bool hit_anything = false;
     f32 closest = t_max;
-    const Sphere *closest_sphere = nullptr;
+    const Triangle *closest_triangle = nullptr;
 
-    for (const auto &object : spheres_) {
+    // space for improvement - do not check all objects in scene
+    for (const auto &object : triangles_) {
         if (object.hit(r, t_min, closest, temp)) {
             hit_anything = true;
             closest = temp.t;
             rec = temp;
-            closest_sphere = &object;
+            closest_triangle = &object;
         }
     }
 
     if (hit_anything)
-        mat_out = closest_sphere->mat();
+        mat_out = closest_triangle->mat();
 
     return hit_anything;
 }
