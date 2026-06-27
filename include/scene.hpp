@@ -22,10 +22,12 @@ class Scene {
 
     void emit(u32 photons_per_light, u32 max_bounces = 8);
 
-    vec3 get_color(const vec3 &pos, const vec3 &normal, u32 n) const;
+    vec3 get_color(const vec3 &pos, const vec3 &normal, u32 n, Material &mat) const;
     Camera &get_camera() { return camera_; }
     void set_camera(const Camera &camera) { camera_ = camera; }
     std::vector<Triangle> &triangles() { return triangles_; }
+
+    void generate_image(u32 image_height, u32 n, u32 photo_number, u32 max_bounces);
 
   private:
     void trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces);

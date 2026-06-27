@@ -42,9 +42,9 @@ std::vector<Scene> ReadFile(const char* fileName) {
         f32 fov_v_rad = 2.0f * std::atan(std::tan(fov_h / 2.0f) / aspect);
         f32 fov_v_deg = fov_v_rad * (180.0f / M_PI);
 
-        engineCamera = Camera(position, lookAt, up, fov_v_deg);
+        engineCamera = Camera(position, lookAt, up, fov_v_deg, 1.0);
     } else {
-        engineCamera = Camera(vec3(0, 0, 5), vec3(0, 0, 0), vec3(0, 1, 0), 45.0f);
+        engineCamera = Camera(vec3(0, 0, 5), vec3(0, 0, 0), vec3(0, 1, 0), 45.0f, 16.0/9.0);
     }
 
     parsedScene.set_camera(engineCamera);
