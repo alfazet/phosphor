@@ -7,7 +7,7 @@
 class Camera {
   public:
     Camera() = default;
-    Camera(vec3 position, vec3 target, vec3 up, f32 vfov_degrees, f32 aspect_ratio=16.0/9.0);
+    Camera(vec3 position, vec3 target, vec3 up, f32 vfov_degrees, f32 aspect_ratio);
 
     Ray get_ray(f32 s, f32 t) const;
 

@@ -1,6 +1,7 @@
 #include "scene.hpp"
 
 #include "random.hpp"
+#include "image.hpp"
 
 void Scene::add_light(const PointLight &light) { lights_.push_back(light); }
 void Scene::add_triangle(const Triangle &object) { triangles_.push_back(object); }
@@ -26,6 +27,36 @@ bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &ma
 
     return hit_anything;
 }
+
+void Scene::generate_image(u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces) {
+    if (lights_.empty())
+        throw std::logic_error("No lights");
+    if (triangles_.empty())
+        throw std::logic_error("No triangles");
+    const u32 image_width = image_height * get_camera().aspect_ratio();
+    Image img(image_width, image_height);
+
+    emit(photons_per_light, max_bounces);
+
+    HitRecord rec;
+    Material mat;
+    Camera cam = get_camera();
+
+    for (u32 y = 0; y < image_height; y++) {
+        for (u32 x = 0; x < image_width; x++) {
+            const f32 s = (x + 0.5f) / static_cast<f32>(image_width);
+            const f32 t = 1.0f - (y + 0.5f) / static_cast<f32>(image_height);
+            Ray r = cam.get_ray(s, t);
+
+            if (hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat)) {
+                img.set_pixel(x, y, get_color(rec.point, rec.normal, n, mat));
+            }
+        }
+        printf("%i / %i\n", y+1, image_height);
+    }
+    img.write_png("output.png");
+}
+
 
 void Scene::trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
     if (depth >= max_bounces)
@@ -64,13 +95,14 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces) {
         for (u32 i = 0; i < photons_per_light; i++) {
             const vec3 dir = random_unit_vector();
             trace_photon(Ray(light.pos, dir), photon_power, 0, max_bounces);
+            printf("%i/%i\n", i+1, photons_per_light );
         }
     }
 
     photon_map_.build();
 }
 
-vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n) const {
+vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material &mat) const {
     std::vector<const Photon *> nearest;
     photon_map_.locate(pos, n, 1.0f, nearest);
     if (nearest.empty())
@@ -91,5 +123,5 @@ vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n) const {
     if (area < EPS)
         return vec3(0.0f);
 
-    return flux / area;
+    return flux * mat.diff / area;
 }
