@@ -12,7 +12,7 @@ add_executable(phosphor ${SOURCES})
 FetchContent_Declare(
         glm
         GIT_REPOSITORY https://github.com/g-truc/glm
-        GIT_TAG 8d1fd52e5ab5590e2c81768ace50c72bae28f2ed
+        GIT_TAG 1.0.3
 )
 FetchContent_MakeAvailable(glm)
 target_link_libraries(phosphor glm)
@@ -20,20 +20,20 @@ target_link_libraries(phosphor glm)
 FetchContent_Declare(
         stb
         GIT_REPOSITORY https://github.com/nothings/stb.git
-        GIT_TAG 5c205738c191bcb0abc65c4febfa9bd25ff35234
 )
 FetchContent_MakeAvailable(stb)
 target_include_directories(phosphor PRIVATE ${stb_SOURCE_DIR})
 
-set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "Build Assimp as a static library")
+set(BUILD_SHARED_LIBS ON CACHE INTERNAL "Build Assimp as a static library")
 set(ASSIMP_BUILD_TESTS OFF CACHE INTERNAL "Turn off Assimp tests")
 set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE INTERNAL "Turn off Assimp viewer/tools")
 set(ASSIMP_INSTALL OFF CACHE INTERNAL "Turn off Assimp installation rules")
+set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE INTERNAL "Make warnings non-fatal")
 
 FetchContent_Declare(
         assimp
         GIT_REPOSITORY https://github.com/assimp/assimp.git
-        GIT_TAG v5.4.3
+        GIT_TAG v6.0.5
 )
 FetchContent_MakeAvailable(assimp)
 target_link_libraries(phosphor assimp::assimp)
