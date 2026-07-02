@@ -28,6 +28,7 @@ set(BUILD_SHARED_LIBS ON CACHE INTERNAL "Build Assimp as a static library")
 set(ASSIMP_BUILD_TESTS OFF CACHE INTERNAL "Turn off Assimp tests")
 set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE INTERNAL "Turn off Assimp viewer/tools")
 set(ASSIMP_INSTALL OFF CACHE INTERNAL "Turn off Assimp installation rules")
+set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "" FORCE "Turn off Assimp compressed asset support")
 set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE INTERNAL "Make warnings non-fatal")
 
 FetchContent_Declare(
