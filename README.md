@@ -1,7 +1,8 @@
 # Phosphor
 
-## TODO
-1. write a basic renderer (on the CPU for now), no glTF parsing for now, use hardcoded geometry/textures
-2. integrate a glTF parser
-3. switch to an OpenCL renderer
-4. make the denoiser GUI
+## TODO (before GPU stuff)
+- many cameras, remove the default camera (program should fail when no camera is provided)
+- more light types (spherical, light-emitting surfaces, ...)
+- more material types out of the ones supported by gltf
+- textures (normal map, color texture, specular, ...)
+- separate light power per color channel
