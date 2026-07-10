@@ -34,7 +34,7 @@ void show_progress_bar(f32 percentage, const int width=32) {
     for (u32 i = 0; i < percentage*width; i++) {
         printf("=");
     }
-    for (u32 i = percentage*width; i < width; i++) {
+    for (u32 i = percentage*width; i < width-1; i++) {
         printf("-");
     }
     fflush(stdout);
@@ -107,13 +107,16 @@ void Scene::trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
 }
 
 void Scene::emit(u32 photons_per_light, u32 max_bounces) {
+    i32 total_photons = photons_per_light*lights_.size();
+    i32 photons_done = 0;
     for (const auto &light : lights_) {
         const vec3 photon_power = vec3(light.power / static_cast<f32>(photons_per_light));
         for (u32 i = 0; i < photons_per_light; i++) {
             const vec3 dir = random_unit_vector();
             trace_photon(Ray(light.pos, dir), photon_power, 0, max_bounces);
-            show_progress_bar((i+1)/(f32)photons_per_light);
+            show_progress_bar((photons_done+i+1)/(f32)(total_photons));
         }
+        photons_done += photons_per_light;
     }
 
     photon_map_.build();

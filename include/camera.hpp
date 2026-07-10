@@ -15,6 +15,8 @@ class Camera {
     const vec3 &position() const { return position_; }
     const f32 aspect_ratio() const { return aspect_ratio_; }
 
+    friend void print_camera(const Camera &camera);
+
   private:
     void update();
 
