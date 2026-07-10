@@ -10,8 +10,7 @@ void Camera::update() {
         throw std::invalid_argument("hfov must be in (0; M_PI");
     if (aspect_ratio_ <= 0)
         throw std::invalid_argument("aspect_ratio must be in (0; +inf");
-    const f32 theta = glm::radians(hfov_);
-    const f32 w = glm::tan(theta / 2.0f);
+    const f32 w = glm::tan(glm::radians(hfov_) / 2.0f);
     const f32 viewport_width = 2.0f * w;
     const f32 viewport_height = viewport_width / aspect_ratio_;
 

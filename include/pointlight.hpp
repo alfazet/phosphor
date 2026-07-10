@@ -5,7 +5,7 @@
 
 struct PointLight {
     vec3 pos;
-    f32 power;
+    vec3 power;
 };
 
 #endif // PHOSPHOR_POINTLIGHT_HPP
