@@ -7,7 +7,7 @@
 class Camera {
   public:
     Camera() = default;
-    Camera(vec3 position, vec3 target, vec3 up, f32 vfov_degrees, f32 aspect_ratio);
+    Camera(vec3 position, vec3 target, vec3 up, f32 hfov_degrees, f32 aspect_ratio);
 
     Ray get_ray(f32 s, f32 t) const;
 
@@ -21,7 +21,7 @@ class Camera {
     vec3 position_;
     vec3 target_;
     vec3 up_;
-    f32 vfov_;
+    f32 hfov_;
     f32 aspect_ratio_;
 
     vec3 lower_left_corner_{};
