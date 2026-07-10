@@ -1,4 +1,4 @@
-#include "SceneReader.hpp"
+#include "scenereader.hpp"
 #include <iostream>
 
 #include <assimp/Importer.hpp>
@@ -24,34 +24,28 @@ std::vector<Scene> ReadFile(const char* fileName) {
         return scenes;
     }
 
-    // Camera
-    Camera engineCamera;
-    // TODO add support for many cameras in scene
+    // Cameras
     if (aiscene->HasCameras()) {
-        aiCamera* ai_cam = aiscene->mCameras[0];
+        for (u32 i = 0; i < aiscene->mNumCameras; ++i) {
+            aiCamera* ai_cam = aiscene->mCameras[i];
+            vec3 position(ai_cam->mPosition.x, ai_cam->mPosition.y, ai_cam->mPosition.z);
+            vec3 lookAt(ai_cam->mLookAt.x, ai_cam->mLookAt.y, ai_cam->mLookAt.z);
+            vec3 up(ai_cam->mUp.x, ai_cam->mUp.y, ai_cam->mUp.z);
 
-        vec3 position(ai_cam->mPosition.x, ai_cam->mPosition.y, ai_cam->mPosition.z);
-        vec3 lookAt(ai_cam->mLookAt.x, ai_cam->mLookAt.y, ai_cam->mLookAt.z);
-        vec3 up(ai_cam->mUp.x, ai_cam->mUp.y, ai_cam->mUp.z);
+            f32 fov_h = ai_cam->mHorizontalFOV;
+            f32 aspect = ai_cam->mAspect;
 
-        f32 fov_h = ai_cam->mHorizontalFOV;
-        f32 aspect = ai_cam->mAspect;
-        if (aspect <= 0.0f) {
-            aspect = 16.0f / 9.0f;
+            Camera engineCamera;
+            engineCamera = Camera(position, lookAt, up, (fov_h * (180.0f / M_PI)), aspect);
+            parsedScene.add_camera(engineCamera);
         }
-        f32 fov_v_rad = 2.0f * std::atan(std::tan(fov_h / 2.0f) / aspect);
-        f32 fov_v_deg = fov_v_rad * (180.0f / M_PI);
-
-        engineCamera = Camera(position, lookAt, up, fov_v_deg, 1.0);
-    } else {
-        engineCamera = Camera(vec3(0, 0, 5), vec3(0, 0, 0), vec3(0, 1, 0), 45.0f, 16.0/9.0);
+        parsedScene.set_camera(0);
     }
 
-    parsedScene.set_camera(engineCamera);
 
     // lights
     if (aiscene->HasLights()) {
-        for (unsigned int i = 0; i < aiscene->mNumLights; ++i) {
+        for (u32 i = 0; i < aiscene->mNumLights; ++i) {
             aiLight* ai_light = aiscene->mLights[i];
 
             if (ai_light->mType == aiLightSource_POINT) {

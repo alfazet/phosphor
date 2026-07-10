@@ -5,6 +5,7 @@
 
 void Scene::add_light(const PointLight &light) { lights_.push_back(light); }
 void Scene::add_triangle(const Triangle &object) { triangles_.push_back(object); }
+void Scene::add_camera(const Camera &camera) { cameras_.push_back(camera); }
 
 bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out) const {
     HitRecord temp;
@@ -28,6 +29,17 @@ bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &ma
     return hit_anything;
 }
 
+void show_progress_bar(f32 percentage, const int width=32) {
+    printf("\r");
+    for (u32 i = 0; i < percentage*width; i++) {
+        printf("=");
+    }
+    for (u32 i = percentage*width; i < width; i++) {
+        printf("-");
+    }
+    fflush(stdout);
+}
+
 void Scene::generate_image(u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces) {
     if (lights_.empty())
         throw std::logic_error("No lights");
@@ -36,12 +48,15 @@ void Scene::generate_image(u32 image_height, u32 n, u32 photons_per_light, u32 m
     const u32 image_width = image_height * get_camera().aspect_ratio();
     Image img(image_width, image_height);
 
+    printf("Emitting photons\n");
     emit(photons_per_light, max_bounces);
+    printf("\n");
 
     HitRecord rec;
     Material mat;
     Camera cam = get_camera();
 
+    printf("Generating image\n");
     for (u32 y = 0; y < image_height; y++) {
         for (u32 x = 0; x < image_width; x++) {
             const f32 s = (x + 0.5f) / static_cast<f32>(image_width);
@@ -52,9 +67,11 @@ void Scene::generate_image(u32 image_height, u32 n, u32 photons_per_light, u32 m
                 img.set_pixel(x, y, get_color(rec.point, rec.normal, n, mat));
             }
         }
-        printf("%i / %i\n", y+1, image_height);
+        show_progress_bar((y+1)/(f32)image_height);
     }
-    img.write_png("output.png");
+    char *path = "output.png";
+    img.write_png(path);
+    printf("\nSaved to %s\n", path);
 }
 
 
@@ -95,7 +112,7 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces) {
         for (u32 i = 0; i < photons_per_light; i++) {
             const vec3 dir = random_unit_vector();
             trace_photon(Ray(light.pos, dir), photon_power, 0, max_bounces);
-            printf("%i/%i\n", i+1, photons_per_light );
+            show_progress_bar((i+1)/(f32)photons_per_light);
         }
     }
 
@@ -124,4 +141,10 @@ vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material
         return vec3(0.0f);
 
     return flux * mat.diff / area;
+}
+void Scene::set_camera(i32 i) {
+    if (i < 0 || i >= cameras_.size()) {
+        throw std::out_of_range("Cannot set camera index out of range");
+    }
+    chosen_camera = i;
 }

@@ -1,4 +1,3 @@
-#include "SceneReader.hpp"
 #include "camera.hpp"
 #include "common.hpp"
 #include "hittable.hpp"
@@ -7,58 +6,28 @@
 #include "pointlight.hpp"
 #include "ray.hpp"
 #include "scene.hpp"
+#include "scenereader.hpp"
 #include <ctime>
 
 int main(int argc, char **argv) {
     srand(time(nullptr));
 
-    // auto scenes = ReadFile("./models/Box/glTF/Box.gltf");
-    // auto scene = scenes[0];
-    // scene.set_camera(Camera(
-    //     vec3(2.0f, 2.0f, 2.0f),
-    //     vec3(0.0f, 0.0f, 0.0f),
-    //     vec3(0.0f, 1.0f, 0.0f),
-    //     40.0f,
-    //     1.0
-    // ));
+    auto scenes = ReadFile("./models/Box/glTF/Box.gltf");
+    auto scene = scenes[0];
+    scene.add_camera(Camera(
+        vec3(5.0f, 5.0f, 5.0f),
+        vec3(0.0f, 0.0f, 0.0f),
+        vec3(0.0f, 1.0f, 0.0f),
+        45.0f,
+        1.0
+    ));
+    scene.set_camera(0);
 
     // note to the future people reading this
     // it is expected that the image is black when no light is added
-    // scene.add_light(PointLight(vec3(2.5f, 3.5f, 3.0f), 500.0f));
+    scene.add_light(PointLight(vec3(2.5f, 3.5f, 3.0f), 500.0f));
 
-    auto scene = Scene();
-    scene.set_camera(Camera(vec3(0, 2, 0), vec3(0, 0, 0), vec3(0, 0, 1), 60.0f, 1.0));
-
-    // this example shows that the colors are wrong; first hit of the photon is always white
-
-    Material white {vec3(0.8f, 0.8f, 0.8f), vec3(0.0f, 0.0f, 0.0f)};
-    Material red   {vec3(0.8f, 0.1f, 0.1f), vec3(0.0f, 0.0f, 0.0f)};
-    Material green {vec3(0.1f, 0.8f, 0.1f), vec3(0.0f, 0.0f, 0.0f)};
-
-    // floor (z = -1)
-    scene.add_triangle(Triangle(vec3(-1,-1,-1), vec3( 1,-1,-1), vec3( 1, 1,-1), white));
-    scene.add_triangle(Triangle(vec3(-1,-1,-1), vec3( 1, 1,-1), vec3(-1, 1,-1), white));
-
-    // ceiling (z = 1)
-    scene.add_triangle(Triangle(vec3(-1,-1, 1), vec3( 1, 1, 1), vec3( 1,-1, 1), white));
-    scene.add_triangle(Triangle(vec3(-1,-1, 1), vec3(-1, 1, 1), vec3( 1, 1, 1), white));
-
-    // back wall (y = -1)
-    scene.add_triangle(Triangle(vec3(-1,-1,-1), vec3( 1,-1, 1), vec3( 1,-1,-1), white));
-    scene.add_triangle(Triangle(vec3(-1,-1,-1), vec3(-1,-1, 1), vec3( 1,-1, 1), white));
-
-    // left wall (x = -1, red)
-    scene.add_triangle(Triangle(vec3(-1,-1,-1), vec3(-1, 1,-1), vec3(-1, 1, 1), red));
-    scene.add_triangle(Triangle(vec3(-1,-1,-1), vec3(-1, 1, 1), vec3(-1,-1, 1), red));
-
-    // right wall (x = 1, green)
-    scene.add_triangle(Triangle(vec3( 1,-1,-1), vec3( 1, 1, 1), vec3( 1, 1,-1), green));
-    scene.add_triangle(Triangle(vec3( 1,-1,-1), vec3( 1,-1, 1), vec3( 1, 1, 1), green));
-
-    // also move the light inside the box
-    scene.add_light(PointLight(vec3(0, 0, 0.9f), 10.0f));
-
-    scene.generate_image(512, 50, 10'000'000, 3);
+    scene.generate_image(512, 50, 10'000, 3);
 
 
     return 0;
