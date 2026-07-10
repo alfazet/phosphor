@@ -30,7 +30,7 @@ class Scene {
     void set_camera(i32 i);
     std::vector<Triangle> &triangles() { return triangles_; }
 
-    void generate_image(u32 image_height, u32 n, u32 photo_number, u32 max_bounces);
+    void generate_image(u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces);
 
   private:
     void trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces);
