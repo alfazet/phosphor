@@ -31,6 +31,7 @@ class ArgParser {
   public:
     usize n_args;
     char **values;
+    char *prog_name;
     usize arg_i = 0;
     std::ostream &out;
 
@@ -38,8 +39,8 @@ class ArgParser {
 
     ArgsList parse_all();
 
-    static void print_help(std::ostream &out);
-    // static void print_values(std::ostream &out);
+    void print_help() const;
+    void print_values(const ArgsList &args) const;
 
   private:
     static std::unordered_map<std::string, void (ArgParser::*)(ArgsList &) const> flag_parsers;
@@ -48,5 +49,33 @@ class ArgParser {
     ARG_TABLE(X)
 #undef X
 };
+
+class ArgParseError : public std::runtime_error {
+public:
+    using std::runtime_error::runtime_error;
+};
+
+class UnknownFlagError : public ArgParseError {
+public:
+    explicit UnknownFlagError(std::string flag)
+        : ArgParseError("unknown flag: " + flag),
+          flag(std::move(flag)) {}
+
+    std::string flag;
+};
+
+class MissingValueError : public ArgParseError {
+public:
+    explicit MissingValueError(std::string flag)
+        : ArgParseError("missing value for " + flag) {}
+};
+
+class InvalidValueError : public ArgParseError {
+public:
+    InvalidValueError(std::string flag)
+        : ArgParseError("invalid value for " + flag) {}
+};
+
+class HelpRequested {};
 
 #endif // PHOSPHOR_CMD_ARGS_HPP

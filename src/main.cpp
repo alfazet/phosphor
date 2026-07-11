@@ -11,17 +11,8 @@
 #include <ctime>
 #include <iostream>
 
-int main(int argc, char **argv) {
-    ArgParser arg_parser(argc - 1, argv + 1, std::cout);
-    auto args = arg_parser.parse_all();
-
+void phosphor_main(const ArgsList &args) {
     srand(args.seed);
-
-    // printf("Chosen paramters: \n");
-    // printf("resolution: %i\n", resolution);
-    // printf("samples: %i\n", samples);
-    // printf("photons_per_light: %i\n", photons_per_light);
-    // printf("depth: %i\n", depth);
 
     // auto scenes = ReadFile("./models/Box/glTF/Box.gltf");
     auto scenes = ReadFile("./models/Duck/glTF/Duck.gltf");
@@ -34,6 +25,24 @@ int main(int argc, char **argv) {
     scene.add_light(PointLight(vec3(-2.5f, 3.5f, 3.0f), red));
     print_camera(scene.get_camera());
     scene.generate_image(args.resolution, args.samples, args.photons_per_light, args.depth);
+}
+
+int main(int argc, char **argv) {
+    ArgParser arg_parser(argc, argv, std::cout);
+    try {
+        auto args = arg_parser.parse_all();
+        printf("Chosen paramters:\n");
+        arg_parser.print_values(args);
+
+        phosphor_main(args);
+    } catch (const HelpRequested &) {
+        arg_parser.print_help();
+        return 0;
+    } catch (const ArgParseError &e) {
+        std::cerr << e.what() << '\n';
+        arg_parser.print_help();
+        return 1;
+    }
 
     return 0;
 }
