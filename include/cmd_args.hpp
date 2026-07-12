@@ -51,29 +51,25 @@ class ArgParser {
 };
 
 class ArgParseError : public std::runtime_error {
-public:
+  public:
     using std::runtime_error::runtime_error;
 };
 
 class UnknownFlagError : public ArgParseError {
-public:
-    explicit UnknownFlagError(std::string flag)
-        : ArgParseError("unknown flag: " + flag),
-          flag(std::move(flag)) {}
+  public:
+    explicit UnknownFlagError(std::string flag) : ArgParseError("unknown flag: " + flag), flag(std::move(flag)) {}
 
     std::string flag;
 };
 
 class MissingValueError : public ArgParseError {
-public:
-    explicit MissingValueError(std::string flag)
-        : ArgParseError("missing value for " + flag) {}
+  public:
+    explicit MissingValueError(std::string flag) : ArgParseError("missing value for " + flag) {}
 };
 
 class InvalidValueError : public ArgParseError {
-public:
-    InvalidValueError(std::string flag)
-        : ArgParseError("invalid value for " + flag) {}
+  public:
+    InvalidValueError(std::string flag) : ArgParseError("invalid value for " + flag) {}
 };
 
 class HelpRequested {};

@@ -1,4 +1,3 @@
-#define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "image.hpp"
 #include "stb_image_write.h"
 
