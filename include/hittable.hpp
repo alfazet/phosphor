@@ -49,6 +49,12 @@ class Triangle {
     const Material &mat() const { return mat_; }
     const vec3 &normal() const { return normal_; }
 
+    vec3 point_at(f32 u, f32 v) const { return v0_ + (v1_ - v0_) * u + (v2_ - v0_) * v; }
+
+    vec2 uv_at(f32 u, f32 v) const { return uv0_ + (uv1_ - uv0_) * u + (uv2_ - uv0_) * v; }
+
+    f32 area() const { return 0.5f * glm::length(glm::cross(v1_ - v0_, v2_ - v0_)); }
+
   private:
     vec3 normal_;
     Material mat_;

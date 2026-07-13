@@ -38,4 +38,16 @@ inline vec3 random_in_hemisphere(RngState &rng, const vec3 &normal) {
     return (glm::dot(v, normal) > 0.0f) ? v : -v;
 }
 
+static vec3 random_on_triangle(RngState &rng, const Triangle &tri, f32 &out_u, f32 &out_v) {
+    f32 u = random_float(rng);
+    f32 v = random_float(rng);
+    if (u + v > 1.0f) {
+        u = 1.0f - u;
+        v = 1.0f - v;
+    }
+    out_u = u;
+    out_v = v;
+    return tri.point_at(u, v);
+}
+
 #endif // PHOSPHOR_RANDOM_HPP

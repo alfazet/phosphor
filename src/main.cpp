@@ -2,8 +2,9 @@
 #include "cmd_args.hpp"
 #include "common.hpp"
 #include "hittable.hpp"
-#include "pointlight.hpp"
+#include "light.hpp"
 #include "printers.hpp"
+#include "random.hpp"
 #include "scene.hpp"
 #include "scenereader.hpp"
 
@@ -12,7 +13,8 @@
 #include <iostream>
 
 void phosphor_main(const ArgsList &args) {
-    srand(args.seed);
+    RngState rng;
+    pcg_seed(rng, args.seed);
 
     // auto scenes = ReadFile("./models/Box/glTF/Box.gltf");
     auto scenes = ReadFile("./models/Duck/glTF/Duck.gltf");
@@ -21,10 +23,10 @@ void phosphor_main(const ArgsList &args) {
     vec3 red = vec3(500.0f, 0.0f, 0.0f);
     vec3 green = vec3(0.0f, 500.0f, 0.0f);
     vec3 white = vec3(500.0f, 500.0f, 500.0f);
-    scene.add_light(PointLight(vec3(0.3f, 2.0f, 0.0f), white));
-    scene.add_light(PointLight(vec3(-1.0f, 2.0f, 0.0f), white));
+    scene.add_point_light(PointLight(vec3(0.3f, 2.0f, 0.0f), white));
+    scene.add_point_light(PointLight(vec3(-1.0f, 2.0f, 0.0f), white));
     print_spanning_box(scene);
-    scene.generate_image(args.resolution, args.samples, args.photons_per_light, args.depth);
+    scene.generate_image(rng, args.resolution, args.samples, args.photons_per_light, args.depth);
 }
 
 int main(int argc, char **argv) {
