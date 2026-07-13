@@ -47,6 +47,7 @@ class Triangle {
     i32 index_ = -1;
 
     const Material &mat() const { return mat_; }
+    const vec3 &normal() const { return normal_; }
 
   private:
     vec3 normal_;

@@ -5,7 +5,8 @@
 
 #include <ostream>
 
-void Scene::add_light(const PointLight &light) { lights_.push_back(light); }
+void Scene::add_point_light(const PointLight &light) { point_lights_.push_back(light); }
+void Scene::add_textured_light(const TexturedLight &light) { textured_lights_.push_back(light); }
 void Scene::add_triangle(const Triangle &object) { triangles_.push_back(object); }
 void Scene::add_camera(const Camera &camera) { cameras_.push_back(camera); }
 void Scene::add_texture(const Texture &texture) { textures_.push_back(texture); }

@@ -21,6 +21,11 @@ struct AreaLight {
     vec3 emission;
 };
 
+struct TexturedLight {
+    u32 texture_index;
+    vec3 texture_scale;
+}
+
 LightSample sample_area_light(const AreaLight &l) {
     float u = random_float();
     float v = random_float();
