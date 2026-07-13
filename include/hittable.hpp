@@ -10,6 +10,7 @@ struct HitRecord {
     vec3 point;
     vec3 normal;
     f32 t;
+    vec2 bary;
     bool front_face;
 
     void set_face_normal(const Ray &r, const vec3 &outward_normal) {
@@ -20,7 +21,9 @@ struct HitRecord {
 
 class Triangle {
   public:
-    Triangle(const vec3& v0, const vec3& v1, const vec3& v2, const Material& mat) : v0_(v0), v1_(v1), v2_(v2), mat_(mat) {
+    Triangle(const vec3 &v0, const vec3 &v1, const vec3 &v2, const Material &mat, const vec2 &uv0, const vec2 &uv1,
+             const vec2 &uv2, const i32 index)
+        : v0_(v0), v1_(v1), v2_(v2), uv0_(uv0), uv1_(uv1), uv2_(uv2), index_(index), mat_(mat) {
         normal_ = glm::normalize(glm::cross(v1 - v0, v2 - v0));
     }
 
@@ -33,16 +36,19 @@ class Triangle {
             return false;
 
         rec.t = t;
+        rec.bary = bary;
         rec.point = r.at(t);
         rec.set_face_normal(r, normal_);
         return true;
     }
 
     vec3 v0_, v1_, v2_;
+    vec2 uv0_, uv1_, uv2_;
+    i32 index_ = -1;
 
     const Material &mat() const { return mat_; }
 
-private:
+  private:
     vec3 normal_;
     Material mat_;
 };

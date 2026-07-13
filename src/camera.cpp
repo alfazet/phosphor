@@ -7,7 +7,7 @@ Camera::Camera(vec3 position, vec3 target, vec3 up, f32 hfov_degrees, f32 aspect
 
 void Camera::update() {
     if (hfov_ <= 0 || hfov_ >= 180)
-        throw std::invalid_argument("hfov must be in (0; M_PI");
+        throw std::invalid_argument("hfov must be in (0; M_PI)");
     if (aspect_ratio_ <= 0)
         throw std::invalid_argument("aspect_ratio must be in (0; +inf");
     const f32 w = glm::tan(glm::radians(hfov_) / 2.0f);
