@@ -14,7 +14,8 @@
 
 class Scene {
   public:
-    void add_light(const PointLight &light);
+    void add_point_light(const PointLight &light);
+    void add_textured_light(const TexturedLight &light);
     void add_triangle(const Triangle &object);
     void add_camera(const Camera &camera);
     void add_texture(const Texture &texture);
@@ -39,7 +40,8 @@ class Scene {
     void trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces);
 
     std::vector<Triangle> triangles_;
-    std::vector<PointLight> lights_;
+    std::vector<PointLight> point_lights_;
+    std::vector<TexturedLight> textured_lights_;
     std::vector<Camera> cameras_;
     std::vector<Texture> textures_;
     i32 chosen_camera = -1;
