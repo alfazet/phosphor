@@ -4,9 +4,9 @@
 #include "camera.hpp"
 #include "common.hpp"
 #include "hittable.hpp"
+#include "light.hpp"
 #include "material.hpp"
 #include "photonmap.hpp"
-#include "light.hpp"
 #include "ray.hpp"
 #include "texture.hpp"
 
@@ -31,14 +31,17 @@ class Scene {
         return cameras_[chosen_camera];
     }
     void set_camera(i32 i);
-    std::vector<Triangle> &triangles() { return triangles_; }
 
-    void generate_image(u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces);
+    const std::vector<Triangle> &triangles() const { return triangles_; }
+    const std::vector<Texture> &textures() const { return textures_; }
+
+    void generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces);
     friend void print_spanning_box(const Scene &scene);
 
   private:
     void trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces);
 
+    RngState rng;
     std::vector<Triangle> triangles_;
     std::vector<PointLight> point_lights_;
     std::vector<TexturedLight> textured_lights_;

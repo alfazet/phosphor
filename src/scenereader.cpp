@@ -58,7 +58,7 @@ void parse_light(const aiScene *aiscene, const aiLight *ai_light, Scene &out_sce
             vec3(global_transform * vec4(ai_light->mPosition.x, ai_light->mPosition.y, ai_light->mPosition.z, 1.0f));
         // TODO PointLight change is needed; hardcoded for now
         PointLight engineLight(position, vec3(1000.0f, 1000.0f, 1000.0f));
-        out_scene.add_light(engineLight);
+        out_scene.add_point_light(engineLight);
     }
 }
 

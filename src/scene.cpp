@@ -11,6 +11,10 @@ void Scene::add_triangle(const Triangle &object) { triangles_.push_back(object);
 void Scene::add_camera(const Camera &camera) { cameras_.push_back(camera); }
 void Scene::add_texture(const Texture &texture) { textures_.push_back(texture); }
 
+static LightSample sample_textured_light(RngState &rng, const TexturedLight &light, const Scene &scene, f32 photon_fraction);
+static LightSample sample_point_light(RngState &rng, const PointLight &l);
+static LightSample sample_area_light(RngState &rng, const AreaLight &l);
+
 bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out, u32 &texture_index,
                 vec2 &uv) const {
     HitRecord temp;
@@ -49,8 +53,9 @@ void show_progress_bar(f32 percentage, const int width = 32) {
     fflush(stdout);
 }
 
-void Scene::generate_image(u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces) {
-    if (lights_.empty())
+void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces) {
+    this->rng = rng;
+    if (point_lights_.empty() && textured_lights_.empty())
         throw std::logic_error("No lights");
     if (triangles_.empty())
         throw std::logic_error("No triangles");
@@ -107,7 +112,7 @@ void Scene::trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
     photon_map_.store({rec.point, power, phi, theta});
 
     // source: page 63
-    const f32 xi = random_float();
+    const f32 xi = random_float(this->rng);
     vec3 d = mat.diff;
     vec3 s = mat.spec;
     f32 rho_r = glm::max(d.r + s.r, glm::max(d.g + s.g, d.b + s.b));
@@ -115,7 +120,7 @@ void Scene::trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
     f32 rho_s = rho_r - rho_d;
 
     if (xi < rho_d) {
-        const vec3 new_dir = random_in_hemisphere(rec.normal);
+        const vec3 new_dir = random_in_hemisphere(this->rng, rec.normal);
         trace_photon(Ray(rec.point, new_dir), power * mat.diff / rho_d, depth + 1, max_bounces);
     } else if (xi < rho_s + rho_d) {
         const vec3 new_dir = glm::reflect(r.direction, rec.normal);
@@ -125,13 +130,23 @@ void Scene::trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
 }
 
 void Scene::emit(u32 photons_per_light, u32 max_bounces) {
-    i32 total_photons = photons_per_light * lights_.size();
+    // TODO change to random sampling
+    i32 total_photons = photons_per_light * (point_lights_.size() + textured_lights_.size());
     i32 photons_done = 0;
-    for (const auto &light : lights_) {
+    for (const auto &light : point_lights_) {
         const vec3 photon_power = vec3(light.power / static_cast<f32>(photons_per_light));
         for (u32 i = 0; i < photons_per_light; i++) {
-            const vec3 dir = random_unit_vector();
+            const vec3 dir = random_unit_vector(this->rng);
             trace_photon(Ray(light.pos, dir), photon_power, 0, max_bounces);
+            show_progress_bar((photons_done + i + 1) / (f32)(total_photons));
+        }
+        photons_done += photons_per_light;
+    }
+    for (const auto &light : textured_lights_) {
+        const f32 fraction = 1.0f / static_cast<f32>(photons_per_light);
+        for (u32 i = 0; i < photons_per_light; i++) {
+            auto sample = sample_textured_light(this->rng, light, *this, fraction);
+            trace_photon(sample.ray, sample.power, 0, max_bounces);
             show_progress_bar((photons_done + i + 1) / (f32)(total_photons));
         }
         photons_done += photons_per_light;
@@ -170,4 +185,46 @@ void Scene::set_camera(i32 i) {
         throw std::out_of_range("Cannot set camera index out of range");
     }
     chosen_camera = i;
+}
+
+static LightSample sample_point_light(RngState &rng, const PointLight &l) {
+    return {Ray(l.pos, random_unit_vector(rng)), l.power};
+}
+
+static LightSample sample_area_light(RngState &rng, const AreaLight &l) {
+    float u = random_float(rng);
+    float v = random_float(rng);
+
+    vec3 pos = l.position + u * l.edge_u + v * l.edge_v;
+
+    vec3 normal = normalize(cross(l.edge_u, l.edge_v));
+
+    vec3 dir = random_in_hemisphere(rng, normal);
+
+    return {Ray(pos, dir), l.emission};
+}
+
+LightSample sample_textured_light(RngState &rng, const TexturedLight &light, const Scene &scene, f32 photon_fraction) {
+    const Triangle &tri = scene.triangles()[light.triangle_index];
+    const Texture &tex = scene.textures()[light.texture_index];
+
+    f32 u = random_float(rng);
+    f32 v = random_float(rng);
+    if (u + v > 1.0f) {
+        u = 1.0f - u;
+        v = 1.0f - v;
+    }
+
+    vec3 point = tri.point_at(u, v);
+    vec2 uv = tri.uv_at(u, v);
+    vec3 emission = sample(&tex, vec2(u, v));
+
+    vec3 normal = tri.normal();
+    point += normal * 0.001f;
+
+    vec3 dir = random_in_hemisphere(rng, normal);
+
+    vec3 power = emission * tri.area() * glm::pi<f32>() * photon_fraction;
+
+    return {Ray(point, dir), power};
 }
