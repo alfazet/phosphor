@@ -14,7 +14,7 @@ inline u32 pcg_random(RngState &rng) {
     return (((oldstate >> ((oldstate >> 28u) + 4u)) ^ oldstate) * 277803737u) >> 16u;
 }
 
-inline f32 random_float(RngState &rng) { return static_cast<f32>(pcg_random(rng)) / static_cast<f32>(UINT32_MAX); }
+inline f32 random_float(RngState &rng) { return static_cast<f32>(pcg_random(rng)) / 65535.0f; }
 
 inline void pcg_seed(RngState &rng, u32 seed) {
     rng.state = 0u;

@@ -137,20 +137,21 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces) {
         const vec3 photon_power = vec3(light.power / static_cast<f32>(photons_per_light));
         for (u32 i = 0; i < photons_per_light; i++) {
             const vec3 dir = random_unit_vector(this->rng);
+            printf("%f\n", dir.x);
             trace_photon(Ray(light.pos, dir), photon_power, 0, max_bounces);
             show_progress_bar((photons_done + i + 1) / (f32)(total_photons));
         }
         photons_done += photons_per_light;
     }
-    for (const auto &light : textured_lights_) {
-        const f32 fraction = 1.0f / static_cast<f32>(photons_per_light);
-        for (u32 i = 0; i < photons_per_light; i++) {
-            auto sample = sample_textured_light(this->rng, light, *this, fraction);
-            trace_photon(sample.ray, sample.power, 0, max_bounces);
-            show_progress_bar((photons_done + i + 1) / (f32)(total_photons));
-        }
-        photons_done += photons_per_light;
-    }
+    // for (const auto &light : textured_lights_) {
+    //     const f32 fraction = 1.0f / static_cast<f32>(photons_per_light);
+    //     for (u32 i = 0; i < photons_per_light; i++) {
+    //         auto sample = sample_textured_light(this->rng, light, *this, fraction);
+    //         trace_photon(sample.ray, sample.power, 0, max_bounces);
+    //         show_progress_bar((photons_done + i + 1) / (f32)(total_photons));
+    //     }
+    //     photons_done += photons_per_light;
+    // }
 
     photon_map_.build();
 }
