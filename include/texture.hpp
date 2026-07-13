@@ -15,7 +15,7 @@ inline Texture load(const std::string &path) {
     i32 w, h, c;
     unsigned char *raw = stbi_load(path.c_str(), &w, &h, &c, 3);
     if (!raw)
-        throw new std::runtime_error("Failed to load texture from " + path);
+        throw std::runtime_error("Failed to load texture from " + path);
 
     Texture t;
     t.width = w;

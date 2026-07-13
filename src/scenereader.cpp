@@ -98,7 +98,11 @@ void processTextures(const aiScene *aiscene, Scene &out_scene, const char *direc
         if (result == AI_SUCCESS) {
             printf("loading texture from %s\n", path.C_Str());
             std::string fullPath = std::string(directory) + "/" + path.C_Str();
-            out_scene.add_texture(load(fullPath));
+            try {
+                out_scene.add_texture(load(fullPath));
+            } catch (const std::runtime_error &e) {
+                printf("[ERROR]: couldn't load texture: %s\n", e.what());
+            }
         }
     }
 }
