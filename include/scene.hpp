@@ -6,7 +6,7 @@
 #include "hittable.hpp"
 #include "material.hpp"
 #include "photonmap.hpp"
-#include "pointlight.hpp"
+#include "light.hpp"
 #include "ray.hpp"
 
 #include <vector>
