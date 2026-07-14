@@ -104,6 +104,17 @@ void processTextures(const aiScene *aiscene, Scene &out_scene, const char *direc
                 printf("[ERROR]: couldn't load texture: %s\n", e.what());
             }
         }
+
+        result = mat->GetTexture(aiTextureType_EMISSIVE, 0, &path);
+        if (result == AI_SUCCESS) {
+            printf("loading emissive texture from %s\n", path.C_Str());
+            std::string fullPath = std::string(directory) + "/" + path.C_Str();
+            try {
+                out_scene.add_texture(load(fullPath));
+            } catch (const std::runtime_error &e) {
+                printf("[ERROR]: couldn't load texture: %s\n", e.what());
+            }
+        }
     }
 }
 
@@ -130,11 +141,12 @@ void processNode(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 pa
         }
     }
 
-    Material white{vec3(0.8f, 0.8f, 0.8f), vec3(0.0f, 0.0f, 0.0f)};
-
     // handle meshes
     for (unsigned int i = 0; i < node->mNumMeshes; ++i) {
         aiMesh *mesh = aiscene->mMeshes[node->mMeshes[i]];
+
+        u32 texture_index = 0;
+        Material mat = parse_material(aiscene, mesh, out_scene.textures(), texture_index);
 
         for (unsigned int f = 0; f < mesh->mNumFaces; ++f) {
             aiFace face = mesh->mFaces[f];
@@ -157,9 +169,16 @@ void processNode(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 pa
                 uv2 = vec2(t2.x, t2.y);
             }
 
-            // TODO no matertials yet
-            Triangle triangle(p0, p1, p2, white, uv0, uv1, uv2, 0);
+            u32 triangle_index = static_cast<u32>(out_scene.triangles().size());
+            Triangle triangle(p0, p1, p2, white, uv0, uv1, uv2, texture_index);
             out_scene.add_triangle(triangle);
+
+            if (texture_index != 0) {
+                TexturedLight light;
+                light.texture_index = parsed.texture_index;
+                light.triangle_index = triangle_index;
+                out_scene.add_textured_light(light);
+            }
         }
     }
 
@@ -169,19 +188,31 @@ void processNode(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 pa
     }
 }
 
-Material parse_material(const aiScene *scene, aiMesh *mesh) {
-    Material mat{
-        vec3(0.8f, 0.8f, 0.8f), // diffuse
-        vec3(0.0f),             // specular
+Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Texture> &textures, u32 &texture_index) {
+    Material mat = Material{
+        vec3(0.8f, 0.8f, 0.8f), // diffuse dummy
+        vec3(0.0f),             // specular dummy
         vec3(0.0f)              // emissive
     };
 
-    if (mesh->mMaterialIndex >= 0) {
-        aiMaterial *ai_mat = scene->mMaterials[mesh->mMaterialIndex];
+    if (mesh->mMaterialIndex < 0)
+        return mat;
 
-        aiColor3D emissive(0.0f, 0.0f, 0.0f);
-        if (ai_mat->Get(AI_MATKEY_COLOR_EMISSIVE, emissive) == AI_SUCCESS) {
-            mat.emissive = vec3(emissive.r, emissive.g, emissive.b);
+    aiMaterial *ai_mat = scene->mMaterials[mesh->mMaterialIndex];
+
+    aiColor3D emissive(0.0f, 0.0f, 0.0f);
+    if (ai_mat->Get(AI_MATKEY_COLOR_EMISSIVE, emissive) == AI_SUCCESS) {
+        mat.emissive = vec3(emissive.r, emissive.g, emissive.b);
+    }
+
+    aiString path;
+    if (ai_mat->GetTexture(aiTextureType_EMISSIVE, 0, &path) == AI_SUCCESS) {
+        std::string name = path.C_Str();
+        for (u32 i = 0; i < textures.size(); ++i) {
+            if (textures[i].name == name) {
+                texture_index = i + 1; // 1-based
+                break;
+            }
         }
     }
 
