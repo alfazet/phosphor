@@ -3,11 +3,13 @@
 #include "common.hpp"
 #include "glm/gtx/raw_data.hpp"
 #include "stb_image.h"
+#include <filesystem>
 
 struct Texture {
     i32 width;
     i32 height;
     i32 channels;
+    std::string name;
     std::vector<u8> data;
 };
 
@@ -18,6 +20,7 @@ inline Texture load(const std::string &path) {
         throw std::runtime_error("Failed to load texture from " + path);
 
     Texture t;
+    t.name = std::filesystem::path(path).filename().string();
     t.width = w;
     t.height = h;
     t.channels = 3;
