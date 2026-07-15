@@ -11,11 +11,12 @@ void Scene::add_triangle(const Triangle &object) { triangles_.push_back(object);
 void Scene::add_camera(const Camera &camera) { cameras_.push_back(camera); }
 void Scene::add_texture(const Texture &texture) { textures_.push_back(texture); }
 
-static LightSample sample_textured_light(RngState &rng, const TexturedLight &light, const Scene &scene, f32 photon_fraction);
+static LightSample sample_textured_light(RngState &rng, const TexturedLight &light, const Scene &scene,
+                                         f32 photon_fraction);
 static LightSample sample_point_light(RngState &rng, const PointLight &l);
 static LightSample sample_area_light(RngState &rng, const AreaLight &l);
 
-bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out, u32 &texture_index,
+bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out, i32 &texture_index,
                 vec2 &uv) const {
     HitRecord temp;
     bool hit_anything = false;
@@ -68,7 +69,7 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
 
     HitRecord rec;
     Material mat;
-    u32 texture_index;
+    i32 texture_index;
     vec2 uv;
     Camera cam = get_camera();
 
@@ -85,7 +86,7 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
         }
         show_progress_bar((y + 1) / (f32)image_height);
     }
-    char *path = "output.png";
+    const char *path = "output.png";
     img.write_png(path);
     printf("\nSaved to %s\n", path);
 }
@@ -96,12 +97,13 @@ void Scene::trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
 
     HitRecord rec;
     Material mat;
-    u32 texture_index;
+    // TODO: replace all "-1 == error" moments with std::optional
+    i32 texture_index = -1;
     vec2 uv;
     if (!hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat, texture_index, uv))
         return;
 
-    // std::printf("Texture index: %i\n", texture_index);
+    std::printf("Texture index: %i\n", texture_index);
     if (texture_index != -1) {
         vec3 sampled_color = sample(&textures_[texture_index], uv);
         power *= sampled_color;
@@ -155,7 +157,7 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces) {
     photon_map_.build();
 }
 
-vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material &mat, u32 &texture_index,
+vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material &mat, i32 &texture_index,
                       vec2 &uv) const {
     std::vector<const Photon *> nearest;
     photon_map_.locate(pos, n, 1000.0f, nearest);

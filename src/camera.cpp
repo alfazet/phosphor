@@ -1,5 +1,10 @@
 #include "camera.hpp"
 
+Camera::Camera()
+    : position_{vec3(1, 1, 1)}, target_{vec3(0, 0, 0)}, up_{vec3(0, 1, 0)}, hfov_{60}, aspect_ratio_{16.0 / 9.0} {
+    update();
+}
+
 Camera::Camera(vec3 position, vec3 target, vec3 up, f32 hfov_degrees, f32 aspect_ratio)
     : position_(position), target_(target), up_(up), hfov_(hfov_degrees), aspect_ratio_(aspect_ratio) {
     update();
@@ -7,9 +12,9 @@ Camera::Camera(vec3 position, vec3 target, vec3 up, f32 hfov_degrees, f32 aspect
 
 void Camera::update() {
     if (hfov_ <= 0 || hfov_ >= 180)
-        throw std::invalid_argument("hfov must be in (0; M_PI)");
+        throw std::invalid_argument("hfov must be between 0 and 180 degrees exclusive");
     if (aspect_ratio_ <= 0)
-        throw std::invalid_argument("aspect_ratio must be in (0; +inf");
+        throw std::invalid_argument("aspect_ratio must be positive");
     const f32 w = glm::tan(glm::radians(hfov_) / 2.0f);
     const f32 viewport_width = 2.0f * w;
     const f32 viewport_height = viewport_width / aspect_ratio_;
