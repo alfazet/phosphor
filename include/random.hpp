@@ -2,6 +2,7 @@
 #define PHOSPHOR_RANDOM_HPP
 
 #include "common.hpp"
+#include "hittable.hpp"
 
 struct RngState {
     u32 state;

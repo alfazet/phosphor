@@ -1,5 +1,5 @@
-#ifndef PHOSPHOR_PHOTONMAP_HPP
-#define PHOSPHOR_PHOTONMAP_HPP
+#ifndef PHOSPHOR_PHOTON_MAP_HPP
+#define PHOSPHOR_PHOTON_MAP_HPP
 
 #include "common.hpp"
 #include "photon.hpp"
@@ -19,4 +19,4 @@ class PhotonMap {
                     std::vector<f32> &dist2) const;
 };
 
-#endif // PHOSPHOR_PHOTONMAP_HPP
+#endif // PHOSPHOR_PHOTON_MAP_HPP

@@ -1,12 +1,11 @@
-#include "scenereader.hpp"
+#include "scene_reader.hpp"
 #include "stb_image.h"
-
-#include <filesystem>
-#include <iostream>
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#include <filesystem>
+#include <iostream>
 
 void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 current_transform);
 void process_textures(const aiScene *aiscene, Scene &out_scene, const char *directory);
@@ -30,6 +29,7 @@ mat4 ai_matrix4x4_to_glm(const aiMatrix4x4 &from) {
     to[1][3] = from.d2;
     to[2][3] = from.d3;
     to[3][3] = from.d4;
+
     return to;
 }
 
@@ -57,7 +57,7 @@ static void parse_light(const aiScene *aiscene, const aiLight *ai_light, Scene &
     if (ai_light->mType == aiLightSource_POINT) {
         vec3 position =
             vec3(global_transform * vec4(ai_light->mPosition.x, ai_light->mPosition.y, ai_light->mPosition.z, 1.0f));
-        // TODO PointLight change is needed; hardcoded for now
+        // TODO: PointLight change is needed; hardcoded for now
         PointLight engineLight(position, vec3(1000.0f, 1000.0f, 1000.0f));
         out_scene.add_point_light(engineLight);
     }

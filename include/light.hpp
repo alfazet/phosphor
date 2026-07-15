@@ -2,7 +2,7 @@
 #define PHOSPHOR_LIGHT_HPP
 
 #include "common.hpp"
-#include "random.hpp"
+#include "ray.hpp"
 
 struct LightSample {
     Ray ray;
@@ -26,6 +26,5 @@ struct TexturedLight {
     u32 texture_index;
     u32 triangle_index;
 };
-
 
 #endif // PHOSPHOR_LIGHT_HPP
