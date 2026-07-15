@@ -24,8 +24,8 @@ struct HitRecord {
 class Triangle {
   public:
     Triangle(const vec3 &v0, const vec3 &v1, const vec3 &v2, const Material &mat, const vec2 &uv0, const vec2 &uv1,
-             const vec2 &uv2, const std::optional<usize> index)
-        : v0_(v0), v1_(v1), v2_(v2), uv0_(uv0), uv1_(uv1), uv2_(uv2), index_(index), mat_(mat) {
+             const vec2 &uv2, const std::optional<usize> diff_index, const std::optional<usize> emis_index)
+        : v0_(v0), v1_(v1), v2_(v2), uv0_(uv0), uv1_(uv1), uv2_(uv2), diff_index_(diff_index), emis_index_(emis_index), mat_(mat) {
         normal_ = glm::normalize(glm::cross(v1 - v0, v2 - v0));
     }
 
@@ -46,7 +46,8 @@ class Triangle {
 
     vec3 v0_, v1_, v2_;
     vec2 uv0_, uv1_, uv2_;
-    std::optional<usize> index_;
+    std::optional<usize> diff_index_;
+    std::optional<usize> emis_index_;
 
     const Material &mat() const { return mat_; }
     const vec3 &normal() const { return normal_; }

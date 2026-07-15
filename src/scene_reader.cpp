@@ -10,7 +10,7 @@
 void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 current_transform);
 void process_textures(const aiScene *aiscene, Scene &out_scene, const char *directory);
 Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Texture> &textures,
-                        std::optional<usize> &texture_index);
+                        std::optional<usize> &diff_tex_index, std::optional<usize> &emis_tex_index);
 
 mat4 ai_matrix4x4_to_glm(const aiMatrix4x4 &from) {
     mat4 to;
@@ -66,7 +66,6 @@ static void parse_light(const aiScene *aiscene, const aiLight *ai_light, Scene &
 
 std::vector<Scene> read_file(const char *file_name) {
     std::vector<Scene> scenes;
-
     Assimp::Importer importer;
     const aiScene *aiscene = importer.ReadFile(file_name, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
 
@@ -83,9 +82,8 @@ std::vector<Scene> read_file(const char *file_name) {
 
     mat4 identity(1.0f);
     process_node(aiscene->mRootNode, aiscene, parsed_scene, identity);
-    if (!aiscene->HasCameras()) {
+    if (!aiscene->HasCameras())
         parsed_scene.add_default_camera();
-    }
     parsed_scene.set_camera(0);
     scenes.push_back(parsed_scene);
 
@@ -93,7 +91,7 @@ std::vector<Scene> read_file(const char *file_name) {
 }
 
 void process_textures(const aiScene *aiscene, Scene &out_scene, const char *directory) {
-    for (u32 i = 0; i < aiscene->mNumMaterials; ++i) {
+    for (u32 i = 0; i < aiscene->mNumMaterials; i++) {
         aiMaterial *mat = aiscene->mMaterials[i];
         aiString path;
 
@@ -128,7 +126,7 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
 
     // check if node is a camera
     if (aiscene->HasCameras()) {
-        for (u32 i = 0; i < aiscene->mNumCameras; ++i) {
+        for (u32 i = 0; i < aiscene->mNumCameras; i++) {
             aiCamera *ai_cam = aiscene->mCameras[i];
             if (ai_cam->mName == node->mName)
                 parse_camera(aiscene, ai_cam, out_scene, global_transform);
@@ -137,7 +135,7 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
 
     // check if node is a light
     if (aiscene->HasLights()) {
-        for (u32 i = 0; i < aiscene->mNumLights; ++i) {
+        for (u32 i = 0; i < aiscene->mNumLights; i++) {
             aiLight *ai_light = aiscene->mLights[i];
             if (ai_light->mName == node->mName)
                 parse_light(aiscene, ai_light, out_scene, global_transform);
@@ -145,13 +143,15 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
     }
 
     // handle meshes
-    for (unsigned int i = 0; i < node->mNumMeshes; ++i) {
+    for (usize i = 0; i < node->mNumMeshes; i++) {
         aiMesh *mesh = aiscene->mMeshes[node->mMeshes[i]];
 
-        std::optional<usize> texture_index;
-        Material mat = parse_material(aiscene, mesh, out_scene.textures(), texture_index);
+        std::optional<usize> diff_tex_index;
+        std::optional<usize> emis_tex_index;
+        Material mat = parse_material(aiscene, mesh, out_scene.textures(), diff_tex_index, emis_tex_index);
+        u32 triangle_start = static_cast<u32>(out_scene.triangles().size());
 
-        for (unsigned int f = 0; f < mesh->mNumFaces; ++f) {
+        for (usize f = 0; f < mesh->mNumFaces; f++) {
             aiFace face = mesh->mFaces[f];
 
             aiVector3D v0 = mesh->mVertices[face.mIndices[0]];
@@ -172,27 +172,34 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
                 uv2 = vec2(t2.x, t2.y);
             }
 
-            u32 triangle_index = static_cast<u32>(out_scene.triangles().size());
-            Triangle triangle(p0, p1, p2, mat, uv0, uv1, uv2, texture_index);
+            Triangle triangle(p0, p1, p2, mat, uv0, uv1, uv2, diff_tex_index, emis_tex_index);
             out_scene.add_triangle(triangle);
+        }
 
-            if (texture_index.has_value()) {
+        if (emis_tex_index.has_value()) {
+            u32 triangle_count = static_cast<u32>(out_scene.triangles().size()) - triangle_start;
+            if (triangle_count > 0) {
+                f32 total_area = 0.0f;
+                for (u32 k = 0; k < triangle_count; k++)
+                    total_area += out_scene.triangles()[triangle_start + k].area();
                 TexturedLight light;
-                light.texture_index = *texture_index;
-                light.triangle_index = triangle_index;
+                light.tex_index = *emis_tex_index;
+                light.triangle_start = triangle_start;
+                light.triangle_count = triangle_count;
+                light.total_area = total_area;
                 out_scene.add_textured_light(light);
             }
         }
     }
 
     // parse children
-    for (unsigned int i = 0; i < node->mNumChildren; ++i) {
+    for (usize i = 0; i < node->mNumChildren; i++) {
         process_node(node->mChildren[i], aiscene, out_scene, global_transform);
     }
 }
 
 Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Texture> &textures,
-                        std::optional<usize> &texture_index) {
+                        std::optional<usize> &diff_tex_index, std::optional<usize> &emis_tex_index) {
     Material mat = Material{
         vec3(0.8f, 0.8f, 0.8f), // diffuse dummy
         vec3(0.0f),             // specular dummy
@@ -205,16 +212,24 @@ Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Te
     aiMaterial *ai_mat = scene->mMaterials[mesh->mMaterialIndex];
 
     aiColor3D emissive(0.0f, 0.0f, 0.0f);
-    if (ai_mat->Get(AI_MATKEY_COLOR_EMISSIVE, emissive) == AI_SUCCESS) {
+    if (ai_mat->Get(AI_MATKEY_COLOR_EMISSIVE, emissive) == AI_SUCCESS)
         mat.emissive = vec3(emissive.r, emissive.g, emissive.b);
-    }
 
     aiString path;
-    if (ai_mat->GetTexture(aiTextureType_EMISSIVE, 0, &path) == AI_SUCCESS) {
-        std::string name = path.C_Str();
-        for (u32 i = 0; i < textures.size(); ++i) {
+    if (ai_mat->GetTexture(aiTextureType_DIFFUSE, 0, &path) == AI_SUCCESS) {
+        std::string name = std::filesystem::path(path.C_Str()).filename().string();
+        for (u32 i = 0; i < textures.size(); i++) {
             if (textures[i].name == name) {
-                texture_index = i + 1; // 1-based
+                diff_tex_index = i;
+                break;
+            }
+        }
+    }
+    if (ai_mat->GetTexture(aiTextureType_EMISSIVE, 0, &path) == AI_SUCCESS) {
+        std::string name = std::filesystem::path(path.C_Str()).filename().string();
+        for (u32 i = 0; i < textures.size(); i++) {
+            if (textures[i].name == name) {
+                emis_tex_index = i;
                 break;
             }
         }

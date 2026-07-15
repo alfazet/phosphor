@@ -20,8 +20,8 @@ constexpr u32 DEFAULT_SEED = 2137;
     X("-s", samples, u32, parse_u32, DEFAULT_SAMPLES, "number of samples")                                             \
     X("-p", photons_per_light, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT, "photons per light source")                  \
     X("-d", depth, u32, parse_u32, DEFAULT_DEPTH, "depth")                                                             \
-    X("-m", model, std::string, parse_string, DEFAULT_MODEL, "model")                                                  \
-    X("-o", output_path, std::string, parse_string, DEFAULT_OUTPUT_PATH, "output path")                                \
+    X("-m", model, std::string, parse_string, DEFAULT_MODEL, "model name")                                             \
+    X("-o", output_path, std::string, parse_string, DEFAULT_OUTPUT_PATH, "output image path")                          \
     X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")
 
 struct ArgsList {
