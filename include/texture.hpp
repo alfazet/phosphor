@@ -1,8 +1,10 @@
 #ifndef PHOSPHOR_TEXTURE_HPP
 #define PHOSPHOR_TEXTURE_HPP
+
 #include "common.hpp"
 #include "glm/gtx/raw_data.hpp"
 #include "stb_image.h"
+
 #include <filesystem>
 
 struct Texture {

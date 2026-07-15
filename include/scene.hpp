@@ -6,7 +6,8 @@
 #include "hittable.hpp"
 #include "light.hpp"
 #include "material.hpp"
-#include "photonmap.hpp"
+#include "photon_map.hpp"
+#include "random.hpp"
 #include "ray.hpp"
 #include "texture.hpp"
 
@@ -32,14 +33,13 @@ class Scene {
     }
     void set_camera(i32 i);
 
-    void add_default_camera() {
-        cameras_.emplace_back();
-    }
+    void add_default_camera() { cameras_.emplace_back(); }
 
     const std::vector<Triangle> &triangles() const { return triangles_; }
     const std::vector<Texture> &textures() const { return textures_; }
 
-    void generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces);
+    void generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
+                        const char *output_path);
     friend void print_spanning_box(const Scene &scene);
 
   private:

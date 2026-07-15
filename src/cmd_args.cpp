@@ -1,6 +1,5 @@
 #include "cmd_args.hpp"
 
-#include <charconv>
 #include <cstring>
 #include <iomanip>
 #include <stdexcept>
@@ -53,7 +52,7 @@ ARG_TABLE(X)
 #undef X
 
 void ArgParser::print_help() const {
-    this->out << "Usage: " << this->prog_name << " [flags]\nwhere:\n";
+    this->out << "usage: " << this->prog_name << " [flags]\nwhere:\n";
 #define X(flag, field, type, parser, default_val, help)                                                                \
     this->out << "  " << std::left << std::setw(12) << flag << std::setw(28) << help << "(default: " << default_val    \
               << ")\n";
@@ -71,11 +70,10 @@ void ArgParser::print_values(const ArgsList &args) const {
 ArgParser::ArgParser(usize n_args_, char **values_, std::ostream &out_)
     : n_args(n_args_), values(values_), prog_name(values_[0]), out(out_) {}
 
-/// assumes that CLI args are <flag_1> <value_1> <flag_2> <value_2> ...
+// assumes that CLI args are <flag_1> <value_1> <flag_2> <value_2> ...
 ArgsList ArgParser::parse_all() {
     // skip prog_name
     this->arg_i++;
-
     ArgsList list{};
 
     while (this->arg_i < this->n_args) {
@@ -88,7 +86,6 @@ ArgsList ArgParser::parse_all() {
             throw UnknownFlagError(std::string(flag));
         }
         const auto &parser = iter->second;
-
         // move to the flag's value and parse it
         this->arg_i++;
         (this->*parser)(list);
