@@ -36,7 +36,7 @@ inline void print_spanning_box(const Scene &scene) {
         maxp = glm::max(maxp, tri.v2_);
     }
 
-    printf("Scene bounding box {\n");
+    printf("scene bounding box {\n");
     printf("  min      : (%f, %f, %f)\n", minp.x, minp.y, minp.z);
     printf("  max      : (%f, %f, %f)\n", maxp.x, maxp.y, maxp.z);
     printf("}\n");

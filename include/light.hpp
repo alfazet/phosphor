@@ -23,7 +23,7 @@ struct AreaLight {
 };
 
 struct TexturedLight {
-    u32 texture_index;
+    usize texture_index;
     u32 triangle_index;
 };
 

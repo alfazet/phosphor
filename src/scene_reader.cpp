@@ -9,7 +9,8 @@
 
 void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 current_transform);
 void process_textures(const aiScene *aiscene, Scene &out_scene, const char *directory);
-Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Texture> &textures, i32 &texture_index);
+Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Texture> &textures,
+                        std::optional<usize> &texture_index);
 
 mat4 ai_matrix4x4_to_glm(const aiMatrix4x4 &from) {
     mat4 to;
@@ -147,7 +148,7 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
     for (unsigned int i = 0; i < node->mNumMeshes; ++i) {
         aiMesh *mesh = aiscene->mMeshes[node->mMeshes[i]];
 
-        i32 texture_index = -1;
+        std::optional<usize> texture_index;
         Material mat = parse_material(aiscene, mesh, out_scene.textures(), texture_index);
 
         for (unsigned int f = 0; f < mesh->mNumFaces; ++f) {
@@ -175,9 +176,9 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
             Triangle triangle(p0, p1, p2, mat, uv0, uv1, uv2, texture_index);
             out_scene.add_triangle(triangle);
 
-            if (texture_index != 0) {
+            if (texture_index.has_value()) {
                 TexturedLight light;
-                light.texture_index = texture_index;
+                light.texture_index = *texture_index;
                 light.triangle_index = triangle_index;
                 out_scene.add_textured_light(light);
             }
@@ -190,7 +191,8 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
     }
 }
 
-Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Texture> &textures, i32 &texture_index) {
+Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Texture> &textures,
+                        std::optional<usize> &texture_index) {
     Material mat = Material{
         vec3(0.8f, 0.8f, 0.8f), // diffuse dummy
         vec3(0.0f),             // specular dummy

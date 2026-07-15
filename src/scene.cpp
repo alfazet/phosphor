@@ -3,8 +3,6 @@
 #include "random.hpp"
 #include "texture.hpp"
 
-#include <ostream>
-
 void Scene::add_point_light(const PointLight &light) { point_lights_.push_back(light); }
 void Scene::add_textured_light(const TexturedLight &light) { textured_lights_.push_back(light); }
 void Scene::add_triangle(const Triangle &object) { triangles_.push_back(object); }
@@ -16,8 +14,8 @@ static LightSample sample_textured_light(RngState &rng, const TexturedLight &lig
 static LightSample sample_point_light(RngState &rng, const PointLight &l);
 static LightSample sample_area_light(RngState &rng, const AreaLight &l);
 
-bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out, i32 &texture_index,
-                vec2 &uv) const {
+bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out,
+                std::optional<usize> &texture_index, vec2 &uv) const {
     HitRecord temp;
     bool hit_anything = false;
     f32 closest = t_max;
@@ -58,9 +56,9 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
                            const char *output_path) {
     this->rng = rng;
     if (point_lights_.empty() && textured_lights_.empty())
-        throw std::logic_error("No lights");
+        throw std::logic_error("no lights");
     if (triangles_.empty())
-        throw std::logic_error("No triangles");
+        throw std::logic_error("no triangles");
     const u32 image_width = image_height * get_camera().aspect_ratio();
     Image img(image_width, image_height);
 
@@ -70,7 +68,7 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
 
     HitRecord rec;
     Material mat;
-    i32 texture_index;
+    std::optional<usize> texture_index;
     vec2 uv;
     Camera cam = get_camera();
 
@@ -97,18 +95,14 @@ void Scene::trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
 
     HitRecord rec;
     Material mat;
-    // TODO: replace all "-1 == error" moments with std::optional
-    i32 texture_index = -1;
+    std::optional<usize> texture_index;
     vec2 uv;
     if (!hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat, texture_index, uv))
         return;
 
-    // std::printf("texture index: %i\n", texture_index);
-    if (texture_index != -1) {
-        vec3 sampled_color = sample(&textures_[texture_index], uv);
-        power *= sampled_color;
+    if (texture_index.has_value()) {
+        power *= sample(&textures_[*texture_index], uv);
     }
-
     f32 phi = glm::atan(r.direction.y, r.direction.x);
     f32 theta = glm::acos(glm::clamp(r.direction.z, -1.0f, 1.0f));
     photon_map_.store({rec.point, power, phi, theta});
@@ -157,8 +151,8 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces) {
     photon_map_.build();
 }
 
-vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material &mat, i32 &texture_index,
-                      vec2 &uv) const {
+vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material &mat,
+                      std::optional<usize> &texture_index, vec2 &uv) const {
     std::vector<const Photon *> nearest;
     photon_map_.locate(pos, n, 1000.0f, nearest);
     if (nearest.empty())
@@ -179,9 +173,20 @@ vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material
     if (area < EPS)
         return vec3(0.0f);
 
-    return flux * mat.diff * (texture_index != -1 ? sample(&textures_[texture_index], uv) : vec3(1.0f, 1.0f, 1.0f)) /
-           area;
+    vec3 color = vec3(1.0f, 1.0f, 1.0f);
+    if (texture_index.has_value()) {
+        color = sample(&textures_[*texture_index], uv);
+    }
+
+    return flux * mat.diff * color / area;
 }
+
+Camera &Scene::get_camera() {
+    if (chosen_camera < 0)
+        throw std::runtime_error("No camera set");
+    return cameras_[chosen_camera];
+}
+
 void Scene::set_camera(i32 i) {
     if (i < 0 || i >= cameras_.size()) {
         throw std::out_of_range("cannot set camera index out of range");
