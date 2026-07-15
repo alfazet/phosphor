@@ -15,7 +15,7 @@ static LightSample sample_point_light(RngState &rng, const PointLight &l);
 static LightSample sample_area_light(RngState &rng, const AreaLight &l);
 
 bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out,
-                std::optional<usize> &texture_index, vec2 &uv) const {
+                std::optional<usize> &diff_tex_index, std::optional<usize> &emis_tex_index, vec2 &uv) const {
     HitRecord temp;
     bool hit_anything = false;
     f32 closest = t_max;
@@ -33,7 +33,8 @@ bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &ma
 
     if (hit_anything) {
         mat_out = closest_t->mat();
-        texture_index = closest_t->index_;
+        diff_tex_index = closest_t->diff_index_;
+        emis_tex_index = closest_t->emis_index_;
         uv = (1.0f - rec.bary.x - rec.bary.y) * closest_t->uv0_ + rec.bary.x * closest_t->uv1_ +
              rec.bary.y * closest_t->uv2_;
     }
@@ -68,7 +69,8 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
 
     HitRecord rec;
     Material mat;
-    std::optional<usize> texture_index;
+    std::optional<usize> diff_tex_index;
+    std::optional<usize> emis_tex_index;
     vec2 uv;
     Camera cam = get_camera();
 
@@ -79,9 +81,8 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
             const f32 t = 1.0f - (y + 0.5f) / static_cast<f32>(image_height);
             Ray r = cam.get_ray(s, t);
 
-            if (hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat, texture_index, uv)) {
-                img.set_pixel(x, y, get_color(rec.point, rec.normal, n, mat, texture_index, uv));
-            }
+            if (hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat, diff_tex_index, emis_tex_index, uv))
+                img.set_pixel(x, y, get_color(rec.point, rec.normal, n, mat, diff_tex_index, emis_tex_index, uv));
         }
         show_progress_bar((y + 1) / (f32)image_height);
     }
@@ -95,14 +96,14 @@ void Scene::trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
 
     HitRecord rec;
     Material mat;
-    std::optional<usize> texture_index;
+    std::optional<usize> diff_tex_index;
+    std::optional<usize> _; // emissive doesn't matter here
     vec2 uv;
-    if (!hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat, texture_index, uv))
+    if (!hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat, diff_tex_index, _, uv))
         return;
 
-    if (texture_index.has_value()) {
-        power *= sample(&textures_[*texture_index], uv);
-    }
+    if (diff_tex_index.has_value())
+        power *= sample(&textures_[*diff_tex_index], uv);
     f32 phi = glm::atan(r.direction.y, r.direction.x);
     f32 theta = glm::acos(glm::clamp(r.direction.z, -1.0f, 1.0f));
     photon_map_.store({rec.point, power, phi, theta});
@@ -152,11 +153,16 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces) {
 }
 
 vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material &mat,
-                      std::optional<usize> &texture_index, vec2 &uv) const {
+                      std::optional<usize> &diff_tex_index, std::optional<usize> &emis_tex_index, vec2 &uv) const {
+    // makes emissive surfaces visible even when the photons have nothing to bounce off of
+    vec3 emissive(0.0f);
+    if (emis_tex_index.has_value())
+        emissive = sample(&textures_[*emis_tex_index], uv);
+
     std::vector<const Photon *> nearest;
     photon_map_.locate(pos, n, 1000.0f, nearest);
     if (nearest.empty())
-        return vec3(0.0f);
+        return emissive;
 
     vec3 flux(0.0f);
     float max_dist_sq = 0.0f;
@@ -171,19 +177,18 @@ vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material
     }
     f32 area = glm::pi<f32>() * max_dist_sq;
     if (area < EPS)
-        return vec3(0.0f);
+        return emissive;
 
     vec3 color = vec3(1.0f, 1.0f, 1.0f);
-    if (texture_index.has_value()) {
-        color = sample(&textures_[*texture_index], uv);
-    }
+    if (diff_tex_index.has_value())
+        color = sample(&textures_[*diff_tex_index], uv);
 
-    return flux * mat.diff * color / area;
+    return flux * mat.diff * color / area + emissive;
 }
 
 Camera &Scene::get_camera() {
     if (chosen_camera < 0)
-        throw std::runtime_error("No camera set");
+        throw std::runtime_error("no camera set");
     return cameras_[chosen_camera];
 }
 
@@ -209,8 +214,13 @@ static LightSample sample_area_light(RngState &rng, const AreaLight &l) {
 }
 
 LightSample sample_textured_light(RngState &rng, const TexturedLight &light, const Scene &scene, f32 photon_fraction) {
-    const Triangle &tri = scene.triangles()[light.triangle_index];
-    const Texture &tex = scene.textures()[light.texture_index];
+    const Texture &tex = scene.textures()[light.tex_index];
+
+    // pick a random triangle from this mesh's range
+    u32 i = static_cast<u32>(random_float(rng) * light.triangle_count);
+    if (i >= light.triangle_count)
+        i = light.triangle_count - 1;
+    const Triangle &tri = scene.triangles()[light.triangle_start + i];
 
     f32 u = random_float(rng);
     f32 v = random_float(rng);
@@ -221,11 +231,11 @@ LightSample sample_textured_light(RngState &rng, const TexturedLight &light, con
 
     vec3 point = tri.point_at(u, v);
     vec2 uv = tri.uv_at(u, v);
-    vec3 emission = sample(&tex, vec2(u, v));
+    vec3 emission = sample(&tex, uv);
     vec3 normal = tri.normal();
     point += normal * 0.001f;
     vec3 dir = random_in_hemisphere(rng, normal);
-    vec3 power = emission * tri.area() * glm::pi<f32>() * photon_fraction;
+    vec3 power = emission * light.total_area * glm::pi<f32>() * photon_fraction;
 
     return {Ray(point, dir), power};
 }

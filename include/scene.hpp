@@ -23,13 +23,13 @@ class Scene {
     void add_camera(const Camera &camera);
     void add_texture(const Texture &texture);
 
-    bool hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out, std::optional<usize> &texture_index,
-             vec2 &uv) const;
+    bool hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out,
+             std::optional<usize> &diff_tex_index, std::optional<usize> &emis_tex_index, vec2 &uv) const;
 
     void emit(u32 photons_per_light, u32 max_bounces = 8);
 
-    vec3 get_color(const vec3 &pos, const vec3 &normal, u32 n, Material &mat, std::optional<usize> &texture_index,
-                   vec2 &uv) const;
+    vec3 get_color(const vec3 &pos, const vec3 &normal, u32 n, Material &mat, std::optional<usize> &diff_tex_index,
+                   std::optional<usize> &emis_tex_index, vec2 &uv) const;
 
     Camera &get_camera();
 

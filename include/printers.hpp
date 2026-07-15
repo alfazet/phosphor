@@ -6,7 +6,7 @@
 #include "scene.hpp"
 
 inline void print_camera(const Camera &camera) {
-    printf("Camera {\n");
+    printf("camera {\n");
     printf("  position : (%f, %f, %f)\n", camera.position_.x, camera.position_.y, camera.position_.z);
     printf("  target   : (%f, %f, %f)\n", camera.target_.x, camera.target_.y, camera.target_.z);
     printf("  up       : (%f, %f, %f)\n", camera.up_.x, camera.up_.y, camera.up_.z);

@@ -23,8 +23,10 @@ struct AreaLight {
 };
 
 struct TexturedLight {
-    usize texture_index;
-    u32 triangle_index;
+    usize tex_index;
+    u32 triangle_start; // index into Scene::triangles_
+    u32 triangle_count;
+    f32 total_area;
 };
 
 #endif // PHOSPHOR_LIGHT_HPP
