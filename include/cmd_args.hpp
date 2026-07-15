@@ -11,6 +11,7 @@ constexpr u32 DEFAULT_RESOLUTION = 256;
 constexpr u32 DEFAULT_SAMPLES = 50;
 constexpr u32 DEFAULT_PHOTONS_PER_LIGHT = 10000;
 constexpr u32 DEFAULT_DEPTH = 3;
+constexpr std::string DEFAULT_MODEL = "Duck";
 constexpr u32 DEFAULT_SEED = 2137;
 
 #define ARG_TABLE(X)                                                                                                   \
@@ -18,6 +19,7 @@ constexpr u32 DEFAULT_SEED = 2137;
     X("-s", samples, u32, parse_u32, DEFAULT_SAMPLES, "number of samples")                                             \
     X("-p", photons_per_light, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT, "photons per light source")                  \
     X("-d", depth, u32, parse_u32, DEFAULT_DEPTH, "depth")                                                             \
+    X("-m", model, std::string, parse_string, DEFAULT_MODEL, "model")                                                  \
     X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")
 
 struct ArgsList {

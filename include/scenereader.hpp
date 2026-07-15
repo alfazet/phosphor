@@ -5,6 +5,6 @@
 #include "scene.hpp"
 #include "vector"
 
-std::vector<Scene> ReadFile(const char *fileName);
+std::vector<Scene> read_file(const char *file_name);
 
 #endif // PHOSPHOR_GLTFREADER_HPP

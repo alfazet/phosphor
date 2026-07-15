@@ -6,7 +6,7 @@
 
 class Camera {
   public:
-    Camera() = default;
+    explicit Camera();
     Camera(vec3 position, vec3 target, vec3 up, f32 hfov_degrees, f32 aspect_ratio);
 
     Ray get_ray(f32 s, f32 t) const;
