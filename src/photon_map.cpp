@@ -1,4 +1,4 @@
-#include "photonmap.hpp"
+#include "photon_map.hpp"
 #include <algorithm>
 
 void PhotonMap::store(const Photon &p) {
@@ -22,7 +22,6 @@ static u8 choose_axis(std::vector<Photon> &photons, usize start, usize end) {
         minp = glm::min(minp, photons[i].pos);
         maxp = glm::max(maxp, photons[i].pos);
     }
-
     vec3 ext = maxp - minp;
 
     if (ext.x > ext.y && ext.x > ext.z)
