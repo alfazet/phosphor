@@ -1,39 +1,36 @@
-#include "camera.hpp"
 #include "cmd_args.hpp"
 #include "common.hpp"
-#include "hittable.hpp"
 #include "light.hpp"
 #include "printers.hpp"
 #include "random.hpp"
 #include "scene.hpp"
-#include "scenereader.hpp"
+#include "scene_reader.hpp"
 
-#include <cstring>
-#include <ctime>
 #include <iostream>
 
 void phosphor_main(const ArgsList &args) {
     RngState rng;
     pcg_seed(rng, args.seed);
 
-    // auto scenes = ReadFile("./models/Box/glTF/Box.gltf");
-    auto scenes = ReadFile("./models/Duck/glTF/Duck.gltf");
-    // auto scenes = ReadFile("./models/TextureCoordinateTest/glTF/TextureCoordinateTest.gltf");
+    std::string model_path = "./models/" + args.model + "/glTF/" + args.model + ".gltf";
+    auto scenes = read_file(model_path.c_str());
     auto scene = scenes[0];
+
     vec3 red = vec3(500.0f, 0.0f, 0.0f);
     vec3 green = vec3(0.0f, 500.0f, 0.0f);
     vec3 white = vec3(500.0f, 500.0f, 500.0f);
     scene.add_point_light(PointLight(vec3(0.3f, 2.0f, 0.0f), white));
     scene.add_point_light(PointLight(vec3(-1.0f, 2.0f, 0.0f), white));
     print_spanning_box(scene);
-    scene.generate_image(rng, args.resolution, args.samples, args.photons_per_light, args.depth);
+    scene.generate_image(rng, args.resolution, args.samples, args.photons_per_light, args.depth,
+                         args.output_path.c_str());
 }
 
 int main(int argc, char **argv) {
     ArgParser arg_parser(argc, argv, std::cout);
     try {
         auto args = arg_parser.parse_all();
-        printf("Chosen parameters:\n");
+        printf("chosen parameters:\n");
         arg_parser.print_values(args);
 
         phosphor_main(args);

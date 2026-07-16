@@ -1,8 +1,10 @@
 #ifndef PHOSPHOR_TEXTURE_HPP
 #define PHOSPHOR_TEXTURE_HPP
+
 #include "common.hpp"
 #include "glm/gtx/raw_data.hpp"
 #include "stb_image.h"
+
 #include <filesystem>
 
 struct Texture {
@@ -17,7 +19,7 @@ inline Texture load(const std::string &path) {
     i32 w, h, c;
     unsigned char *raw = stbi_load(path.c_str(), &w, &h, &c, 3);
     if (!raw)
-        throw std::runtime_error("Failed to load texture from " + path);
+        throw std::runtime_error("failed to load texture from " + path);
 
     Texture t;
     t.name = std::filesystem::path(path).filename().string();

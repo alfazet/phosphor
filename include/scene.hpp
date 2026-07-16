@@ -6,10 +6,13 @@
 #include "hittable.hpp"
 #include "light.hpp"
 #include "material.hpp"
-#include "photonmap.hpp"
+#include "photon_map.hpp"
+#include "random.hpp"
 #include "ray.hpp"
 #include "texture.hpp"
 
+#include <optional>
+#include <ostream>
 #include <vector>
 
 class Scene {
@@ -20,22 +23,25 @@ class Scene {
     void add_camera(const Camera &camera);
     void add_texture(const Texture &texture);
 
-    bool hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out, u32 &texture_index, vec2 &uv) const;
+    bool hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out,
+             std::optional<usize> &diff_tex_index, std::optional<usize> &emis_tex_index, vec2 &uv) const;
 
     void emit(u32 photons_per_light, u32 max_bounces = 8);
 
-    vec3 get_color(const vec3 &pos, const vec3 &normal, u32 n, Material &mat, u32 &texture_index, vec2 &uv) const;
-    Camera &get_camera() {
-        if (chosen_camera < 0)
-            throw std::runtime_error("No camera set");
-        return cameras_[chosen_camera];
-    }
+    vec3 get_color(const vec3 &pos, const vec3 &normal, u32 n, Material &mat, std::optional<usize> &diff_tex_index,
+                   std::optional<usize> &emis_tex_index, vec2 &uv) const;
+
+    Camera &get_camera();
+
     void set_camera(i32 i);
+
+    void add_default_camera() { cameras_.emplace_back(); }
 
     const std::vector<Triangle> &triangles() const { return triangles_; }
     const std::vector<Texture> &textures() const { return textures_; }
 
-    void generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces);
+    void generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
+                        const char *output_path);
     friend void print_spanning_box(const Scene &scene);
 
   private:
