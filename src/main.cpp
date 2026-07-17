@@ -15,9 +15,10 @@ void phosphor_main(const ArgsList &args) {
     auto scenes = read_file(args.model.c_str());
     auto scene = scenes[0];
 
-    vec3 white = vec3(50.0f, 50.0f, 50.0f);
+    vec3 white = vec3(5.0f);
     // scene.add_point_light(PointLight(vec3(0.3f, 2.0f, 0.0f), white));
     // scene.add_point_light(PointLight(vec3(-1.0f, 2.0f, 0.0f), white));
+    scene.add_point_light(PointLight(vec3(0.0f, 0.0f, 0.5f), white));
     print_spanning_box(scene);
     print_camera(scene.get_camera());
     scene.generate_image(rng, args.resolution, args.samples, args.photons_per_light, args.depth,

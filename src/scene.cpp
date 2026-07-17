@@ -113,8 +113,13 @@ void Scene::trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
 
     const f32 xi = random_float(this->rng);
 
-    vec3 d = base * roughness;
-    vec3 s = base * metallic;
+    // vec3 d = base * roughness;
+    // vec3 s = base * metallic;
+    // https://github.com/KhronosGroup/glTF/blob/77b44be7bef26e01fb0b140e3d5bb1716421c5e9/extensions/2.0/Archived/KHR_materials_pbrSpecularGlossiness/examples/convert-between-workflows-bjs/js/babylon.pbrUtilities.js#L12
+    vec3 dielectric_specular = vec3(0.04f);
+    vec3 s = glm::mix(dielectric_specular, base, metallic);
+    f32 max_s = glm::max(s.r, glm::max(s.g, s.b));
+    vec3 d = vec3(1.0f) - vec3(max_s);
 
     f32 rho_r = glm::max(d.r + s.r, glm::max(d.g + s.g, d.b + s.b));
     f32 rho_d = rho_r * (d.r + d.g + d.b) / (d.r + d.g + d.b + s.r + s.g + s.b);
