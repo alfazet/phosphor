@@ -8,9 +8,6 @@
 #include <iostream>
 
 void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 current_transform);
-void process_textures(const aiScene *aiscene, Scene &out_scene, const char *directory);
-Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Texture> &textures,
-                        std::optional<usize> &diff_tex_index, std::optional<usize> &emis_tex_index);
 
 mat4 ai_matrix4x4_to_glm(const aiMatrix4x4 &from) {
     mat4 to;
@@ -35,8 +32,6 @@ mat4 ai_matrix4x4_to_glm(const aiMatrix4x4 &from) {
 }
 
 static void parse_camera(const aiScene *aiscene, const aiCamera *ai_camera, Scene &out_scene, mat4 global_transform) {
-    aiNode *camNode = aiscene->mRootNode->FindNode(ai_camera->mName);
-
     vec3 position =
         vec3(global_transform * vec4(ai_camera->mPosition.x, ai_camera->mPosition.y, ai_camera->mPosition.z, 1.0f));
     vec3 lookAtDir =
@@ -59,8 +54,145 @@ static void parse_light(const aiScene *aiscene, const aiLight *ai_light, Scene &
         vec3 position =
             vec3(global_transform * vec4(ai_light->mPosition.x, ai_light->mPosition.y, ai_light->mPosition.z, 1.0f));
         // TODO: PointLight change is needed; hardcoded for now
-        PointLight engineLight(position, vec3(1000.0f, 1000.0f, 1000.0f));
+        PointLight engineLight(position, vec3(100.0f, 100.0f, 100.0f));
         out_scene.add_point_light(engineLight);
+    }
+}
+
+usize find_texture(std::string name, const std::vector<Texture> &textures) {
+    for (u32 i = 0; i < textures.size(); i++) {
+        if (textures[i].name == name) {
+            return i;
+        }
+    }
+    throw new std::runtime_error("texture not found");
+}
+
+Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Texture> &textures,
+                        std::optional<usize> &emis_index) {
+    Material mat = Material{vec4(1.0f, 1.0f, 1.0f, 1.0f), 1.0f, 1.0f, vec3(0.0f)};
+
+    if (mesh->mMaterialIndex < 0)
+        return mat;
+
+    aiMaterial *ai_mat = scene->mMaterials[mesh->mMaterialIndex];
+
+    aiColor4D base_color(1.0f, 1.0f, 1.0f, 1.0f);
+    if (ai_mat->Get(AI_MATKEY_BASE_COLOR, base_color) == AI_SUCCESS)
+        mat.base_color = vec4(base_color.r, base_color.g, base_color.b, base_color.a);
+
+    ai_mat->Get(AI_MATKEY_METALLIC_FACTOR, mat.metallic);
+    ai_mat->Get(AI_MATKEY_ROUGHNESS_FACTOR, mat.roughness);
+
+    aiColor3D emissive(0.0f, 0.0f, 0.0f);
+    if (ai_mat->Get(AI_MATKEY_COLOR_EMISSIVE, emissive) == AI_SUCCESS)
+        mat.emissive = vec3(emissive.r, emissive.g, emissive.b);
+
+    aiString path;
+    if (ai_mat->GetTexture(aiTextureType_DIFFUSE, 0, &path) == AI_SUCCESS) {
+        std::string name = std::filesystem::path(path.C_Str()).filename().string();
+        mat.diff_index = find_texture(name, textures);
+    }
+    if (ai_mat->GetTexture(aiTextureType_EMISSIVE, 0, &path) == AI_SUCCESS) {
+        std::string name = std::filesystem::path(path.C_Str()).filename().string();
+        mat.emis_index = find_texture(name, textures);
+        emis_index = mat.emis_index;
+    }
+    if (ai_mat->GetTexture(aiTextureType_NORMALS, 0, &path) == AI_SUCCESS) {
+        std::string name = std::filesystem::path(path.C_Str()).filename().string();
+        mat.norm_index = find_texture(name, textures);
+    }
+    if (ai_mat->GetTexture(aiTextureType_METALNESS, 0, &path) == AI_SUCCESS ||
+        ai_mat->GetTexture(aiTextureType_DIFFUSE_ROUGHNESS, 0, &path) == AI_SUCCESS) {
+        std::string name = std::filesystem::path(path.C_Str()).filename().string();
+        mat.metal_rough_index = find_texture(name, textures);
+    }
+    if (ai_mat->GetTexture(aiTextureType_AMBIENT_OCCLUSION, 0, &path) == AI_SUCCESS) {
+        std::string name = std::filesystem::path(path.C_Str()).filename().string();
+        mat.occlusion_index = find_texture(name, textures);
+    }
+
+    return mat;
+}
+
+void load_texture(const aiScene *aiscene, aiMaterial *mat, aiTextureType type, const char *directory,
+                  Scene &out_scene) {
+    aiString path;
+    aiReturn result = mat->GetTexture(type, 0, &path);
+    if (result != AI_SUCCESS) {
+        return;
+    }
+
+    printf("loading texture from %s\n", path.C_Str());
+    Texture t;
+    t.name = std::filesystem::path(path.C_Str()).filename().string();
+    t.channels = 3;
+    const aiTexture *embedded_tex = aiscene->GetEmbeddedTexture(path.C_Str());
+
+    // load embedded
+    if (embedded_tex) {
+        i32 w, h, c;
+        u8 *raw = nullptr;
+
+        if (embedded_tex->mHeight == 0) {
+            // compressed
+            const u8 *buf = reinterpret_cast<const u8 *>(embedded_tex->pcData);
+            raw = stbi_load_from_memory(buf, embedded_tex->mWidth, &w, &h, &c, 3);
+            if (!raw) {
+                throw std::runtime_error("failed to decode embedded texture " + std::string(path.C_Str()));
+            }
+        } else {
+            // uncompressed
+            w = embedded_tex->mWidth;
+            h = embedded_tex->mHeight;
+
+            std::vector<u8> converted(w * h * 3);
+            const aiTexel *texels = embedded_tex->pcData;
+            for (int i = 0; i < w * h; ++i) {
+                converted[i * 3 + 0] = texels[i].r;
+                converted[i * 3 + 1] = texels[i].g;
+                converted[i * 3 + 2] = texels[i].b;
+            }
+            t.width = w;
+            t.height = h;
+            t.data = std::move(converted);
+            out_scene.add_texture(t);
+            return;
+        }
+
+        t.width = w;
+        t.height = h;
+        t.data.assign(raw, raw + (w * h * 3));
+        stbi_image_free(raw);
+        out_scene.add_texture(t);
+        return;
+    }
+
+    // load from file
+    std::string fullPath = std::string(directory) + "/" + path.C_Str();
+    i32 w, h, c;
+    u8 *raw = stbi_load(fullPath.c_str(), &w, &h, &c, 3);
+    if (!raw) {
+        throw std::runtime_error("failed to load texture from " + std::string(path.C_Str()));
+    }
+
+    t.width = w;
+    t.height = h;
+    t.data.assign(raw, raw + (w * h * 3));
+    stbi_image_free(raw);
+
+    out_scene.add_texture(t);
+}
+
+void parse_textures(const aiScene *aiscene, Scene &out_scene, const char *directory) {
+    for (u32 i = 0; i < aiscene->mNumMaterials; i++) {
+        aiMaterial *mat = aiscene->mMaterials[i];
+        load_texture(aiscene, mat, aiTextureType_DIFFUSE, directory, out_scene);
+        load_texture(aiscene, mat, aiTextureType_EMISSIVE, directory, out_scene);
+        load_texture(aiscene, mat, aiTextureType_NORMALS, directory, out_scene);
+        load_texture(aiscene, mat, aiTextureType_AMBIENT_OCCLUSION, directory, out_scene);
+        load_texture(aiscene, mat, aiTextureType_METALNESS, directory, out_scene);
+        load_texture(aiscene, mat, aiTextureType_DIFFUSE_ROUGHNESS, directory, out_scene);
     }
 }
 
@@ -78,7 +210,7 @@ std::vector<Scene> read_file(const char *file_name) {
 
     std::filesystem::path p(file_name);
     std::string texture_path = p.parent_path().string();
-    process_textures(aiscene, parsed_scene, texture_path.c_str());
+    parse_textures(aiscene, parsed_scene, texture_path.c_str());
 
     mat4 identity(1.0f);
     process_node(aiscene->mRootNode, aiscene, parsed_scene, identity);
@@ -90,65 +222,33 @@ std::vector<Scene> read_file(const char *file_name) {
     return scenes;
 }
 
-void process_textures(const aiScene *aiscene, Scene &out_scene, const char *directory) {
-    for (u32 i = 0; i < aiscene->mNumMaterials; i++) {
-        aiMaterial *mat = aiscene->mMaterials[i];
-        aiString path;
-
-        aiReturn result = mat->GetTexture(aiTextureType_DIFFUSE, 0, &path);
-        if (result == AI_SUCCESS) {
-            printf("loading texture from %s\n", path.C_Str());
-            std::string fullPath = std::string(directory) + "/" + path.C_Str();
-            try {
-                out_scene.add_texture(load(fullPath));
-            } catch (const std::runtime_error &e) {
-                printf("[ERROR]: couldn't load texture: %s\n", e.what());
-            }
-        }
-
-        result = mat->GetTexture(aiTextureType_EMISSIVE, 0, &path);
-        if (result == AI_SUCCESS) {
-            printf("loading emissive texture from %s\n", path.C_Str());
-            std::string fullPath = std::string(directory) + "/" + path.C_Str();
-            try {
-                out_scene.add_texture(load(fullPath));
-            } catch (const std::runtime_error &e) {
-                printf("[ERROR]: couldn't load texture: %s\n", e.what());
-            }
-        }
-    }
-}
-
 // parsing the tree
 void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 parent_transform) {
     mat4 local_transform = ai_matrix4x4_to_glm(node->mTransformation);
     mat4 global_transform = parent_transform * local_transform;
 
     // check if node is a camera
-    if (aiscene->HasCameras()) {
-        for (u32 i = 0; i < aiscene->mNumCameras; i++) {
-            aiCamera *ai_cam = aiscene->mCameras[i];
-            if (ai_cam->mName == node->mName)
-                parse_camera(aiscene, ai_cam, out_scene, global_transform);
-        }
+    for (u32 i = 0; i < aiscene->mNumCameras; i++) {
+        aiCamera *ai_cam = aiscene->mCameras[i];
+        if (ai_cam->mName == node->mName)
+            parse_camera(aiscene, ai_cam, out_scene, global_transform);
     }
 
     // check if node is a light
-    if (aiscene->HasLights()) {
-        for (u32 i = 0; i < aiscene->mNumLights; i++) {
-            aiLight *ai_light = aiscene->mLights[i];
-            if (ai_light->mName == node->mName)
-                parse_light(aiscene, ai_light, out_scene, global_transform);
-        }
+    for (u32 i = 0; i < aiscene->mNumLights; i++) {
+        aiLight *ai_light = aiscene->mLights[i];
+        if (ai_light->mName == node->mName)
+            parse_light(aiscene, ai_light, out_scene, global_transform);
     }
 
     // handle meshes
     for (usize i = 0; i < node->mNumMeshes; i++) {
         aiMesh *mesh = aiscene->mMeshes[node->mMeshes[i]];
 
-        std::optional<usize> diff_tex_index;
+        mat3 normal_matrix = glm::transpose(glm::inverse(mat3(global_transform)));
+
         std::optional<usize> emis_tex_index;
-        Material mat = parse_material(aiscene, mesh, out_scene.textures(), diff_tex_index, emis_tex_index);
+        Material mat = parse_material(aiscene, mesh, out_scene.textures(), emis_tex_index);
         u32 triangle_start = static_cast<u32>(out_scene.triangles().size());
 
         for (usize f = 0; f < mesh->mNumFaces; f++) {
@@ -171,8 +271,21 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
                 uv1 = vec2(t1.x, t1.y);
                 uv2 = vec2(t2.x, t2.y);
             }
+            vec3 n0(0.0f), n1(0.0f), n2(0.0f);
+            if (mesh->HasNormals()) {
+                aiVector3D an0 = mesh->mNormals[face.mIndices[0]];
+                aiVector3D an1 = mesh->mNormals[face.mIndices[1]];
+                aiVector3D an2 = mesh->mNormals[face.mIndices[2]];
 
-            Triangle triangle(p0, p1, p2, mat, uv0, uv1, uv2, diff_tex_index, emis_tex_index);
+                n0 = glm::normalize(normal_matrix * vec3(an0.x, an0.y, an0.z));
+                n1 = glm::normalize(normal_matrix * vec3(an1.x, an1.y, an1.z));
+                n2 = glm::normalize(normal_matrix * vec3(an2.x, an2.y, an2.z));
+            } else {
+                vec3 faceNormal = glm::normalize(glm::cross(p1 - p0, p2 - p0));
+                n0 = n1 = n2 = faceNormal;
+            }
+
+            Triangle triangle(p0, p1, p2, mat, uv0, uv1, uv2, n0, n1, n2);
             out_scene.add_triangle(triangle);
         }
 
@@ -196,44 +309,4 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
     for (usize i = 0; i < node->mNumChildren; i++) {
         process_node(node->mChildren[i], aiscene, out_scene, global_transform);
     }
-}
-
-Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Texture> &textures,
-                        std::optional<usize> &diff_tex_index, std::optional<usize> &emis_tex_index) {
-    Material mat = Material{
-        vec3(0.8f, 0.8f, 0.8f), // diffuse dummy
-        vec3(0.0f),             // specular dummy
-        vec3(0.0f)              // emissive
-    };
-
-    if (mesh->mMaterialIndex < 0)
-        return mat;
-
-    aiMaterial *ai_mat = scene->mMaterials[mesh->mMaterialIndex];
-
-    aiColor3D emissive(0.0f, 0.0f, 0.0f);
-    if (ai_mat->Get(AI_MATKEY_COLOR_EMISSIVE, emissive) == AI_SUCCESS)
-        mat.emissive = vec3(emissive.r, emissive.g, emissive.b);
-
-    aiString path;
-    if (ai_mat->GetTexture(aiTextureType_DIFFUSE, 0, &path) == AI_SUCCESS) {
-        std::string name = std::filesystem::path(path.C_Str()).filename().string();
-        for (u32 i = 0; i < textures.size(); i++) {
-            if (textures[i].name == name) {
-                diff_tex_index = i;
-                break;
-            }
-        }
-    }
-    if (ai_mat->GetTexture(aiTextureType_EMISSIVE, 0, &path) == AI_SUCCESS) {
-        std::string name = std::filesystem::path(path.C_Str()).filename().string();
-        for (u32 i = 0; i < textures.size(); i++) {
-            if (textures[i].name == name) {
-                emis_tex_index = i;
-                break;
-            }
-        }
-    }
-
-    return mat;
 }

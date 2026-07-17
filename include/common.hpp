@@ -30,4 +30,11 @@ typedef double f64;
 constexpr f32 EPS = 1e-9;
 constexpr f32 INF = 1e9;
 
+inline vec2 compute_bary(vec2 bary, vec2 v0, vec2 v1, vec2 v2) {
+    return (1.0f - bary.x - bary.y) * v0 + bary.x * v1 + bary.y * v2;
+}
+inline vec3 compute_bary(vec2 bary, vec3 v0, vec3 v1, vec3 v2) {
+    return (1.0f - bary.x - bary.y) * v0 + bary.x * v1 + bary.y * v2;
+}
+
 #endif // PHOSPHOR_COMMON_HPP

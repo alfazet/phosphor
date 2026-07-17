@@ -14,8 +14,7 @@ static LightSample sample_textured_light(RngState &rng, const TexturedLight &lig
 static LightSample sample_point_light(RngState &rng, const PointLight &l);
 static LightSample sample_area_light(RngState &rng, const AreaLight &l);
 
-bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out,
-                std::optional<usize> &diff_tex_index, std::optional<usize> &emis_tex_index, vec2 &uv) const {
+bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out, vec2 &uv) const {
     HitRecord temp;
     bool hit_anything = false;
     f32 closest = t_max;
@@ -23,7 +22,7 @@ bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &ma
 
     // space for improvement - do not check all objects in scene
     for (const auto &object : triangles_) {
-        if (object.hit(r, t_min, closest, temp)) {
+        if (object.hit(r, t_min, closest, temp, textures())) {
             hit_anything = true;
             closest = temp.t;
             rec = temp;
@@ -32,11 +31,8 @@ bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &ma
     }
 
     if (hit_anything) {
-        mat_out = closest_t->mat();
-        diff_tex_index = closest_t->diff_index_;
-        emis_tex_index = closest_t->emis_index_;
-        uv = (1.0f - rec.bary.x - rec.bary.y) * closest_t->uv0_ + rec.bary.x * closest_t->uv1_ +
-             rec.bary.y * closest_t->uv2_;
+        mat_out = closest_t->mat_;
+        uv = compute_bary(rec.bary, closest_t->uv0_, closest_t->uv1_, closest_t->uv2_);
     }
 
     return hit_anything;
@@ -69,8 +65,6 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
 
     HitRecord rec;
     Material mat;
-    std::optional<usize> diff_tex_index;
-    std::optional<usize> emis_tex_index;
     vec2 uv;
     Camera cam = get_camera();
 
@@ -81,8 +75,8 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
             const f32 t = 1.0f - (y + 0.5f) / static_cast<f32>(image_height);
             Ray r = cam.get_ray(s, t);
 
-            if (hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat, diff_tex_index, emis_tex_index, uv))
-                img.set_pixel(x, y, get_color(rec.point, rec.normal, n, mat, diff_tex_index, emis_tex_index, uv));
+            if (hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat, uv))
+                img.set_pixel(x, y, get_color(rec.point, rec.normal, n, mat, uv));
         }
         show_progress_bar((y + 1) / (f32)image_height);
     }
@@ -96,32 +90,42 @@ void Scene::trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
 
     HitRecord rec;
     Material mat;
-    std::optional<usize> diff_tex_index;
-    std::optional<usize> _; // emissive doesn't matter here
     vec2 uv;
-    if (!hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat, diff_tex_index, _, uv))
+    if (!hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat, uv))
         return;
 
-    if (diff_tex_index.has_value())
-        power *= sample(&textures_[*diff_tex_index], uv);
     f32 phi = glm::atan(r.direction.y, r.direction.x);
     f32 theta = glm::acos(glm::clamp(r.direction.z, -1.0f, 1.0f));
     photon_map_.store({rec.point, power, phi, theta});
 
-    // source: page 63
+    vec3 base = vec3(mat.base_color);
+    if (mat.diff_index.has_value()) {
+        base *= sample(&textures_[*mat.diff_index], uv);
+    }
+
+    f32 metallic = mat.metallic;
+    f32 roughness = mat.roughness;
+    if (mat.metal_rough_index.has_value()) {
+        const Texture *mr_tex = &textures_[*mat.metal_rough_index];
+        roughness *= sample(mr_tex, uv, CHANNEL_G);
+        metallic *= sample(mr_tex, uv, CHANNEL_B);
+    }
+
     const f32 xi = random_float(this->rng);
-    vec3 d = mat.diff;
-    vec3 s = mat.spec;
+
+    vec3 d = base * roughness;
+    vec3 s = base * metallic;
+
     f32 rho_r = glm::max(d.r + s.r, glm::max(d.g + s.g, d.b + s.b));
     f32 rho_d = rho_r * (d.r + d.g + d.b) / (d.r + d.g + d.b + s.r + s.g + s.b);
     f32 rho_s = rho_r - rho_d;
 
     if (xi < rho_d) {
         const vec3 new_dir = random_in_hemisphere(this->rng, rec.normal);
-        trace_photon(Ray(rec.point, new_dir), power * mat.diff / rho_d, depth + 1, max_bounces);
+        trace_photon(Ray(rec.point, new_dir), power * d / rho_d, depth + 1, max_bounces);
     } else if (xi < rho_s + rho_d) {
         const vec3 new_dir = glm::reflect(r.direction, rec.normal);
-        trace_photon(Ray(rec.point, new_dir), power * mat.spec / rho_s, depth + 1, max_bounces);
+        trace_photon(Ray(rec.point, new_dir), power * s / rho_s, depth + 1, max_bounces);
     }
     // else the photon is absorbed
 }
@@ -152,12 +156,11 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces) {
     photon_map_.build();
 }
 
-vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material &mat,
-                      std::optional<usize> &diff_tex_index, std::optional<usize> &emis_tex_index, vec2 &uv) const {
+vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material &mat, vec2 &uv) const {
     // makes emissive surfaces visible even when the photons have nothing to bounce off of
     vec3 emissive(0.0f);
-    if (emis_tex_index.has_value())
-        emissive = sample(&textures_[*emis_tex_index], uv);
+    if (mat.emis_index.has_value())
+        emissive = sample(&textures_[*mat.emis_index], uv);
 
     std::vector<const Photon *> nearest;
     photon_map_.locate(pos, n, 1000.0f, nearest);
@@ -180,10 +183,20 @@ vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material
         return emissive;
 
     vec3 color = vec3(1.0f, 1.0f, 1.0f);
-    if (diff_tex_index.has_value())
-        color = sample(&textures_[*diff_tex_index], uv);
+    if (mat.diff_index.has_value())
+        color = sample(&textures_[*mat.diff_index], uv);
 
-    return flux * mat.diff * color / area + emissive;
+    f32 metallic = mat.metallic;
+    if (mat.metal_rough_index.has_value())
+        metallic *= sample(&textures_[*mat.metal_rough_index], uv, CHANNEL_B);
+
+    vec3 diffuse_reflectance = glm::mix(color, vec3(0.0f), metallic);
+
+    f32 occlusion = 1.0f;
+    if (mat.occlusion_index.has_value())
+        occlusion = sample(&textures_[*mat.occlusion_index], uv, CHANNEL_R);
+
+    return flux * diffuse_reflectance * occlusion / area + emissive;
 }
 
 Camera &Scene::get_camera() {
@@ -232,7 +245,7 @@ LightSample sample_textured_light(RngState &rng, const TexturedLight &light, con
     vec3 point = tri.point_at(u, v);
     vec2 uv = tri.uv_at(u, v);
     vec3 emission = sample(&tex, uv);
-    vec3 normal = tri.normal();
+    vec3 normal = tri.get_normal(vec2(u, v), scene.textures());
     point += normal * 0.001f;
     vec3 dir = random_in_hemisphere(rng, normal);
     vec3 power = emission * light.total_area * glm::pi<f32>() * photon_fraction;
