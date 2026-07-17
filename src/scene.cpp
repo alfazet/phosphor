@@ -32,11 +32,10 @@ bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &ma
     }
 
     if (hit_anything) {
-        mat_out = closest_t->mat();
+        mat_out = closest_t->mat_;
         diff_tex_index = closest_t->diff_index_;
         emis_tex_index = closest_t->emis_index_;
-        uv = (1.0f - rec.bary.x - rec.bary.y) * closest_t->uv0_ + rec.bary.x * closest_t->uv1_ +
-             rec.bary.y * closest_t->uv2_;
+        uv = compute_bary(rec.bary, closest_t->uv0_, closest_t->uv1_, closest_t->uv2_);
     }
 
     return hit_anything;
@@ -179,11 +178,7 @@ vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material
     if (area < EPS)
         return emissive;
 
-    vec3 color = vec3(1.0f, 1.0f, 1.0f);
-    if (diff_tex_index.has_value())
-        color = sample(&textures_[*diff_tex_index], uv);
-
-    return flux * mat.diff * color / area + emissive;
+    return flux / area + emissive;
 }
 
 Camera &Scene::get_camera() {
@@ -232,7 +227,7 @@ LightSample sample_textured_light(RngState &rng, const TexturedLight &light, con
     vec3 point = tri.point_at(u, v);
     vec2 uv = tri.uv_at(u, v);
     vec3 emission = sample(&tex, uv);
-    vec3 normal = tri.normal();
+    vec3 normal = compute_bary(uv, tri.n0_, tri.n1_, tri.n2_);
     point += normal * 0.001f;
     vec3 dir = random_in_hemisphere(rng, normal);
     vec3 power = emission * light.total_area * glm::pi<f32>() * photon_fraction;
