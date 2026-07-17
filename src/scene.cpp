@@ -98,22 +98,34 @@ void Scene::trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
     f32 theta = glm::acos(glm::clamp(r.direction.z, -1.0f, 1.0f));
     photon_map_.store({rec.point, power, phi, theta});
 
-    if (mat.diff_index.has_value())
-        power *= sample(&textures_[*mat.diff_index], uv);
-    // source: page 63
+    vec3 base = vec3(mat.base_color);
+    if (mat.diff_index.has_value()) {
+        base *= sample(&textures_[*mat.diff_index], uv);
+    }
+
+    f32 metallic = mat.metallic;
+    f32 roughness = mat.roughness;
+    if (mat.metal_rough_index.has_value()) {
+        const Texture *mr_tex = &textures_[*mat.metal_rough_index];
+        roughness *= sample(mr_tex, uv, CHANNEL_G);
+        metallic *= sample(mr_tex, uv, CHANNEL_B);
+    }
+
     const f32 xi = random_float(this->rng);
-    vec3 d = mat.diff;
-    vec3 s = mat.spec;
+
+    vec3 d = base * roughness;
+    vec3 s = base * metallic;
+
     f32 rho_r = glm::max(d.r + s.r, glm::max(d.g + s.g, d.b + s.b));
     f32 rho_d = rho_r * (d.r + d.g + d.b) / (d.r + d.g + d.b + s.r + s.g + s.b);
     f32 rho_s = rho_r - rho_d;
 
     if (xi < rho_d) {
         const vec3 new_dir = random_in_hemisphere(this->rng, rec.normal);
-        trace_photon(Ray(rec.point, new_dir), power * mat.diff / rho_d, depth + 1, max_bounces);
+        trace_photon(Ray(rec.point, new_dir), power * d / rho_d, depth + 1, max_bounces);
     } else if (xi < rho_s + rho_d) {
         const vec3 new_dir = glm::reflect(r.direction, rec.normal);
-        trace_photon(Ray(rec.point, new_dir), power * mat.spec / rho_s, depth + 1, max_bounces);
+        trace_photon(Ray(rec.point, new_dir), power * s / rho_s, depth + 1, max_bounces);
     }
     // else the photon is absorbed
 }
@@ -174,7 +186,17 @@ vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material
     if (mat.diff_index.has_value())
         color = sample(&textures_[*mat.diff_index], uv);
 
-    return flux * mat.diff * color / area + emissive;
+    f32 metallic = mat.metallic;
+    if (mat.metal_rough_index.has_value())
+        metallic *= sample(&textures_[*mat.metal_rough_index], uv, CHANNEL_B);
+
+    vec3 diffuse_reflectance = glm::mix(color, vec3(0.0f), metallic);
+
+    f32 occlusion = 1.0f;
+    if (mat.occlusion_index.has_value())
+        occlusion = sample(&textures_[*mat.occlusion_index], uv, CHANNEL_R);
+
+    return flux * diffuse_reflectance * occlusion / area + emissive;
 }
 
 Camera &Scene::get_camera() {

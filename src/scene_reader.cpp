@@ -32,8 +32,6 @@ mat4 ai_matrix4x4_to_glm(const aiMatrix4x4 &from) {
 }
 
 static void parse_camera(const aiScene *aiscene, const aiCamera *ai_camera, Scene &out_scene, mat4 global_transform) {
-    aiNode *camNode = aiscene->mRootNode->FindNode(ai_camera->mName);
-
     vec3 position =
         vec3(global_transform * vec4(ai_camera->mPosition.x, ai_camera->mPosition.y, ai_camera->mPosition.z, 1.0f));
     vec3 lookAtDir =
@@ -68,21 +66,23 @@ usize find_texture(std::string name, const std::vector<Texture> &textures) {
         }
     }
     throw new std::runtime_error("texture not found");
-    return 0;
 }
 
 Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Texture> &textures,
                         std::optional<usize> &emis_index) {
-    Material mat = Material{
-        vec3(0.5f, 0.5f, 0.5f), // diffuse dummy
-        vec3(0.0f),             // specular dummy
-        vec3(0.0f)              // emissive
-    };
+    Material mat = Material{vec4(1.0f, 1.0f, 1.0f, 1.0f), 1.0f, 1.0f, vec3(0.0f)};
 
     if (mesh->mMaterialIndex < 0)
         return mat;
 
     aiMaterial *ai_mat = scene->mMaterials[mesh->mMaterialIndex];
+
+    aiColor4D base_color(1.0f, 1.0f, 1.0f, 1.0f);
+    if (ai_mat->Get(AI_MATKEY_BASE_COLOR, base_color) == AI_SUCCESS)
+        mat.base_color = vec4(base_color.r, base_color.g, base_color.b, base_color.a);
+
+    ai_mat->Get(AI_MATKEY_METALLIC_FACTOR, mat.metallic);
+    ai_mat->Get(AI_MATKEY_ROUGHNESS_FACTOR, mat.roughness);
 
     aiColor3D emissive(0.0f, 0.0f, 0.0f);
     if (ai_mat->Get(AI_MATKEY_COLOR_EMISSIVE, emissive) == AI_SUCCESS)
@@ -101,6 +101,15 @@ Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Te
     if (ai_mat->GetTexture(aiTextureType_NORMALS, 0, &path) == AI_SUCCESS) {
         std::string name = std::filesystem::path(path.C_Str()).filename().string();
         mat.norm_index = find_texture(name, textures);
+    }
+    if (ai_mat->GetTexture(aiTextureType_METALNESS, 0, &path) == AI_SUCCESS ||
+        ai_mat->GetTexture(aiTextureType_DIFFUSE_ROUGHNESS, 0, &path) == AI_SUCCESS) {
+        std::string name = std::filesystem::path(path.C_Str()).filename().string();
+        mat.metal_rough_index = find_texture(name, textures);
+    }
+    if (ai_mat->GetTexture(aiTextureType_AMBIENT_OCCLUSION, 0, &path) == AI_SUCCESS) {
+        std::string name = std::filesystem::path(path.C_Str()).filename().string();
+        mat.occlusion_index = find_texture(name, textures);
     }
 
     return mat;
@@ -181,6 +190,9 @@ void parse_textures(const aiScene *aiscene, Scene &out_scene, const char *direct
         load_texture(aiscene, mat, aiTextureType_DIFFUSE, directory, out_scene);
         load_texture(aiscene, mat, aiTextureType_EMISSIVE, directory, out_scene);
         load_texture(aiscene, mat, aiTextureType_NORMALS, directory, out_scene);
+        load_texture(aiscene, mat, aiTextureType_AMBIENT_OCCLUSION, directory, out_scene);
+        load_texture(aiscene, mat, aiTextureType_METALNESS, directory, out_scene);
+        load_texture(aiscene, mat, aiTextureType_DIFFUSE_ROUGHNESS, directory, out_scene);
     }
 }
 
