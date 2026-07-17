@@ -11,8 +11,8 @@ constexpr u32 DEFAULT_RESOLUTION = 256;
 constexpr u32 DEFAULT_SAMPLES = 50;
 constexpr u32 DEFAULT_PHOTONS_PER_LIGHT = 10000;
 constexpr u32 DEFAULT_DEPTH = 3;
-constexpr std::string DEFAULT_MODEL = "Duck";
-constexpr std::string DEFAULT_OUTPUT_PATH = "output.png";
+constexpr const char *DEFAULT_MODEL = "./models/BarramundiFish/glTF/BarramundiFish.gltf";
+constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
 constexpr u32 DEFAULT_SEED = 2137;
 
 #define ARG_TABLE(X)                                                                                                   \
