@@ -119,7 +119,7 @@ void Scene::trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
     vec3 dielectric_specular = vec3(0.04f);
     vec3 s = glm::mix(dielectric_specular, base, metallic);
     f32 max_s = glm::max(s.r, glm::max(s.g, s.b));
-    vec3 d = vec3(1.0f) - vec3(max_s);
+    vec3 d = base * ((1.0f - dielectric_specular.r) * (1 - metallic) / (1.0f - max_s));
 
     f32 rho_r = glm::max(d.r + s.r, glm::max(d.g + s.g, d.b + s.b));
     f32 rho_d = rho_r * (d.r + d.g + d.b) / (d.r + d.g + d.b + s.r + s.g + s.b);

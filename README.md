@@ -9,5 +9,4 @@
 - random light source sampling instead of fixed num photons per light
 - make everything graphics-related plain old structs (will make life easier down the line)
 
-- properly support glTF with embedded textures
 - remove default camera and require the glTF file to have one
