@@ -14,7 +14,7 @@
 
 #include "common.hpp"
 
-namespace log {
+namespace logger {
 
 enum class Level { Debug, Info, Warning, Error, Fatal };
 
@@ -89,7 +89,7 @@ class ProgressScope {
     usize total_;
     std::chrono::steady_clock::time_point start_;
     std::chrono::milliseconds min_interval_;
-    std::atomic<std::size_t> current_{0};
+    std::atomic<usize> current_{0};
     std::chrono::steady_clock::time_point last_render_;
     std::mutex render_mutex_;
 };
@@ -103,46 +103,66 @@ class TimerScope {
     std::string name_;
     std::chrono::steady_clock::time_point start_;
 };
-} // namespace log
+} // namespace logger
+
+#if defined(__GNUC__) || defined(__clang__)
+#define LOG_TRAP() __builtin_trap()
+#else
+#define LOG_TRAP() std::abort()
+#endif
 
 #ifndef ACTIVE_LOG_LEVEL
 #ifdef NDEBUG
-#define ACTIVE_LOG_LEVEL log::Level::Info
+#define ACTIVE_LOG_LEVEL logger::Level::Info
 #else
-#define ACTIVE_LOG_LEVEL log::Level::Debug
+#define ACTIVE_LOG_LEVEL logger::Level::Debug
 #endif
 #endif
 
 #define LOG_DETAIL(level, fmt, ...)                                                                                    \
     do {                                                                                                               \
-        if constexpr (static_cast<int>(level) >= static_cast<int>(ACTIVE_LOG_LEVEL)) {                              \
-            log::Logger::instance().log(level, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__);       \
+        if constexpr (static_cast<int>(level) >= static_cast<int>(ACTIVE_LOG_LEVEL)) {                                 \
+            logger::Logger::instance().log(level, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__);    \
         }                                                                                                              \
     } while (0)
 
-#define LOG_DEBUG(fmt, ...) LOG_DETAIL(log::Level::Debug, fmt __VA_OPT__(, ) __VA_ARGS__)
-#define LOG_INFO(fmt, ...) LOG_DETAIL(log::Level::Info, fmt __VA_OPT__(, ) __VA_ARGS__)
-#define LOG_WARN(fmt, ...) LOG_DETAIL(log::Level::Warning, fmt __VA_OPT__(, ) __VA_ARGS__)
-#define LOG_ERROR(fmt, ...) LOG_DETAIL(log::Level::Error, fmt __VA_OPT__(, ) __VA_ARGS__)
-#define LOG_FATAL(fmt, ...) LOG_DETAIL(log::Level::Fatal, fmt __VA_OPT__(, ) __VA_ARGS__)
+#define LOG_DEBUG(fmt, ...) LOG_DETAIL(logger::Level::Debug, fmt __VA_OPT__(, ) __VA_ARGS__)
+#define LOG_INFO(fmt, ...) LOG_DETAIL(logger::Level::Info, fmt __VA_OPT__(, ) __VA_ARGS__)
+#define LOG_WARN(fmt, ...) LOG_DETAIL(logger::Level::Warning, fmt __VA_OPT__(, ) __VA_ARGS__)
+#define LOG_ERROR(fmt, ...) LOG_DETAIL(logger::Level::Error, fmt __VA_OPT__(, ) __VA_ARGS__)
+#define LOG_FATAL(fmt, ...) LOG_DETAIL(logger::Level::Fatal, fmt __VA_OPT__(, ) __VA_ARGS__)
 
 #define DBG(x)                                                                                                         \
     do {                                                                                                               \
-        if constexpr (static_cast<int>(log::Level::Debug) >= static_cast<int>(ACTIVE_LOG_LEVEL)) {                  \
-            log::Logger::instance().log(log::Level::Debug, std::source_location::current(), "{} = {}", #x, (x));       \
+        if constexpr (static_cast<int>(logger::Level::Debug) >= static_cast<int>(ACTIVE_LOG_LEVEL)) {                  \
+            logger::Logger::instance().log(logger::Level::Debug, std::source_location::current(), "{} = {}", #x, (x)); \
         }                                                                                                              \
     } while (0)
 
 #define ASSERT(cond, fmt, ...)                                                                                         \
     do {                                                                                                               \
         if (!(cond)) {                                                                                                 \
-            log::Logger::instance().assert_fail(#cond, std::source_location::current(),                                \
-                                                fmt __VA_OPT__(, ) __VA_ARGS__);                                       \
+            logger::Logger::instance().assert_fail(#cond, std::source_location::current(),                             \
+                                                   fmt __VA_OPT__(, ) __VA_ARGS__);                                    \
             LOG_TRAP();                                                                                                \
         }                                                                                                              \
     } while (0)
 
-#define LOG_PROGRESS(name, total) log::ProgressScope _progress(name, total)
-#define LOG_TIMER(name) log::TimerScope _timer(name)
+#define UNREACHABLE(...)                                                                                               \
+    do {                                                                                                               \
+        logger::Logger::instance().log(logger::Level::Fatal, std::source_location::current(),                          \
+                                       "Unreachable code reached" __VA_OPT__(": ") __VA_ARGS__);                         \
+        LOG_TRAP();                                                                                                    \
+    } while (0)
+
+#define UNIMPLEMENTED(...)                                                                                             \
+    do {                                                                                                               \
+        logger::Logger::instance().log(logger::Level::Fatal, std::source_location::current(),                          \
+                                       "Unimplemented code reached" __VA_OPT__(": ") __VA_ARGS__);                       \
+        LOG_TRAP();                                                                                                    \
+    } while (0)
+
+#define LOG_PROGRESS(name, total) logger::ProgressScope _progress(name, total)
+#define LOG_TIMER(name) logger::TimerScope _timer(name)
 
 #endif // PHOSPHOR_LOGGER_HPP
