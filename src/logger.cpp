@@ -54,3 +54,21 @@ std::optional<logger::Level> logger::parse_level_from_record(std::string_view re
 
     return std::nullopt;
 }
+
+std::string logger::format_duration(std::chrono::steady_clock::duration d) {
+    using namespace std::chrono;
+    auto total_ms = duration_cast<milliseconds>(d).count();
+
+    if (total_ms < 1000) {
+        return std::format("{}ms", total_ms);
+    }
+
+    auto total_s = duration_cast<seconds>(d).count();
+    if (total_s < 60) {
+        return std::format("{}.{:03d}s", total_s, total_ms % 1000);
+    }
+
+    auto m = total_s / 60;
+    auto s = total_s % 60;
+    return std::format("{}m{:02d}s", m, s);
+}

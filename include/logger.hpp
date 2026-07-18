@@ -1,9 +1,8 @@
 #ifndef PHOSPHOR_LOGGER_HPP
-#define PHOSPHOR_LOGGER_HP
+#define PHOSPHOR_LOGGER_HPP
 
 #include <atomic>
 #include <chrono>
-#include <cstddef>
 #include <cstring>
 #include <filesystem>
 #include <format>
@@ -24,6 +23,7 @@ enum class Level { Debug, Info, Warning, Error, Fatal };
 const char *level_to_string(Level level);
 const char *level_to_color(Level lvl);
 std::optional<Level> parse_level_from_record(std::string_view record);
+std::string format_duration(std::chrono::steady_clock::duration d);
 
 constexpr const char *reset_color = "\033[0m";
 
@@ -164,7 +164,7 @@ class Logger {
         // of copying, while passing an lvalue string is forwarded as an lvalue and not moved from.
         std::string message = std::format(fmt, std::forward<Args>(args)...);
         std::string filename = std::filesystem::path(loc.file_name()).filename().string();
-        std::string record = std::format("[{:5} {}:{}] {}\n", level_to_string(level), filename, loc.line(), message);
+        std::string record = std::format("[{} {}:{}] {}\n", level_to_string(level), filename, loc.line(), message);
 
         std::lock_guard<std::mutex> lock(mutex_);
         sink_->write(record);
@@ -183,17 +183,69 @@ class Logger {
     std::mutex mutex_;
 };
 
-// TODO
 class ProgressScope {
   public:
     ProgressScope(std::string_view name, usize total,
-                  std::chrono::milliseconds min_update_interval = std::chrono::milliseconds{250});
-    ~ProgressScope();
+                  std::chrono::milliseconds min_update_interval = std::chrono::milliseconds{250})
+        : name_(name), total_(total), start_(std::chrono::steady_clock::now()), min_interval_(min_update_interval),
+          last_render_(start_) {}
 
-    void update(usize current);
-    void finish();
+    void update(std::size_t current) {
+        current_.store(current, std::memory_order_relaxed);
+        render(current);
+    }
 
   private:
+    void render(std::size_t current) {
+        std::lock_guard<std::mutex> lock(render_mutex_);
+        auto now = std::chrono::steady_clock::now();
+
+        bool final = current >= total_;
+
+        if (!final) {
+            if (now - last_render_ < min_interval_)
+                return;
+        }
+        last_render_ = now;
+
+        auto elapsed = now - start_;
+        f64 fraction = total_ > 0 ? static_cast<f64>(current) / static_cast<f64>(total_) : 0.0;
+        fraction = std::clamp(fraction, 0.0, 1.0);
+
+        i32 percent = static_cast<i32>(fraction * 100.0);
+        constexpr i32 width = 40;
+        i32 filled = static_cast<i32>(fraction * static_cast<f64>(width));
+        filled = std::clamp(filled, 0, width);
+
+        std::string bar;
+        bar.reserve(width + 2);
+        bar += '[';
+        for (i32 i = 0; i < filled; ++i)
+            bar += '=';
+        for (i32 i = filled; i < width; ++i)
+            bar += '-';
+        bar += ']';
+
+        std::string eta_str;
+        if (current > 0 && current < total_) {
+            auto per_item = elapsed / current;
+            auto remaining = per_item * (total_ - current);
+            eta_str = std::format(", eta {}", format_duration(remaining));
+        }
+
+        std::string line =
+            std::format("\r\033[K{} {} {:3}% ({}{})", name_, bar, percent, format_duration(elapsed), eta_str);
+
+        {
+            std::lock_guard<std::mutex> lock(console_mutex());
+            std::fwrite(line.data(), 1, line.size(), stdout);
+            if (final) {
+                std::fputc('\n', stdout);
+            }
+            std::fflush(stdout);
+        }
+    }
+
     std::string name_;
     usize total_;
     std::chrono::steady_clock::time_point start_;

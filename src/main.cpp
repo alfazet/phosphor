@@ -40,17 +40,10 @@ void init_logger() {
 int main(int argc, char **argv) {
     init_logger();
 
-    LOG_DEBUG("Hello, World!");
-    LOG_INFO("Hello, World!");
-    LOG_WARN("Hello, World!");
-    LOG_ERROR("Hello, World!");
-    LOG_FATAL("Hello, World!");
-    DBG(1);
-
     ArgParser arg_parser(argc, argv, std::cout);
     try {
         auto args = arg_parser.parse_all();
-        printf("chosen parameters:\n");
+        LOG_INFO("chosen parameters:");
         arg_parser.print_values(args);
 
         phosphor_main(args);
@@ -58,7 +51,7 @@ int main(int argc, char **argv) {
         arg_parser.print_help();
         return 0;
     } catch (const ArgParseError &e) {
-        std::cerr << e.what() << '\n';
+        LOG_ERROR("parsing arguments: {}", e.what());
         arg_parser.print_help();
         return 1;
     }
