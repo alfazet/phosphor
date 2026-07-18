@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <format>
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <source_location>
@@ -54,17 +55,50 @@ class ConsoleSink : public Sink {
 
 class FileSink : public Sink {
   public:
-    explicit FileSink(std::string_view path, bool append = true);
-    ~FileSink() override;
-    void write(std::string_view msg) override;
-    void flush() override;
+    explicit FileSink(std::string_view path, bool append = true) {
+        auto mode = append ? std::ios::app : std::ios::trunc;
+        file_.open(std::string(path), std::ios::out | mode);
+    }
+
+    void write(std::string_view msg) override {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (file_.is_open()) {
+            file_.write(msg.data(), static_cast<std::streamsize>(msg.size()));
+        }
+    }
+
+    void flush() override {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (file_.is_open()) {
+            file_.flush();
+        }
+    }
+
+  private:
+    std::ofstream file_;
+    std::mutex mutex_;
 };
 
 class MultiSink : public Sink {
   public:
-    void add(std::unique_ptr<Sink> sink);
-    void write(std::string_view msg) override;
-    void flush() override;
+    void add(std::unique_ptr<Sink> sink) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        sinks_.push_back(std::move(sink));
+    }
+
+    void write(std::string_view msg) override {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (auto &sink : sinks_) {
+            sink->write(msg);
+        }
+    }
+
+    void flush() override {
+        std::lock_guard<std::mutex> lock(mutex_);
+        for (auto &sink : sinks_) {
+            sink->flush();
+        }
+    }
 
   private:
     std::vector<std::unique_ptr<Sink>> sinks_;

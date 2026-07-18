@@ -31,13 +31,10 @@ void init_logger() {
 
     l.set_level(logger::Level::Debug);
 
-    // auto multi = std::make_unique<logger::MultiSink>();
-    // multi->add(std::make_unique<logger::ConsoleSink>(true));
-    // multi->add(std::make_unique<log::FileSink>("phosphor.log"));
-    // l.set_sink(std::move(multi));
-
-    auto s = std::make_unique<logger::ConsoleSink>(false);
-    l.set_sink(std::move(s));
+    auto multi = std::make_unique<logger::MultiSink>();
+    multi->add(std::make_unique<logger::ConsoleSink>(true));
+    multi->add(std::make_unique<logger::FileSink>("phosphor.log", false));
+    l.set_sink(std::move(multi));
 }
 
 int main(int argc, char **argv) {
