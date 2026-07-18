@@ -4,6 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstddef>
+#include <filesystem>
 #include <format>
 #include <memory>
 #include <mutex>
@@ -114,8 +115,8 @@ class Logger {
         // of the argument. ex. passing a temporary std::string("abc") lets std::format move it instead
         // of copying, while passing an lvalue string is forwarded as an lvalue and not moved from.
         std::string message = std::format(fmt, std::forward<Args>(args)...);
-        std::string record =
-            std::format("[{:5} {}:{}] {}\n", level_to_string(level), loc.file_name(), loc.line(), message);
+        std::string filename = std::filesystem::path(loc.file_name()).filename().string();
+        std::string record = std::format("[{:5} {}:{}] {}\n", level_to_string(level), filename, loc.line(), message);
 
         std::lock_guard<std::mutex> lock(mutex_);
         sink_->write(record);
