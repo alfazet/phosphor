@@ -18,6 +18,8 @@ namespace logger {
 
 enum class Level { Debug, Info, Warning, Error, Fatal };
 
+inline const char *level_to_string(Level level);
+
 class Sink {
   public:
     virtual ~Sink() = default;
@@ -53,21 +55,61 @@ class MultiSink : public Sink {
 
 class Logger {
   public:
-    static Logger &instance();
+    static Logger &instance() {
+        static Logger logger;
+        return logger;
+    }
 
-    void set_level(Level min_level);
-    void set_sink(std::unique_ptr<Sink> sink);
-    void add_sink(std::unique_ptr<Sink> sink);
+    void set_level(Level min_level) { min_level_ = min_level; }
 
-    bool enabled(Level level) const;
+    void set_sink(std::unique_ptr<Sink> sink) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        sink_ = std::move(sink);
+    }
+
+    void add_sink(std::unique_ptr<Sink> sink) {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        if (!sink_) {
+            sink_ = std::move(sink);
+            return;
+        }
+
+        if (auto *multi = dynamic_cast<MultiSink *>(sink.get())) {
+            multi->add(std::move(sink));
+            return;
+        }
+
+        auto multi = std::make_unique<MultiSink>();
+        multi->add(std::move(sink_));
+        multi->add(std::move(sink));
+        sink_ = std::move(multi);
+    }
+
+    bool enabled(Level level) const { return static_cast<int>(level) >= static_cast<int>(min_level_); };
 
     template <typename... Args>
-    void log(Level lvl, std::source_location loc, std::format_string<Args...> fmt,
-             Args &&...args); // rvalue reference <3
+    void log(Level level, std::source_location loc, std::format_string<Args...> fmt, Args &&...args) {
+        if (!enabled(level))
+            return;
+
+        // std::forward combined with a forwarding reference (Args&&) restores the original value category
+        // of the argument. ex. passing a temporary std::string("abc") lets std::format move it instead
+        // of copying, while passing an lvalue string is forwarded as an lvalue and not moved from.
+        std::string message = std::format(fmt, std::forward<Args>(args)...);
+        std::string record =
+            std::format("[{:5} {}:{}] {}\n", level_to_string(level), loc.file_name(), loc.line(), message);
+
+        std::lock_guard<std::mutex> lock(mutex_);
+        sink_->write(record);
+    }
 
     template <typename... Args>
     void assert_fail(std::string_view condition, std::source_location loc, std::format_string<Args...> fmt,
-                     Args &&...args);
+                     Args &&...args) {
+        std::string message = std::format(fmt, std::forward<Args>(args)...);
+        log(Level::Fatal, loc, "assertion '{}' failed: {}", condition, message);
+    }
 
   private:
     Level min_level_ = Level::Info;
@@ -151,14 +193,14 @@ class TimerScope {
 #define UNREACHABLE(...)                                                                                               \
     do {                                                                                                               \
         logger::Logger::instance().log(logger::Level::Fatal, std::source_location::current(),                          \
-                                       "Unreachable code reached" __VA_OPT__(": ") __VA_ARGS__);                         \
+                                       "unreachable code reached" __VA_OPT__(": ") __VA_ARGS__);                       \
         LOG_TRAP();                                                                                                    \
     } while (0)
 
 #define UNIMPLEMENTED(...)                                                                                             \
     do {                                                                                                               \
         logger::Logger::instance().log(logger::Level::Fatal, std::source_location::current(),                          \
-                                       "Unimplemented code reached" __VA_OPT__(": ") __VA_ARGS__);                       \
+                                       "unimplemented code reached" __VA_OPT__(": ") __VA_ARGS__);                     \
         LOG_TRAP();                                                                                                    \
     } while (0)
 

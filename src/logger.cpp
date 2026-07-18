@@ -1,6 +1,6 @@
 #include "logger.hpp"
 
-inline const char *level_to_string(logger::Level lvl) {
+inline const char *logger::level_to_string(logger::Level lvl) {
     switch (lvl) {
     case logger::Level::Debug:
         return "DEBUG";
@@ -13,7 +13,10 @@ inline const char *level_to_string(logger::Level lvl) {
     case logger::Level::Fatal:
         return "FATAL";
     }
-    UNREACHABLE("unknown log level");
+    // can't use unreachable because of recursion
+    std::fprintf(stderr, "level_to_string: unknown log level\n");
+    LOG_TRAP();
+    return "UNKNOWN";
 }
 
 inline const char *level_to_color(logger::Level lvl) {
@@ -29,7 +32,9 @@ inline const char *level_to_color(logger::Level lvl) {
     case logger::Level::Fatal:
         return "\033[35m";
     }
-    UNREACHABLE("unknown log level");
+    std::fprintf(stderr, "level_to_string: unknown log level\n");
+    LOG_TRAP();
+    return "UNKNOWN";
 }
 
 constexpr const char *reset_color = "\033[0m";
