@@ -1,6 +1,6 @@
 #include "logger.hpp"
 
-inline const char *logger::level_to_string(logger::Level lvl) {
+const char *logger::level_to_string(logger::Level lvl) {
     switch (lvl) {
     case logger::Level::Debug:
         return "DEBUG";
@@ -19,7 +19,7 @@ inline const char *logger::level_to_string(logger::Level lvl) {
     return "UNKNOWN";
 }
 
-inline const char *level_to_color(logger::Level lvl) {
+const char *level_to_color(logger::Level lvl) {
     switch (lvl) {
     case logger::Level::Debug:
         return "\033[36m";
@@ -39,7 +39,3 @@ inline const char *level_to_color(logger::Level lvl) {
 
 constexpr const char *reset_color = "\033[0m";
 
-inline std::mutex &console_mutex() {
-    static std::mutex m;
-    return m;
-}

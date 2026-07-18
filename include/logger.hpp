@@ -18,7 +18,12 @@ namespace logger {
 
 enum class Level { Debug, Info, Warning, Error, Fatal };
 
-inline const char *level_to_string(Level level);
+const char *level_to_string(Level level);
+
+inline std::mutex &console_mutex() {
+    static std::mutex m;
+    return m;
+}
 
 class Sink {
   public:
@@ -29,9 +34,21 @@ class Sink {
 
 class ConsoleSink : public Sink {
   public:
-    explicit ConsoleSink(bool colored = true);
-    void write(std::string_view msg) override;
-    void flush() override;
+    explicit ConsoleSink(bool colored = true) : colored_(colored) {}
+
+    void write(std::string_view msg) override {
+        std::lock_guard<std::mutex> lock(console_mutex());
+        // TODO: colored
+        std::fwrite(msg.data(), 1, msg.size(), stdout);
+    }
+
+    void flush() override {
+        std::lock_guard<std::mutex> lock(console_mutex());
+        std::fflush(stdout);
+    }
+
+  private:
+    bool colored_;
 };
 
 class FileSink : public Sink {
