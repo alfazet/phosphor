@@ -32,7 +32,7 @@ void init_logger() {
     l.set_level(logger::Level::Debug);
 
     auto multi = std::make_unique<logger::MultiSink>();
-    multi->add(std::make_unique<logger::ConsoleSink>(true));
+    multi->add(std::make_unique<logger::ConsoleSink>());
     multi->add(std::make_unique<logger::FileSink>("phosphor.log", false));
     l.set_sink(std::move(multi));
 }
@@ -41,6 +41,10 @@ int main(int argc, char **argv) {
     init_logger();
 
     LOG_DEBUG("Hello, World!");
+    LOG_INFO("Hello, World!");
+    LOG_WARN("Hello, World!");
+    LOG_ERROR("Hello, World!");
+    LOG_FATAL("Hello, World!");
     DBG(1);
 
     ArgParser arg_parser(argc, argv, std::cout);

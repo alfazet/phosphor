@@ -1,4 +1,5 @@
 #include "logger.hpp"
+#include "common.hpp"
 
 const char *logger::level_to_string(logger::Level lvl) {
     switch (lvl) {
@@ -19,12 +20,12 @@ const char *logger::level_to_string(logger::Level lvl) {
     return "UNKNOWN";
 }
 
-const char *level_to_color(logger::Level lvl) {
+const char *logger::level_to_color(logger::Level lvl) {
     switch (lvl) {
     case logger::Level::Debug:
         return "\033[36m";
     case logger::Level::Info:
-        return "\033[32m";
+        return "\033[34m";
     case logger::Level::Warning:
         return "\033[33m";
     case logger::Level::Error:
@@ -37,5 +38,19 @@ const char *level_to_color(logger::Level lvl) {
     return "UNKNOWN";
 }
 
-constexpr const char *reset_color = "\033[0m";
+std::optional<logger::Level> logger::parse_level_from_record(std::string_view record) {
+    switch (record[1]) {
+    case 'D':
+        return logger::Level::Debug;
+    case 'I':
+        return logger::Level::Info;
+    case 'W':
+        return logger::Level::Warning;
+    case 'E':
+        return logger::Level::Error;
+    case 'F':
+        return logger::Level::Fatal;
+    }
 
+    return std::nullopt;
+}

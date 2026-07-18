@@ -4,6 +4,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstddef>
+#include <cstring>
 #include <filesystem>
 #include <format>
 #include <fstream>
@@ -21,6 +22,10 @@ namespace logger {
 enum class Level { Debug, Info, Warning, Error, Fatal };
 
 const char *level_to_string(Level level);
+const char *level_to_color(Level lvl);
+std::optional<Level> parse_level_from_record(std::string_view record);
+
+constexpr const char *reset_color = "\033[0m";
 
 inline std::mutex &console_mutex() {
     static std::mutex m;
@@ -40,7 +45,16 @@ class ConsoleSink : public Sink {
 
     void write(std::string_view msg) override {
         std::lock_guard<std::mutex> lock(console_mutex());
-        // TODO: colored
+
+        if (colored_) {
+            if (auto lvl = parse_level_from_record(msg)) {
+                std::fwrite(level_to_color(*lvl), 1, std::strlen(level_to_color(*lvl)), stdout);
+                std::fwrite(msg.data(), 1, msg.size(), stdout);
+                std::fwrite(reset_color, 1, std::strlen(reset_color), stdout);
+                return;
+            }
+        }
+
         std::fwrite(msg.data(), 1, msg.size(), stdout);
     }
 
@@ -169,6 +183,7 @@ class Logger {
     std::mutex mutex_;
 };
 
+// TODO
 class ProgressScope {
   public:
     ProgressScope(std::string_view name, usize total,
@@ -188,6 +203,7 @@ class ProgressScope {
     std::mutex render_mutex_;
 };
 
+// TODO
 class TimerScope {
   public:
     explicit TimerScope(std::string_view name);
