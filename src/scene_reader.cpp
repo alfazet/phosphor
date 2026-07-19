@@ -1,4 +1,5 @@
 #include "scene_reader.hpp"
+#include "logger.hpp"
 #include "stb_image.h"
 
 #include <assimp/Importer.hpp>
@@ -56,7 +57,9 @@ static void parse_light(const aiScene *aiscene, const aiLight *ai_light, Scene &
         // TODO: PointLight change is needed; hardcoded for now
         PointLight engineLight(position, vec3(100.0f, 100.0f, 100.0f));
         out_scene.add_point_light(engineLight);
+        return;
     }
+    LOG_WARN("scene has unsupported light type: {}", static_cast<i32>(ai_light->mType));
 }
 
 usize find_texture(std::string name, const std::vector<Texture> &textures) {
@@ -65,7 +68,7 @@ usize find_texture(std::string name, const std::vector<Texture> &textures) {
             return i;
         }
     }
-    throw new std::runtime_error("texture not found");
+    LOG_FATAL("texture {} not found", name);
 }
 
 Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Texture> &textures,
@@ -123,7 +126,7 @@ void load_texture(const aiScene *aiscene, aiMaterial *mat, aiTextureType type, c
         return;
     }
 
-    printf("loading texture from %s\n", path.C_Str());
+    LOG_INFO("loading texture from {}", path.C_Str());
     Texture t;
     t.name = std::filesystem::path(path.C_Str()).filename().string();
     t.channels = 3;
@@ -173,7 +176,7 @@ void load_texture(const aiScene *aiscene, aiMaterial *mat, aiTextureType type, c
     i32 w, h, c;
     u8 *raw = stbi_load(fullPath.c_str(), &w, &h, &c, 3);
     if (!raw) {
-        throw std::runtime_error("failed to load texture from " + std::string(path.C_Str()));
+        LOG_ERROR("failed to load texture from {}", path.C_Str());
     }
 
     t.width = w;
@@ -204,7 +207,7 @@ std::vector<Scene> read_file(const char *file_name) {
     auto parsed_scene = Scene();
 
     if (!aiscene || aiscene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !aiscene->mRootNode) {
-        std::cerr << "Assimp Error: " << importer.GetErrorString() << std::endl;
+        LOG_ERROR("while parsing scenes: {}", importer.GetErrorString());
         return scenes;
     }
 
@@ -214,8 +217,10 @@ std::vector<Scene> read_file(const char *file_name) {
 
     mat4 identity(1.0f);
     process_node(aiscene->mRootNode, aiscene, parsed_scene, identity);
-    if (!aiscene->HasCameras())
+    if (!aiscene->HasCameras()) {
+        LOG_WARN("scene has no cameras, using default");
         parsed_scene.add_default_camera();
+    }
     parsed_scene.set_camera(0);
     scenes.push_back(parsed_scene);
 

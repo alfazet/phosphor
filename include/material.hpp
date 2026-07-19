@@ -5,7 +5,6 @@
 #include <optional>
 
 struct Material {
-
     vec4 base_color;
     f32 metallic;
     f32 roughness;

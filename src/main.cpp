@@ -1,6 +1,7 @@
 #include "cmd_args.hpp"
 #include "common.hpp"
 #include "light.hpp"
+#include "logger.hpp"
 #include "printers.hpp"
 #include "random.hpp"
 #include "scene.hpp"
@@ -25,11 +26,24 @@ void phosphor_main(const ArgsList &args) {
                          args.output_path.c_str());
 }
 
+void init_logger() {
+    auto &l = logger::Logger::instance();
+
+    l.set_level(logger::Level::Debug);
+
+    auto multi = std::make_unique<logger::MultiSink>();
+    multi->add(std::make_unique<logger::ConsoleSink>());
+    multi->add(std::make_unique<logger::FileSink>("phosphor.log", false));
+    l.set_sink(std::move(multi));
+}
+
 int main(int argc, char **argv) {
+    init_logger();
+
     ArgParser arg_parser(argc, argv, std::cout);
     try {
         auto args = arg_parser.parse_all();
-        printf("chosen parameters:\n");
+        LOG_INFO("chosen parameters:");
         arg_parser.print_values(args);
 
         phosphor_main(args);
@@ -37,7 +51,7 @@ int main(int argc, char **argv) {
         arg_parser.print_help();
         return 0;
     } catch (const ArgParseError &e) {
-        std::cerr << e.what() << '\n';
+        LOG_ERROR("parsing arguments: {}", e.what());
         arg_parser.print_help();
         return 1;
     }

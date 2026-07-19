@@ -1,5 +1,6 @@
 #include "scene.hpp"
 #include "image.hpp"
+#include "logger.hpp"
 #include "random.hpp"
 #include "texture.hpp"
 
@@ -38,37 +39,25 @@ bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &ma
     return hit_anything;
 }
 
-void show_progress_bar(f32 percentage, const int width = 32) {
-    printf("\r");
-    for (u32 i = 0; i < percentage * width; i++) {
-        printf("=");
-    }
-    for (u32 i = percentage * width; i < width - 1; i++) {
-        printf("-");
-    }
-    fflush(stdout);
-}
-
 void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
                            const char *output_path) {
     this->rng = rng;
     if (point_lights_.empty() && textured_lights_.empty())
-        throw std::logic_error("no lights");
+        LOG_ERROR("scene contains no lights");
     if (triangles_.empty())
-        throw std::logic_error("no triangles");
+        LOG_ERROR("scene contains no triangles");
+
     const u32 image_width = image_height * get_camera().aspect_ratio();
     Image img(image_width, image_height);
 
-    printf("emitting photons\n");
     emit(photons_per_light, max_bounces);
-    printf("\n");
 
     HitRecord rec;
     Material mat;
     vec2 uv;
     Camera cam = get_camera();
 
-    printf("generating image\n");
+    logger::ProgressScope img_progress("generating image", image_height);
     for (u32 y = 0; y < image_height; y++) {
         for (u32 x = 0; x < image_width; x++) {
             const f32 s = (x + 0.5f) / static_cast<f32>(image_width);
@@ -78,10 +67,11 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
             if (hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat, uv))
                 img.set_pixel(x, y, get_color(rec.point, rec.normal, n, mat, uv));
         }
-        show_progress_bar((y + 1) / (f32)image_height);
+        img_progress.update(y + 1);
     }
     img.write_png(output_path);
-    printf("\nsaved to %s\n", output_path);
+
+    LOG_INFO("saved image to {}", output_path);
 }
 
 void Scene::trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
@@ -139,23 +129,24 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces) {
     // TODO: change to random sampling
     i32 total_photons = photons_per_light * (point_lights_.size() + textured_lights_.size());
     i32 photons_done = 0;
+    logger::ProgressScope progress("emitting photons", total_photons);
     for (const auto &light : point_lights_) {
         const vec3 photon_power = vec3(light.power / static_cast<f32>(photons_per_light));
         for (u32 i = 0; i < photons_per_light; i++) {
             const vec3 dir = random_unit_vector(this->rng);
             trace_photon(Ray(light.pos, dir), photon_power, 0, max_bounces);
-            show_progress_bar((photons_done + i + 1) / (f32)(total_photons));
+            photons_done++;
+            progress.update(photons_done);
         }
-        photons_done += photons_per_light;
     }
     for (const auto &light : textured_lights_) {
         const f32 fraction = 1.0f / static_cast<f32>(photons_per_light);
         for (u32 i = 0; i < photons_per_light; i++) {
             auto sample = sample_textured_light(this->rng, light, *this, fraction);
             trace_photon(sample.ray, sample.power, 0, max_bounces);
-            show_progress_bar((photons_done + i + 1) / (f32)(total_photons));
+            photons_done++;
+            progress.update(photons_done);
         }
-        photons_done += photons_per_light;
     }
 
     photon_map_.build();
@@ -205,16 +196,14 @@ vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material
 }
 
 Camera &Scene::get_camera() {
-    if (chosen_camera < 0)
-        throw std::runtime_error("no camera set");
+    ASSERT(chosen_camera >= 0, "no camera set");
     return cameras_[chosen_camera];
 }
 
 void Scene::set_camera(i32 i) {
-    if (i < 0 || i >= cameras_.size()) {
-        throw std::out_of_range("cannot set camera index out of range");
-    }
+    ASSERT(i >= 0 && i < cameras_.size(), "cannot set camera index out of range");
     chosen_camera = i;
+    LOG_INFO("using camera {}", i);
 }
 
 static LightSample sample_point_light(RngState &rng, const PointLight &l) {

@@ -5,21 +5,40 @@
 #include "common.hpp"
 #include "scene.hpp"
 
+#include <format>
+
+template <glm::length_t L, typename T, glm::qualifier Q> struct std::formatter<glm::vec<L, T, Q>> {
+    constexpr auto parse(std::format_parse_context &ctx) { return ctx.begin(); }
+
+    auto format(const glm::vec<L, T, Q> &v, std::format_context &ctx) const {
+        auto out = ctx.out();
+        *out++ = '(';
+        for (glm::length_t i = 0; i < L; ++i) {
+            if (i > 0) {
+                *out++ = ',';
+                *out++ = ' ';
+            }
+            out = std::format_to(out, "{}", v[i]);
+        }
+        *out++ = ')';
+        return out;
+    }
+};
+
 inline void print_camera(const Camera &camera) {
-    printf("camera {\n");
-    printf("  position : (%f, %f, %f)\n", camera.position_.x, camera.position_.y, camera.position_.z);
-    printf("  target   : (%f, %f, %f)\n", camera.target_.x, camera.target_.y, camera.target_.z);
-    printf("  up       : (%f, %f, %f)\n", camera.up_.x, camera.up_.y, camera.up_.z);
-    printf("  hfov     : %f deg\n", camera.hfov_);
-    printf("  aspect   : %f\n", camera.aspect_ratio_);
-    printf("  u        : (%f, %f, %f)\n", camera.u_.x, camera.u_.y, camera.u_.z);
-    printf("  v        : (%f, %f, %f)\n", camera.v_.x, camera.v_.y, camera.v_.z);
-    printf("  w        : (%f, %f, %f)\n", camera.w_.x, camera.w_.y, camera.w_.z);
-    printf("  lower_left_corner : (%f, %f, %f)\n", camera.lower_left_corner_.x, camera.lower_left_corner_.y,
-           camera.lower_left_corner_.z);
-    printf("  horizontal        : (%f, %f, %f)\n", camera.horizontal_.x, camera.horizontal_.y, camera.horizontal_.z);
-    printf("  vertical          : (%f, %f, %f)\n", camera.vertical_.x, camera.vertical_.y, camera.vertical_.z);
-    printf("}\n");
+    LOG_INFO("camera {{");
+    LOG_INFO("  position : {}", camera.position_);
+    LOG_INFO("  target   : {}", camera.target_);
+    LOG_INFO("  up       : {}", camera.up_);
+    LOG_INFO("  hfov     : {} deg", camera.hfov_);
+    LOG_INFO("  aspect   : {}", camera.aspect_ratio_);
+    LOG_INFO("  u        : {}", camera.u_);
+    LOG_INFO("  v        : {}", camera.v_);
+    LOG_INFO("  w        : {}", camera.w_);
+    LOG_INFO("  lower_left_corner : {}", camera.lower_left_corner_);
+    LOG_INFO("  horizontal        : {}", camera.horizontal_);
+    LOG_INFO("  vertical          : {}", camera.vertical_);
+    LOG_INFO("}}");
 }
 
 inline void print_spanning_box(const Scene &scene) {
@@ -36,9 +55,10 @@ inline void print_spanning_box(const Scene &scene) {
         maxp = glm::max(maxp, tri.v2_);
     }
 
-    printf("scene bounding box {\n");
-    printf("  min      : (%f, %f, %f)\n", minp.x, minp.y, minp.z);
-    printf("  max      : (%f, %f, %f)\n", maxp.x, maxp.y, maxp.z);
-    printf("}\n");
+    LOG_INFO("scene bounding box {{");
+    LOG_INFO("  min : {}", minp);
+    LOG_INFO("  max : {}", maxp);
+    LOG_INFO("}}");
 }
+
 #endif // PHOSPHOR_PRINTERS_HPP
