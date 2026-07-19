@@ -174,6 +174,7 @@ vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material
         max_dist_sq = glm::max(max_dist_sq, dist);
         flux += p->power;
     }
+
     f32 area = glm::pi<f32>() * max_dist_sq;
     if (area < EPS)
         return emissive;
