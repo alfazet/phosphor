@@ -178,7 +178,7 @@ vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material
     if (area < EPS)
         return emissive;
 
-    vec3 color = vec3(1.0f, 1.0f, 1.0f);
+    vec3 color = mat.base_color;
     if (mat.diff_index.has_value())
         color = sample(&textures_[*mat.diff_index], uv);
 
