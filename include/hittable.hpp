@@ -3,6 +3,7 @@
 
 #include "common.hpp"
 #include "glm/gtx/intersect.hpp"
+#include "logger.hpp"
 #include "material.hpp"
 #include "memory"
 #include "ray.hpp"

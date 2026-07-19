@@ -19,7 +19,7 @@ void phosphor_main(const ArgsList &args) {
     vec3 white = vec3(50.0f);
     // scene.add_point_light(PointLight(vec3(0.3f, 2.0f, 0.0f), white));
     // scene.add_point_light(PointLight(vec3(-1.0f, 2.0f, 0.0f), white));
-    scene.add_point_light(PointLight(vec3(0.0f, 2.0f, 0.5f), white));
+    scene.add_point_light(PointLight(vec3(0.0f, 0.0f, 0.0f), white));
     print_spanning_box(scene);
     print_camera(scene.get_camera());
     scene.generate_image(rng, args.resolution, args.samples, args.photons_per_light, args.depth,

@@ -73,7 +73,7 @@ usize find_texture(std::string name, const std::vector<Texture> &textures) {
 
 Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Texture> &textures,
                         std::optional<usize> &emis_index) {
-    Material mat = Material{vec4(1.0f, 1.0f, 1.0f, 1.0f), 1.0f, 1.0f, vec3(0.0f)};
+    Material mat = Material{vec4(1.0f, 1.0f, 1.0f, 1.0f), 0.0f, 1.0f, vec3(0.0f)};
 
     if (mesh->mMaterialIndex < 0)
         return mat;
@@ -126,7 +126,7 @@ void load_texture(const aiScene *aiscene, aiMaterial *mat, aiTextureType type, c
         return;
     }
 
-    LOG_INFO("loading texture from {}", path.C_Str());
+    LOG_INFO("loading texture from {} of type {}", path.C_Str(), aiTextureTypeToString(type));
     Texture t;
     t.name = std::filesystem::path(path.C_Str()).filename().string();
     t.channels = 3;
