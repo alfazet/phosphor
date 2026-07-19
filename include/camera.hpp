@@ -8,14 +8,17 @@ class Camera {
   public:
     explicit Camera();
     Camera(vec3 position, vec3 target, vec3 up, f32 hfov_degrees, f32 aspect_ratio);
+    Camera(const vec3 &minp, const vec3 &maxp, f32 hfov_degrees, f32 aspect_ratio);
 
     Ray get_ray(f32 s, f32 t) const;
 
     void set_position(const vec3 &position);
     const vec3 &position() const { return position_; }
-    const f32 aspect_ratio() const { return aspect_ratio_; }
 
     friend void print_camera(const Camera &camera);
+
+    f32 hfov;
+    f32 aspect_ratio;
 
   private:
     void update();
@@ -23,8 +26,6 @@ class Camera {
     vec3 position_;
     vec3 target_;
     vec3 up_;
-    f32 hfov_;
-    f32 aspect_ratio_;
 
     vec3 lower_left_corner_{};
     vec3 horizontal_{};

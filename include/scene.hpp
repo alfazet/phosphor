@@ -15,6 +15,11 @@
 #include <ostream>
 #include <vector>
 
+struct BoundingBox {
+    vec3 min;
+    vec3 max;
+};
+
 class Scene {
   public:
     void add_point_light(const PointLight &light);
@@ -33,14 +38,18 @@ class Scene {
 
     void set_camera(i32 i);
 
-    void add_default_camera() { cameras_.emplace_back(); }
+    void add_default_camera() {
+        BoundingBox b = get_bounding_box();
+        Camera def = Camera();
+        cameras_.emplace_back(b.min, b.max, def.hfov, def.aspect_ratio);
+    }
 
     const std::vector<Triangle> &triangles() const { return triangles_; }
     const std::vector<Texture> &textures() const { return textures_; }
 
     void generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
                         const char *output_path);
-    friend void print_spanning_box(const Scene &scene);
+    BoundingBox get_bounding_box() const;
 
   private:
     void trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces);

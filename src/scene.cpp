@@ -47,7 +47,7 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
     if (triangles_.empty())
         LOG_ERROR("scene contains no triangles");
 
-    const u32 image_width = image_height * get_camera().aspect_ratio();
+    const u32 image_width = image_height * get_camera().aspect_ratio;
     Image img(image_width, image_height);
 
     emit(photons_per_light, max_bounces);
@@ -204,6 +204,23 @@ void Scene::set_camera(i32 i) {
     ASSERT(i >= 0 && i < cameras_.size(), "cannot set camera index out of range");
     chosen_camera = i;
     LOG_INFO("using camera {}", i);
+}
+
+BoundingBox Scene::get_bounding_box() const {
+    vec3 minp(INF);
+    vec3 maxp(-INF);
+
+    for (const auto &tri : triangles_) {
+        minp = glm::min(minp, tri.v0_);
+        minp = glm::min(minp, tri.v1_);
+        minp = glm::min(minp, tri.v2_);
+
+        maxp = glm::max(maxp, tri.v0_);
+        maxp = glm::max(maxp, tri.v1_);
+        maxp = glm::max(maxp, tri.v2_);
+    }
+
+    return {minp, maxp};
 }
 
 static LightSample sample_point_light(RngState &rng, const PointLight &l) {

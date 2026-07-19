@@ -30,8 +30,8 @@ inline void print_camera(const Camera &camera) {
     LOG_INFO("  position : {}", camera.position_);
     LOG_INFO("  target   : {}", camera.target_);
     LOG_INFO("  up       : {}", camera.up_);
-    LOG_INFO("  hfov     : {} deg", camera.hfov_);
-    LOG_INFO("  aspect   : {}", camera.aspect_ratio_);
+    LOG_INFO("  hfov     : {} deg", camera.hfov);
+    LOG_INFO("  aspect   : {}", camera.aspect_ratio);
     LOG_INFO("  u        : {}", camera.u_);
     LOG_INFO("  v        : {}", camera.v_);
     LOG_INFO("  w        : {}", camera.w_);
@@ -42,22 +42,11 @@ inline void print_camera(const Camera &camera) {
 }
 
 inline void print_spanning_box(const Scene &scene) {
-    vec3 minp(INF);
-    vec3 maxp(-INF);
-
-    for (const auto &tri : scene.triangles_) {
-        minp = glm::min(minp, tri.v0_);
-        minp = glm::min(minp, tri.v1_);
-        minp = glm::min(minp, tri.v2_);
-
-        maxp = glm::max(maxp, tri.v0_);
-        maxp = glm::max(maxp, tri.v1_);
-        maxp = glm::max(maxp, tri.v2_);
-    }
+    BoundingBox b = scene.get_bounding_box();
 
     LOG_INFO("scene bounding box {{");
-    LOG_INFO("  min : {}", minp);
-    LOG_INFO("  max : {}", maxp);
+    LOG_INFO("  min : {}", b.min);
+    LOG_INFO("  max : {}", b.max);
     LOG_INFO("}}");
 }
 
