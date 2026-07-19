@@ -1,4 +1,5 @@
 #include "scene_reader.hpp"
+#include "logger.hpp"
 #include "stb_image.h"
 
 #include <assimp/Importer.hpp>
@@ -123,7 +124,7 @@ void load_texture(const aiScene *aiscene, aiMaterial *mat, aiTextureType type, c
         return;
     }
 
-    printf("loading texture from %s\n", path.C_Str());
+    LOG_INFO("loading texture from {}", path.C_Str());
     Texture t;
     t.name = std::filesystem::path(path.C_Str()).filename().string();
     t.channels = 3;

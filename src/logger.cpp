@@ -39,6 +39,9 @@ const char *logger::level_to_color(logger::Level lvl) {
 }
 
 std::optional<logger::Level> logger::parse_level_from_record(std::string_view record) {
+    if (record[0] != '[')
+        return std::nullopt;
+
     switch (record[1]) {
     case 'D':
         return logger::Level::Debug;

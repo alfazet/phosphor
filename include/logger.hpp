@@ -46,16 +46,20 @@ class ConsoleSink : public Sink {
     void write(std::string_view msg) override {
         std::lock_guard<std::mutex> lock(console_mutex());
 
-        if (colored_) {
-            if (auto lvl = parse_level_from_record(msg)) {
-                std::fwrite(level_to_color(*lvl), 1, std::strlen(level_to_color(*lvl)), stdout);
-                std::fwrite(msg.data(), 1, msg.size(), stdout);
-                std::fwrite(reset_color, 1, std::strlen(reset_color), stdout);
-                return;
-            }
+        std::optional<Level> level;
+        usize close = msg.find(']', 1);
+        if (!colored_ || !(level = parse_level_from_record(msg)) || (close == std::string_view::npos)) {
+            std::fwrite(msg.data(), 1, msg.size(), stdout);
+            return;
         }
 
-        std::fwrite(msg.data(), 1, msg.size(), stdout);
+        std::fwrite(msg.data(), 1, 0, stdout);
+
+        std::fwrite(level_to_color(*level), 1, std::strlen(level_to_color(*level)), stdout);
+        std::fwrite(msg.data(), 1, close + 1, stdout);
+        std::fwrite(reset_color, 1, std::strlen(reset_color), stdout);
+
+        std::fwrite(msg.data() + close + 1, 1, msg.size() - close, stdout);
     }
 
     void flush() override {
