@@ -1,4 +1,5 @@
 #include "camera.hpp"
+#include "logger.hpp"
 
 // TODO: some gltf models don't have a specified camera, so to display those we need a default for now
 // (camera position, light positions, powers, colors etc. will be parsed from a config file later on)
@@ -13,10 +14,9 @@ Camera::Camera(vec3 position, vec3 target, vec3 up, f32 hfov_degrees, f32 aspect
 }
 
 void Camera::update() {
-    if (hfov_ <= 0 || hfov_ >= 180)
-        throw std::invalid_argument("hfov must be between 0 and 180 degrees exclusive");
-    if (aspect_ratio_ <= 0)
-        throw std::invalid_argument("aspect_ratio must be positive");
+    ASSERT(hfov_ > 0 && hfov_ < 180, "hfov must be between 0 and 180 degrees exclusive");
+    ASSERT(aspect_ratio_ > 0, "aspect_ratio must be positive");
+
     const f32 w = glm::tan(glm::radians(hfov_) / 2.0f);
     const f32 viewport_width = 2.0f * w;
     const f32 viewport_height = viewport_width / aspect_ratio_;

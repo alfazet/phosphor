@@ -43,9 +43,10 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
                            const char *output_path) {
     this->rng = rng;
     if (point_lights_.empty() && textured_lights_.empty())
-        throw std::logic_error("no lights");
+        LOG_ERROR("scene contains no lights");
     if (triangles_.empty())
-        throw std::logic_error("no triangles");
+        LOG_ERROR("scene contains no triangles");
+
     const u32 image_width = image_height * get_camera().aspect_ratio();
     Image img(image_width, image_height);
 
@@ -195,16 +196,14 @@ vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material
 }
 
 Camera &Scene::get_camera() {
-    if (chosen_camera < 0)
-        throw std::runtime_error("no camera set");
+    ASSERT(chosen_camera >= 0, "no camera set");
     return cameras_[chosen_camera];
 }
 
 void Scene::set_camera(i32 i) {
-    if (i < 0 || i >= cameras_.size()) {
-        throw std::out_of_range("cannot set camera index out of range");
-    }
+    ASSERT(i >= 0 && i < cameras_.size(), "cannot set camera index out of range");
     chosen_camera = i;
+    LOG_INFO("using camera {}", i);
 }
 
 static LightSample sample_point_light(RngState &rng, const PointLight &l) {

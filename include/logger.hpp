@@ -156,7 +156,7 @@ class Logger {
         sink_ = std::move(multi);
     }
 
-    bool enabled(Level level) const { return static_cast<int>(level) >= static_cast<int>(min_level_); };
+    bool enabled(Level level) const { return static_cast<i32>(level) >= static_cast<i32>(min_level_); };
 
     template <typename... Args>
     void log(Level level, std::source_location loc, std::format_string<Args...> fmt, Args &&...args) {
@@ -194,13 +194,13 @@ class ProgressScope {
         : name_(name), total_(total), start_(std::chrono::steady_clock::now()), min_interval_(min_update_interval),
           last_render_(start_) {}
 
-    void update(std::size_t current) {
+    void update(usize current) {
         current_.store(current, std::memory_order_relaxed);
         render(current);
     }
 
   private:
-    void render(std::size_t current) {
+    void render(usize current) {
         std::lock_guard<std::mutex> lock(render_mutex_);
         auto now = std::chrono::steady_clock::now();
 
@@ -287,7 +287,7 @@ class TimerScope {
 
 #define LOG_DETAIL(level, fmt, ...)                                                                                    \
     do {                                                                                                               \
-        if constexpr (static_cast<int>(level) >= static_cast<int>(ACTIVE_LOG_LEVEL)) {                                 \
+        if constexpr (static_cast<i32>(level) >= static_cast<i32>(ACTIVE_LOG_LEVEL)) {                                 \
             logger::Logger::instance().log(level, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__);    \
         }                                                                                                              \
     } while (0)
@@ -296,11 +296,16 @@ class TimerScope {
 #define LOG_INFO(fmt, ...) LOG_DETAIL(logger::Level::Info, fmt __VA_OPT__(, ) __VA_ARGS__)
 #define LOG_WARN(fmt, ...) LOG_DETAIL(logger::Level::Warning, fmt __VA_OPT__(, ) __VA_ARGS__)
 #define LOG_ERROR(fmt, ...) LOG_DETAIL(logger::Level::Error, fmt __VA_OPT__(, ) __VA_ARGS__)
-#define LOG_FATAL(fmt, ...) LOG_DETAIL(logger::Level::Fatal, fmt __VA_OPT__(, ) __VA_ARGS__)
+#define LOG_FATAL(fmt, ...)                                                                                            \
+    do {                                                                                                               \
+        logger::Logger::instance().log(logger::Level::Fatal, std::source_location::current(),                          \
+                                       fmt __VA_OPT__(, ) __VA_ARGS__);                                                \
+        LOG_TRAP();                                                                                                    \
+    } while (0)
 
 #define DBG(x)                                                                                                         \
     do {                                                                                                               \
-        if constexpr (static_cast<int>(logger::Level::Debug) >= static_cast<int>(ACTIVE_LOG_LEVEL)) {                  \
+        if constexpr (static_cast<i32>(logger::Level::Debug) >= static_cast<i32>(ACTIVE_LOG_LEVEL)) {                  \
             logger::Logger::instance().log(logger::Level::Debug, std::source_location::current(), "{} = {}", #x, (x)); \
         }                                                                                                              \
     } while (0)
