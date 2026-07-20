@@ -39,11 +39,7 @@ class Scene {
 
     void set_camera(i32 i);
 
-    void add_default_camera() {
-        BoundingBox b = get_bounding_box();
-        Camera def = Camera();
-        cameras_.emplace_back(b.min, b.max, def.hfov, def.aspect_ratio);
-    }
+    void add_default_camera();
 
     const std::vector<Triangle> &triangles() const { return triangles_; }
     const std::vector<Texture> &textures() const { return textures_; }

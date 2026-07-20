@@ -7,7 +7,10 @@ void PhotonMap::store(const Photon &p) {
 }
 
 void PhotonMap::build() {
-    kd_tree_.resize(photons_.size() + 1);
+    usize size = 1;
+    while (size < photons_.size() + 1)
+        size <<= 1;
+    kd_tree_.resize(size);
     if (photons_.empty())
         return;
 
@@ -91,15 +94,10 @@ void PhotonMap::locate_rec(usize index, const vec3 &pos, u32 k, f32 max_dist2, s
     locate_rec(near, pos, k, max_dist2, result, dist2);
 
     f32 d2 = glm::dot(p->pos - pos, p->pos - pos);
-
     if (d2 < max_dist2)
         try_insert(p, d2, k, result, dist2);
 
-    f32 current_max = max_dist2;
-    if (!dist2.empty()) {
-        current_max = *std::max_element(dist2.begin(), dist2.end());
-    }
-
+    f32 current_max = (result.size() < k) ? max_dist2 : *std::max_element(dist2.begin(), dist2.end());
     if (delta * delta < current_max)
         locate_rec(far, pos, k, max_dist2, result, dist2);
 }

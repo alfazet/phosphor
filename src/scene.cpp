@@ -56,8 +56,9 @@ void Scene::generate_row(Image &img, u32 row_number, u32 image_height, u32 image
     }
 }
 
-void Scene::run_thread(u32 offset, u32 thread_number, logger::ProgressScope &img_progress, Image &img, u32 image_height, u32 image_width, u32 n) {
-    for (u32 i=offset;  i<image_height; i+=thread_number) {
+void Scene::run_thread(u32 offset, u32 thread_number, logger::ProgressScope &img_progress, Image &img, u32 image_height,
+                       u32 image_width, u32 n) {
+    for (u32 i = offset; i < image_height; i += thread_number) {
         generate_row(img, i, image_height, image_width, n);
         img_progress.increase(1);
     }
@@ -78,10 +79,11 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
 
     logger::ProgressScope img_progress("generating image", image_height);
     std::thread threads[thread_number];
-    for (u32 i=0; i<thread_number; i++) {
-        threads[i] = std::thread(&Scene::run_thread, this, i, thread_number, std::ref(img_progress),  std::ref(img), image_height, image_width, n);
+    for (u32 i = 0; i < thread_number; i++) {
+        threads[i] = std::thread(&Scene::run_thread, this, i, thread_number, std::ref(img_progress), std::ref(img),
+                                 image_height, image_width, n);
     }
-    for (u32 i=0; i<thread_number; i++) {
+    for (u32 i = 0; i < thread_number; i++) {
         threads[i].join();
     }
 
@@ -221,6 +223,12 @@ void Scene::set_camera(i32 i) {
     ASSERT(i >= 0 && i < cameras_.size(), "cannot set camera index out of range");
     chosen_camera = i;
     LOG_INFO("using camera {}", i);
+}
+
+void Scene::add_default_camera() {
+    BoundingBox b = get_bounding_box();
+    Camera def = Camera();
+    cameras_.emplace_back(b.min, b.max, def.hfov, def.aspect_ratio);
 }
 
 BoundingBox Scene::get_bounding_box() const {
