@@ -4,6 +4,8 @@
 #include "random.hpp"
 #include "texture.hpp"
 
+#include <thread>
+
 void Scene::add_point_light(const PointLight &light) { point_lights_.push_back(light); }
 void Scene::add_textured_light(const TexturedLight &light) { textured_lights_.push_back(light); }
 void Scene::add_triangle(const Triangle &object) { triangles_.push_back(object); }
@@ -54,6 +56,13 @@ void Scene::generate_row(Image &img, u32 row_number, u32 image_height, u32 image
     }
 }
 
+void Scene::run_thread(u32 offset, logger::ProgressScope &img_progress, Image &img, u32 image_height, u32 image_width, u32 n) {
+    for (u32 i=offset;  i<image_height; i+=n) {
+        generate_row(img, i, image_height, image_width, n);
+        img_progress.increase(1);
+    }
+}
+
 void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
                            const char *output_path, u32 thread_number) {
     this->rng = rng;
@@ -68,10 +77,14 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
     emit(photons_per_light, max_bounces);
 
     logger::ProgressScope img_progress("generating image", image_height);
-    for (u32 y = 0; y < image_height; y++) {
-        generate_row(img, y, image_height, image_width, n);
-        img_progress.increase(1);
+    std::thread threads[thread_number];
+    for (u32 i=0; i<thread_number; i++) {
+        std::thread(&Scene::run_thread, this, i, std::ref(img_progress), img, image_height, image_width, n);
     }
+    for (u32 i=0; i<thread_number; i++) {
+        threads[i].join();
+    }
+
     img.write_png(output_path);
 
     LOG_INFO("saved image to {}", output_path);
