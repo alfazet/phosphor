@@ -15,7 +15,6 @@ struct Material {
     std::optional<usize> norm_index;
     std::optional<usize> occlusion_index;
     std::optional<usize> metal_rough_index;
-    f32 norm_scale = 1;
 };
 
 #endif // PHOSPHOR_MATERIAL_HPP

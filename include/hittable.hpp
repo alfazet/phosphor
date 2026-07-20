@@ -63,7 +63,7 @@ class Triangle {
 
     vec3 get_normal(const vec2 &bary, const std::vector<Texture> &textures) const {
         if (mat_.norm_index.has_value()) {
-            vec3 normal = mat_.norm_scale * normal_sample(&textures[*mat_.norm_index], compute_bary(bary, uv0_, uv1_, uv2_));
+            vec3 normal = normal_sample(&textures[*mat_.norm_index], compute_bary(bary, uv0_, uv1_, uv2_));
             vec3 N = glm::normalize(compute_bary(bary, n0_, n1_, n2_));
             vec3 T = compute_tangent();
             T = glm::normalize(T - N * glm::dot(N, T));

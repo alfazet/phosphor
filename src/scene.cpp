@@ -39,8 +39,23 @@ bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &ma
     return hit_anything;
 }
 
+void Scene::generate_row(Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n) {
+    u32 y = row_number;
+    HitRecord rec;
+    Material mat;
+    vec2 uv;
+    for (u32 x = 0; x < image_width; x++) {
+        const f32 s = (x + 0.5f) / static_cast<f32>(image_width);
+        const f32 t = 1.0f - (y + 0.5f) / static_cast<f32>(image_height);
+        Ray r = get_camera().get_ray(s, t);
+
+        if (hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat, uv))
+            img.set_pixel(x, y, get_color(rec.point, rec.normal, n, mat, uv));
+    }
+}
+
 void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
-                           const char *output_path) {
+                           const char *output_path, u32 thread_number) {
     this->rng = rng;
     if (point_lights_.empty() && textured_lights_.empty())
         LOG_ERROR("scene contains no lights");
@@ -52,22 +67,10 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
 
     emit(photons_per_light, max_bounces);
 
-    HitRecord rec;
-    Material mat;
-    vec2 uv;
-    Camera cam = get_camera();
-
     logger::ProgressScope img_progress("generating image", image_height);
     for (u32 y = 0; y < image_height; y++) {
-        for (u32 x = 0; x < image_width; x++) {
-            const f32 s = (x + 0.5f) / static_cast<f32>(image_width);
-            const f32 t = 1.0f - (y + 0.5f) / static_cast<f32>(image_height);
-            Ray r = cam.get_ray(s, t);
-
-            if (hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat, uv))
-                img.set_pixel(x, y, get_color(rec.point, rec.normal, n, mat, uv));
-        }
-        img_progress.update(y + 1);
+        generate_row(img, y, image_height, image_width, n);
+        img_progress.increase(1);
     }
     img.write_png(output_path);
 
@@ -127,8 +130,8 @@ void Scene::trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
 
 void Scene::emit(u32 photons_per_light, u32 max_bounces) {
     // TODO: change to random sampling
-    i32 total_photons = photons_per_light * (point_lights_.size() + textured_lights_.size());
-    i32 photons_done = 0;
+    u32 total_photons = photons_per_light * (point_lights_.size() + textured_lights_.size());
+    u32 photons_done = 0;
     logger::ProgressScope progress("emitting photons", total_photons);
     for (const auto &light : point_lights_) {
         const vec3 photon_power = vec3(light.power / static_cast<f32>(photons_per_light));

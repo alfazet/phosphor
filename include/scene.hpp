@@ -10,6 +10,7 @@
 #include "random.hpp"
 #include "ray.hpp"
 #include "texture.hpp"
+#include "image.hpp"
 
 #include <optional>
 #include <ostream>
@@ -47,8 +48,9 @@ class Scene {
     const std::vector<Triangle> &triangles() const { return triangles_; }
     const std::vector<Texture> &textures() const { return textures_; }
 
+    void generate_row(Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n);
     void generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
-                        const char *output_path);
+                        const char *output_path, u32 thread_number);
     BoundingBox get_bounding_box() const;
 
   private:

@@ -114,7 +114,6 @@ Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Te
         std::string name = std::filesystem::path(path.C_Str()).filename().string();
         mat.occlusion_index = find_texture(name, textures);
     }
-
     return mat;
 }
 
@@ -142,7 +141,7 @@ void load_texture(const aiScene *aiscene, aiMaterial *mat, aiTextureType type, c
             const u8 *buf = reinterpret_cast<const u8 *>(embedded_tex->pcData);
             raw = stbi_load_from_memory(buf, embedded_tex->mWidth, &w, &h, &c, 3);
             if (!raw) {
-                throw std::runtime_error("failed to decode embedded texture " + std::string(path.C_Str()));
+                LOG_FATAL("failed to decode embedded texture {}", path.C_Str());
             }
         } else {
             // uncompressed
@@ -176,7 +175,7 @@ void load_texture(const aiScene *aiscene, aiMaterial *mat, aiTextureType type, c
     i32 w, h, c;
     u8 *raw = stbi_load(fullPath.c_str(), &w, &h, &c, 3);
     if (!raw) {
-        LOG_ERROR("failed to load texture from {}", path.C_Str());
+        LOG_FATAL("failed to load texture from {}", path.C_Str());
     }
 
     t.width = w;

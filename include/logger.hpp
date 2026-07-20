@@ -196,15 +196,19 @@ class ProgressScope {
 
     void update(usize current) {
         current_.store(current, std::memory_order_relaxed);
-        render(current);
+        render();
+    }
+    void increase(usize amount) {
+        current_.store(current_+amount, std::memory_order_relaxed);
+        render();
     }
 
   private:
-    void render(usize current) {
+    void render() {
         std::lock_guard<std::mutex> lock(render_mutex_);
         auto now = std::chrono::steady_clock::now();
 
-        bool final = current >= total_;
+        bool final = current_ >= total_;
 
         if (!final) {
             if (now - last_render_ < min_interval_)
@@ -213,7 +217,7 @@ class ProgressScope {
         last_render_ = now;
 
         auto elapsed = now - start_;
-        f64 fraction = total_ > 0 ? static_cast<f64>(current) / static_cast<f64>(total_) : 0.0;
+        f64 fraction = total_ > 0 ? static_cast<f64>(current_) / static_cast<f64>(total_) : 0.0;
         fraction = std::clamp(fraction, 0.0, 1.0);
 
         i32 percent = static_cast<i32>(fraction * 100.0);
@@ -231,9 +235,9 @@ class ProgressScope {
         bar += ']';
 
         std::string eta_str;
-        if (current > 0 && current < total_) {
-            auto per_item = elapsed / current;
-            auto remaining = per_item * (total_ - current);
+        if (current_ > 0 && current_ < total_) {
+            auto per_item = elapsed / current_.load(std::memory_order_relaxed);
+            auto remaining = per_item * (total_ - current_);
             eta_str = std::format(", eta {}", format_duration(remaining));
         }
 
