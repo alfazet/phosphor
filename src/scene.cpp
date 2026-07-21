@@ -56,7 +56,7 @@ void Scene::generate_row(Image &img, u32 row_number, u32 image_height, u32 image
     }
 }
 
-void Scene::run_thread(u32 offset, u32 thread_number, logger::ProgressScope &img_progress, Image &img, u32 image_height,
+void Scene::run_thread(u32 offset, u32 thread_number, ProgressScope &img_progress, Image &img, u32 image_height,
                        u32 image_width, u32 n) {
     for (u32 i = offset; i < image_height; i += thread_number) {
         generate_row(img, i, image_height, image_width, n);
@@ -66,6 +66,8 @@ void Scene::run_thread(u32 offset, u32 thread_number, logger::ProgressScope &img
 
 void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
                            const char *output_path, u32 thread_number) {
+    TimerScope timer_scope("generating image");
+
     this->rng = rng;
     if (point_lights_.empty() && textured_lights_.empty())
         LOG_ERROR("scene contains no lights");
@@ -77,7 +79,7 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
 
     emit(photons_per_light, max_bounces);
 
-    logger::ProgressScope img_progress("generating image", image_height);
+    ProgressScope img_progress("generating image", image_height);
     std::thread threads[thread_number];
     for (u32 i = 0; i < thread_number; i++) {
         threads[i] = std::thread(&Scene::run_thread, this, i, thread_number, std::ref(img_progress), std::ref(img),
@@ -147,7 +149,7 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces) {
     // TODO: change to random sampling
     u32 total_photons = photons_per_light * (point_lights_.size() + textured_lights_.size());
     u32 photons_done = 0;
-    logger::ProgressScope progress("emitting photons", total_photons);
+    ProgressScope progress("emitting photons", total_photons);
     for (const auto &light : point_lights_) {
         const vec3 photon_power = vec3(light.power / static_cast<f32>(photons_per_light));
         for (u32 i = 0; i < photons_per_light; i++) {
@@ -157,6 +159,7 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces) {
             progress.update(photons_done);
         }
     }
+
     for (const auto &light : textured_lights_) {
         const f32 fraction = 1.0f / static_cast<f32>(photons_per_light);
         for (u32 i = 0; i < photons_per_light; i++) {
@@ -167,7 +170,9 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces) {
         }
     }
 
+    TimerScope timer_("building photon map kd-tree", true);
     photon_map_.build();
+    timer_.stop();
 }
 
 vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material &mat, vec2 &uv) const {

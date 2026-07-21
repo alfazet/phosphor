@@ -199,6 +199,8 @@ void parse_textures(const aiScene *aiscene, Scene &out_scene, const char *direct
 }
 
 std::vector<Scene> read_file(const char *file_name) {
+    TimerScope timer_scope("loading scenes");
+
     std::vector<Scene> scenes;
     Assimp::Importer importer;
     const aiScene *aiscene = importer.ReadFile(file_name, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
@@ -222,6 +224,8 @@ std::vector<Scene> read_file(const char *file_name) {
     }
     parsed_scene.set_camera(0);
     scenes.push_back(parsed_scene);
+
+    LOG_INFO("loaded {} scene(s)", scenes.size());
 
     return scenes;
 }

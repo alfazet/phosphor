@@ -12,6 +12,7 @@
 #include <source_location>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 #include "common.hpp"
@@ -181,97 +182,12 @@ class Logger {
         log(Level::Fatal, loc, "assertion '{}' failed: {}", condition, message);
     }
 
+    void flush() { sink_->flush(); }
+
   private:
     Level min_level_ = Level::Info;
     std::unique_ptr<Sink> sink_;
     std::mutex mutex_;
-};
-
-class ProgressScope {
-  public:
-    ProgressScope(std::string_view name, usize total,
-                  std::chrono::milliseconds min_update_interval = std::chrono::milliseconds{250})
-        : name_(name), total_(total), start_(std::chrono::steady_clock::now()), min_interval_(min_update_interval),
-          last_render_(start_) {}
-
-    void update(usize current) {
-        current_.store(current, std::memory_order_relaxed);
-        render();
-    }
-    void increase(usize amount) {
-        current_.store(current_+amount, std::memory_order_relaxed);
-        render();
-    }
-
-  private:
-    void render() {
-        std::lock_guard<std::mutex> lock(render_mutex_);
-        auto now = std::chrono::steady_clock::now();
-
-        bool final = current_ >= total_;
-
-        if (!final) {
-            if (now - last_render_ < min_interval_)
-                return;
-        }
-        last_render_ = now;
-
-        auto elapsed = now - start_;
-        f64 fraction = total_ > 0 ? static_cast<f64>(current_) / static_cast<f64>(total_) : 0.0;
-        fraction = std::clamp(fraction, 0.0, 1.0);
-
-        i32 percent = static_cast<i32>(fraction * 100.0);
-        constexpr i32 width = 40;
-        i32 filled = static_cast<i32>(fraction * static_cast<f64>(width));
-        filled = std::clamp(filled, 0, width);
-
-        std::string bar;
-        bar.reserve(width + 2);
-        bar += '[';
-        for (i32 i = 0; i < filled; ++i)
-            bar += '=';
-        for (i32 i = filled; i < width; ++i)
-            bar += '-';
-        bar += ']';
-
-        std::string eta_str;
-        if (current_ > 0 && current_ < total_) {
-            auto per_item = elapsed / current_.load(std::memory_order_relaxed);
-            auto remaining = per_item * (total_ - current_);
-            eta_str = std::format(", eta {}", format_duration(remaining));
-        }
-
-        std::string line =
-            std::format("\r\033[K{} {} {:3}% ({}{})", name_, bar, percent, format_duration(elapsed), eta_str);
-
-        {
-            std::lock_guard<std::mutex> lock(console_mutex());
-            std::fwrite(line.data(), 1, line.size(), stdout);
-            if (final) {
-                std::fputc('\n', stdout);
-            }
-            std::fflush(stdout);
-        }
-    }
-
-    std::string name_;
-    usize total_;
-    std::chrono::steady_clock::time_point start_;
-    std::chrono::milliseconds min_interval_;
-    std::atomic<usize> current_{0};
-    std::chrono::steady_clock::time_point last_render_;
-    std::mutex render_mutex_;
-};
-
-// TODO
-class TimerScope {
-  public:
-    explicit TimerScope(std::string_view name);
-    ~TimerScope();
-
-  private:
-    std::string name_;
-    std::chrono::steady_clock::time_point start_;
 };
 } // namespace logger
 
@@ -337,7 +253,143 @@ class TimerScope {
         LOG_TRAP();                                                                                                    \
     } while (0)
 
-#define LOG_PROGRESS(name, total) logger::ProgressScope _progress(name, total)
-#define LOG_TIMER(name) logger::TimerScope _timer(name)
+#define LOGGER_FLUSH() logger::Logger::instance().flush();
+
+class ProgressScope {
+  public:
+    ProgressScope(std::string_view name, usize total,
+                  std::chrono::milliseconds min_update_interval = std::chrono::milliseconds{250})
+        : name_(name), total_(total), start_(std::chrono::steady_clock::now()), min_interval_(min_update_interval),
+          last_render_(start_) {}
+
+    void update(usize current) {
+        current_.store(current, std::memory_order_relaxed);
+        render();
+    }
+
+    void increase(usize amount) {
+        current_.fetch_add(amount, std::memory_order_relaxed);
+        render();
+    }
+
+  private:
+    void render() {
+        std::lock_guard<std::mutex> lock(render_mutex_);
+        const usize current = current_.load(std::memory_order_relaxed);
+        auto now = std::chrono::steady_clock::now();
+
+        bool final = current >= total_;
+        if (!final && now - last_render_ < min_interval_)
+            return;
+
+        last_render_ = now;
+
+        auto elapsed = now - start_;
+        f64 fraction = total_ > 0 ? static_cast<f64>(current) / static_cast<f64>(total_) : 0.0;
+        fraction = std::clamp(fraction, 0.0, 1.0);
+
+        i32 percent = static_cast<i32>(fraction * 100.0);
+        constexpr i32 width = 40;
+        i32 filled = static_cast<i32>(fraction * static_cast<f64>(width));
+        filled = std::clamp(filled, 0, width);
+
+        std::string bar;
+        bar.reserve(width + 2);
+        bar += '[';
+        bar.append(filled, '=');
+        bar.append(width - filled, '-');
+        bar += ']';
+
+        std::string eta_str;
+        if (current > 0 && current < total_) {
+            auto per_item = elapsed / current;
+            auto remaining = per_item * (total_ - current);
+            eta_str = std::format(", eta {}", logger::format_duration(remaining));
+        }
+
+        std::string line =
+            std::format("\r\033[K{} {} {:3}% ({}{})", name_, bar, percent, logger::format_duration(elapsed), eta_str);
+
+        {
+            std::unique_lock<std::mutex> lock(logger::console_mutex());
+            std::fwrite(line.data(), 1, line.size(), stdout);
+            if (final) {
+                std::fputc('\n', stdout);
+                lock.unlock();
+                print_outro(now);
+            }
+            std::fflush(stdout);
+        }
+    }
+
+    void print_outro(std::chrono::steady_clock::time_point now) {
+        LOG_INFO("finished {}, took {}", name_, logger::format_duration(now - start_));
+    }
+
+    std::string name_;
+    usize total_;
+    std::chrono::steady_clock::time_point start_;
+    std::chrono::milliseconds min_interval_;
+    std::atomic<usize> current_{0};
+    std::chrono::steady_clock::time_point last_render_;
+    std::mutex render_mutex_;
+};
+
+class TimerScope {
+  public:
+    explicit TimerScope(std::string_view name, bool real_time = false,
+                        std::chrono::milliseconds min_update_interval = std::chrono::milliseconds{250})
+        : name_(name), min_interval_(min_update_interval), real_time_(real_time) {
+        if (real_time_) {
+            render();
+            thread_ = std::thread([this]() {
+                while (!stopped_) {
+                    std::this_thread::sleep_for(min_interval_);
+                    render();
+                }
+            });
+        } else {
+            print_intro();
+        }
+    }
+
+    ~TimerScope() { stop(); }
+
+    void stop() {
+        auto now = std::chrono::steady_clock::now();
+        if (stopped_.exchange(true))
+            return;
+        if (real_time_) {
+            thread_.join();
+            render(true, now);
+        }
+        print_outro(now);
+    }
+
+  private:
+    void render(bool final = false, std::chrono::steady_clock::time_point now = std::chrono::steady_clock::now()) {
+        auto elapsed = now - start_;
+        std::string line = std::format("\r\033[K{}: {}", name_, logger::format_duration(elapsed));
+
+        std::lock_guard<std::mutex> lock(logger::console_mutex());
+        std::fwrite(line.data(), 1, line.size(), stdout);
+        if (final)
+            std::fputc('\n', stdout);
+        std::fflush(stdout);
+    }
+
+    void print_intro() { LOG_INFO("{}...", name_); }
+
+    void print_outro(std::chrono::steady_clock::time_point now) {
+        LOG_INFO("finished {}, took {}", name_, logger::format_duration(now - start_));
+    }
+
+    std::string name_;
+    std::chrono::milliseconds min_interval_;
+    bool real_time_;
+    std::chrono::steady_clock::time_point start_ = std::chrono::steady_clock::now();
+    std::atomic<bool> stopped_{false};
+    std::thread thread_;
+};
 
 #endif // PHOSPHOR_LOGGER_HPP

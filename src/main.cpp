@@ -14,7 +14,9 @@ void phosphor_main(const ArgsList &args) {
     pcg_seed(rng, args.seed);
 
     auto scenes = read_file(args.model.c_str());
-    auto scene = scenes[0];
+    usize scene_index = 0;
+    LOG_INFO("using scene {}", scene_index);
+    auto scene = scenes[scene_index];
 
     vec3 white = vec3(50.0f);
     // scene.add_point_light(PointLight(vec3(0.3f, 2.0f, 0.0f), white));
