@@ -33,7 +33,7 @@ class Scene {
 
     void emit(u32 photons_per_light, u32 max_bounces = 8);
 
-    vec3 get_color(const vec3 &pos, const vec3 &normal, u32 n, Material &mat, vec2 &uv) const;
+    vec3 get_color(const Ray &ray, const HitRecord& rec, u32 n, Material &mat, vec2 &uv, u32 depth_left) const;
 
     Camera &get_camera();
 

@@ -52,7 +52,7 @@ void Scene::generate_row(Image &img, u32 row_number, u32 image_height, u32 image
         Ray r = get_camera().get_ray(s, t);
 
         if (hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat, uv))
-            img.set_pixel(x, y, get_color(rec.point, rec.normal, n, mat, uv));
+            img.set_pixel(x, y, get_color(r, rec, n, mat, uv, 5));
     }
 }
 
@@ -175,7 +175,12 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces) {
     timer_.stop();
 }
 
-vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material &mat, vec2 &uv) const {
+vec3 Scene::get_color(const Ray &ray, const HitRecord& rec, const u32 n, Material &mat, vec2 &uv, u32 depth_left) const {
+    if (depth_left == 0)
+        return vec3(1.0f); // black or white? TODO
+    auto pos = rec.point;
+    auto normal = rec.normal;
+
     // makes emissive surfaces visible even when the photons have nothing to bounce off of
     vec3 emissive(0.0f);
     if (mat.emis_index.has_value())
@@ -210,7 +215,18 @@ vec3 Scene::get_color(const vec3 &pos, const vec3 &normal, const u32 n, Material
     if (mat.metal_rough_index.has_value())
         metallic *= sample(&textures_[*mat.metal_rough_index], uv, CHANNEL_B);
 
-    vec3 diffuse_reflectance = glm::mix(color, vec3(0.0f), metallic);
+    vec3 reflected_color = vec3(1.0f); // black or white? TODO
+
+    const vec3 new_dir = glm::reflect(ray.direction, rec.normal);
+    HitRecord reflected_rec;
+    Material reflected_mat;
+    vec2 reflected_uv;
+    Ray reflected = Ray(pos, glm::normalize(new_dir));
+    if (hit(reflected, 0.001f, std::numeric_limits<f32>::max(), reflected_rec, reflected_mat, reflected_uv))
+        reflected_color = get_color(reflected, reflected_rec, n, reflected_mat, reflected_uv, depth_left-1);
+
+    vec3 diffuse_reflectance = glm::mix(color, reflected_color, metallic);
+
 
     f32 occlusion = 1.0f;
     if (mat.occlusion_index.has_value())
