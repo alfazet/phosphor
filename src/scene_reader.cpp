@@ -73,7 +73,7 @@ usize find_texture(std::string name, const std::vector<Texture> &textures) {
 
 Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Texture> &textures,
                         std::optional<usize> &emis_index) {
-    Material mat = Material{vec4(1.0f, 1.0f, 1.0f, 1.0f), 0.0f, 1.0f, vec3(0.0f)};
+    Material mat = Material{vec4(1.0f, 1.0f, 1.0f, 1.0f), 0.0f, 1.0f, BLACK};
 
     if (mesh->mMaterialIndex < 0)
         return mat;
@@ -203,7 +203,8 @@ std::vector<Scene> read_file(const char *file_name) {
 
     std::vector<Scene> scenes;
     Assimp::Importer importer;
-    const aiScene *aiscene = importer.ReadFile(file_name, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_CalcTangentSpace);
+    const aiScene *aiscene = importer.ReadFile(file_name, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices |
+                                                              aiProcess_CalcTangentSpace);
 
     auto parsed_scene = Scene();
 
