@@ -93,6 +93,15 @@ inline vec3 ggx_sample_vndf(RngState &rng, const vec3 &normal, const vec3 &view,
     return ne;
 }
 
+// Smith G1 masking function for the GGX distribution
+// "Microfacet Models for Refraction through Rough Surfaces", Walter et al, eq 34
+inline f32 smith_g1_ggx(f32 theta, f32 alpha) {
+    if (theta <= 0.0f)
+        return 0.0f;
+    f32 tan = glm::tan(theta);
+    return 2.0f / (1.0f + glm::sqrt(1.0f + alpha * alpha * tan * tan));
+}
+
 inline vec3 ggx_sample_direction(RngState &rng, const vec3 &incoming, const vec3 &normal, f32 roughness) {
     if (roughness < EPS)
         return glm::normalize(glm::reflect(incoming, normal));

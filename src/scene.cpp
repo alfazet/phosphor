@@ -107,42 +107,44 @@ void Scene::trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
     f32 phi = glm::atan(r.direction.y, r.direction.x);
     f32 theta = glm::acos(glm::clamp(r.direction.z, -1.0f, 1.0f));
     photon_map_.store({rec.point, power, phi, theta});
-
-    vec3 base = vec3(mat.base_color);
+    vec3 base_color = vec3(mat.base_color);
     if (mat.diff_index.has_value()) {
-        base *= sample(&textures_[*mat.diff_index], uv);
+        base_color *= sample(&textures_[*mat.diff_index], uv);
     }
 
     f32 metallic = mat.metallic;
     f32 roughness = mat.roughness;
     if (mat.metal_rough_index.has_value()) {
         const Texture *mr_tex = &textures_[*mat.metal_rough_index];
-        roughness *= sample(mr_tex, uv, CHANNEL_G);
         metallic *= sample(mr_tex, uv, CHANNEL_B);
+        roughness *= sample(mr_tex, uv, CHANNEL_G);
     }
-
     const f32 xi = random_float(this->rng);
 
-    // vec3 d = base * roughness;
-    // vec3 s = base * metallic;
     // https://github.com/KhronosGroup/glTF/blob/77b44be7bef26e01fb0b140e3d5bb1716421c5e9/extensions/2.0/Archived/KHR_materials_pbrSpecularGlossiness/examples/convert-between-workflows-bjs/js/babylon.pbrUtilities.js#L12
     vec3 dielectric_specular = vec3(0.04f);
-    vec3 s = glm::mix(dielectric_specular, base, metallic);
+    vec3 s = glm::mix(dielectric_specular, base_color, metallic);
     f32 max_s = glm::max(s.r, glm::max(s.g, s.b));
-    vec3 d = base * ((1.0f - dielectric_specular.r) * (1 - metallic) / (1.0f - max_s));
+    vec3 d = base_color * ((1.0f - dielectric_specular.r) * (1.0f - metallic) / (1.0f - max_s));
 
-    f32 rho_r = glm::max(d.r + s.r, glm::max(d.g + s.g, d.b + s.b));
-    f32 rho_d = rho_r * (d.r + d.g + d.b) / (d.r + d.g + d.b + s.r + s.g + s.b);
+    f32 alpha = roughness * roughness;
+    f32 g1 = smith_g1_ggx(glm::acos(glm::dot(r.direction, rec.normal)), alpha);
+    vec3 s_eff = s * g1;
+
+    f32 sum_d = d.r + d.g + d.b;
+    f32 sum_s = s_eff.r + s_eff.g + s_eff.b;
+    f32 sum_total = sum_d + sum_s;
+    f32 rho_r = glm::max(d.r + s_eff.r, glm::max(d.g + s_eff.g, d.b + s_eff.b));
+    f32 rho_d = sum_total > EPS ? (rho_r * sum_d / sum_total) : 0.0f;
     f32 rho_s = rho_r - rho_d;
 
     if (xi < rho_d) {
         const vec3 new_dir = random_in_hemisphere_cosine(this->rng, rec.normal);
         trace_photon(Ray(rec.point, new_dir), power * d / rho_d, depth + 1, max_bounces);
     } else if (xi < rho_s + rho_d) {
-        // const vec3 new_dir = glm::reflect(r.direction, rec.normal);
         const vec3 new_dir = ggx_sample_direction(this->rng, r.direction, rec.normal, roughness);
         if (new_dir != ZERO_VEC)
-            trace_photon(Ray(rec.point, new_dir), power * s / rho_s, depth + 1, max_bounces);
+            trace_photon(Ray(rec.point, new_dir), power * s_eff / rho_s, depth + 1, max_bounces);
     }
     // else the photon is absorbed
 }
@@ -217,8 +219,8 @@ vec3 Scene::get_color(const Ray &ray, const HitRecord &rec, const u32 n, Materia
     f32 roughness = mat.roughness;
     if (mat.metal_rough_index.has_value()) {
         const Texture *tex = &textures_[*mat.metal_rough_index];
-        roughness *= sample(tex, uv, CHANNEL_G);
         metallic *= sample(tex, uv, CHANNEL_B);
+        roughness *= sample(tex, uv, CHANNEL_G);
     }
 
     vec3 reflected_color = BLACK;
