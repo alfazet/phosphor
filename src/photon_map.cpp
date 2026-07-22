@@ -1,9 +1,26 @@
 #include "photon_map.hpp"
 #include <algorithm>
 
-void PhotonMap::store(const Photon &p) {
-    photons_.push_back(p);
-    photons_.back().plane = 0;
+void PhotonMap::init_thread_buffers(u32 thread_count) {
+    thread_photons_.assign(thread_count, std::vector<Photon>());
+}
+
+void PhotonMap::store(u32 thread_id, const Photon &p) {
+    thread_photons_[thread_id].push_back(p);
+    thread_photons_[thread_id].back().plane = 0;
+}
+
+void PhotonMap::merge_thread_buffers() {
+    usize total = photons_.size();
+    for (const auto &buf : thread_photons_)
+        total += buf.size();
+    photons_.reserve(total);
+
+    for (auto &buf : thread_photons_) {
+        photons_.insert(photons_.end(), std::make_move_iterator(buf.begin()), std::make_move_iterator(buf.end()));
+    }
+    thread_photons_.clear();
+    thread_photons_.shrink_to_fit();
 }
 
 void PhotonMap::build() {

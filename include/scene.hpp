@@ -31,7 +31,9 @@ class Scene {
 
     bool hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out, vec2 &uv) const;
 
-    void emit(u32 photons_per_light, u32 max_bounces = 8);
+    void emit(u32 photons_per_light, u32 max_bounces, u32 thread_number);
+    void run_thread_emit(u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces, const vec3 photon_power, const vec3 light_pos);
+    void run_thread_textured_emit(u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces, f32 fraction, const TexturedLight &light);
 
     vec3 get_color(const Ray &ray, const HitRecord& rec, u32 n, Material &mat, vec2 &uv, u32 depth_left);
 
@@ -44,15 +46,15 @@ class Scene {
     const std::vector<Triangle> &triangles() const { return triangles_; }
     const std::vector<Texture> &textures() const { return textures_; }
 
-    void generate_row(Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n);
-    void run_thread(u32 offset, u32 thread_number, ProgressScope &img_progress, Image &img, u32 image_height,
-                    u32 image_width, u32 n);
+    void generate_row(Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n, u32 sample_number);
+    void run_thread_image_generation(u32 offset, u32 thread_number, ProgressScope &img_progress, Image &img, u32 image_height,
+                    u32 image_width, u32 n, u32 sample_number);
     void generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
-                        const char *output_path, u32 thread_number);
+                        const char *output_path, u32 thread_number, u32 sample_number);
     BoundingBox get_bounding_box() const;
 
   private:
-    void trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces);
+    void trace_photon(u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces);
 
     RngState rng;
     std::vector<Triangle> triangles_;

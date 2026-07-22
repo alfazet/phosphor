@@ -25,7 +25,7 @@ void phosphor_main(const ArgsList &args) {
     print_spanning_box(scene);
     print_camera(scene.get_camera());
     scene.generate_image(rng, args.resolution, args.samples, args.photons_per_light, args.depth,
-                         args.output_path.c_str(), args.thread_number);
+                         args.output_path.c_str(), args.thread_number, args.sample_number);
 }
 
 void init_logger() {
