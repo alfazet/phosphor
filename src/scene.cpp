@@ -136,11 +136,13 @@ void Scene::trace_photon(const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
     f32 rho_s = rho_r - rho_d;
 
     if (xi < rho_d) {
-        const vec3 new_dir = random_in_hemisphere(this->rng, rec.normal);
+        const vec3 new_dir = random_in_hemisphere_cosine(this->rng, rec.normal);
         trace_photon(Ray(rec.point, new_dir), power * d / rho_d, depth + 1, max_bounces);
     } else if (xi < rho_s + rho_d) {
-        const vec3 new_dir = glm::reflect(r.direction, rec.normal);
-        trace_photon(Ray(rec.point, new_dir), power * s / rho_s, depth + 1, max_bounces);
+        // const vec3 new_dir = glm::reflect(r.direction, rec.normal);
+        const vec3 new_dir = ggx_sample_direction(this->rng, r.direction, rec.normal, roughness);
+        if (new_dir != ZERO_VEC)
+            trace_photon(Ray(rec.point, new_dir), power * s / rho_s, depth + 1, max_bounces);
     }
     // else the photon is absorbed
 }
@@ -175,14 +177,14 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces) {
     timer_.stop();
 }
 
-vec3 Scene::get_color(const Ray &ray, const HitRecord& rec, const u32 n, Material &mat, vec2 &uv, u32 depth_left) const {
+vec3 Scene::get_color(const Ray &ray, const HitRecord &rec, const u32 n, Material &mat, vec2 &uv, u32 depth_left) {
     if (depth_left == 0)
-        return vec3(0.0f); // black or white? TODO
+        return BLACK;
     auto pos = rec.point;
     auto normal = rec.normal;
 
     // makes emissive surfaces visible even when the photons have nothing to bounce off of
-    vec3 emissive(0.0f);
+    vec3 emissive = BLACK;
     if (mat.emis_index.has_value())
         emissive = sample(&textures_[*mat.emis_index], uv);
 
@@ -207,30 +209,35 @@ vec3 Scene::get_color(const Ray &ray, const HitRecord& rec, const u32 n, Materia
     if (area < EPS)
         return emissive;
 
-    vec3 color = mat.base_color;
+    vec3 base_color = mat.base_color;
     if (mat.diff_index.has_value())
-        color = sample(&textures_[*mat.diff_index], uv);
+        base_color = sample(&textures_[*mat.diff_index], uv);
 
     f32 metallic = mat.metallic;
-    if (mat.metal_rough_index.has_value())
-        metallic *= sample(&textures_[*mat.metal_rough_index], uv, CHANNEL_B);
+    f32 roughness = mat.roughness;
+    if (mat.metal_rough_index.has_value()) {
+        const Texture *tex = &textures_[*mat.metal_rough_index];
+        roughness *= sample(tex, uv, CHANNEL_G);
+        metallic *= sample(tex, uv, CHANNEL_B);
+    }
 
-    vec3 reflected_color = vec3(0.0f); // black or white? TODO
-
-    const vec3 new_dir = glm::reflect(ray.direction, rec.normal);
-    HitRecord reflected_rec;
-    Material reflected_mat;
-    vec2 reflected_uv;
-    Ray reflected = Ray(pos, glm::normalize(new_dir));
-    if (hit(reflected, 0.001f, std::numeric_limits<f32>::max(), reflected_rec, reflected_mat, reflected_uv))
-        reflected_color = get_color(reflected, reflected_rec, n, reflected_mat, reflected_uv, depth_left-1);
+    vec3 reflected_color = BLACK;
+    const vec3 new_dir = ggx_sample_direction(this->rng, ray.direction, normal, roughness);
+    if (new_dir != ZERO_VEC) {
+        HitRecord reflected_rec;
+        Material reflected_mat;
+        vec2 reflected_uv;
+        Ray reflected = Ray(pos, glm::normalize(new_dir));
+        if (hit(reflected, 0.001f, std::numeric_limits<f32>::max(), reflected_rec, reflected_mat, reflected_uv))
+            reflected_color = get_color(reflected, reflected_rec, n, reflected_mat, reflected_uv, depth_left - 1);
+    }
 
     f32 occlusion = 1.0f;
     if (mat.occlusion_index.has_value())
         occlusion = sample(&textures_[*mat.occlusion_index], uv, CHANNEL_R);
 
-    vec3 diffuse_color = flux * color * occlusion / area;
-    return  glm::mix(diffuse_color, reflected_color, metallic) + emissive;
+    vec3 diffuse_color = flux * base_color * occlusion / area;
+    return glm::mix(diffuse_color, reflected_color, metallic) + emissive;
 }
 
 Camera &Scene::get_camera() {
