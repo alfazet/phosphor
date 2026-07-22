@@ -203,7 +203,7 @@ std::vector<Scene> read_file(const char *file_name) {
 
     std::vector<Scene> scenes;
     Assimp::Importer importer;
-    const aiScene *aiscene = importer.ReadFile(file_name, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices);
+    const aiScene *aiscene = importer.ReadFile(file_name, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_CalcTangentSpace);
 
     auto parsed_scene = Scene();
 
@@ -293,7 +293,35 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
                 n0 = n1 = n2 = faceNormal;
             }
 
-            Triangle triangle(p0, p1, p2, mat, uv0, uv1, uv2, n0, n1, n2);
+            vec3 t0(0.0f), t1(0.0f), t2(0.0f);
+            vec3 b0(0.0f), b1(0.0f), b2(0.0f);
+            if (mesh->mTangents) {
+                aiVector3D at0 = mesh->mTangents[face.mIndices[0]];
+                aiVector3D at1 = mesh->mTangents[face.mIndices[1]];
+                aiVector3D at2 = mesh->mTangents[face.mIndices[2]];
+
+                t0 = glm::normalize(normal_matrix * vec3(at0.x, at0.y, at0.z));
+                t1 = glm::normalize(normal_matrix * vec3(at1.x, at1.y, at1.z));
+                t2 = glm::normalize(normal_matrix * vec3(at2.x, at2.y, at2.z));
+            } else {
+                vec3 edge1 = p1 - p0;
+                vec3 edge2 = p2 - p0;
+                vec2 duv1 = uv1 - uv0;
+                vec2 duv2 = uv2 - uv0;
+
+                f32 det = duv1.x * duv2.y - duv2.x * duv1.y;
+                vec3 faceTangent;
+                if (glm::abs(det) < EPS) {
+                    faceTangent = vec3(1, 0, 0); //
+                } else {
+                    f32 f = 1.0f / det;
+                    faceTangent = f * (duv2.y * edge1 - duv1.y * edge2);
+                }
+                faceTangent = glm::normalize(normal_matrix * faceTangent);
+                t0 = t1 = t2 = faceTangent;
+            }
+
+            Triangle triangle(p0, p1, p2, mat, uv0, uv1, uv2, n0, n1, n2, t0, t1, t2);
             out_scene.add_triangle(triangle);
         }
 

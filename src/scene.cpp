@@ -177,7 +177,7 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces) {
 
 vec3 Scene::get_color(const Ray &ray, const HitRecord& rec, const u32 n, Material &mat, vec2 &uv, u32 depth_left) const {
     if (depth_left == 0)
-        return vec3(1.0f); // black or white? TODO
+        return vec3(0.0f); // black or white? TODO
     auto pos = rec.point;
     auto normal = rec.normal;
 
@@ -215,7 +215,7 @@ vec3 Scene::get_color(const Ray &ray, const HitRecord& rec, const u32 n, Materia
     if (mat.metal_rough_index.has_value())
         metallic *= sample(&textures_[*mat.metal_rough_index], uv, CHANNEL_B);
 
-    vec3 reflected_color = vec3(1.0f); // black or white? TODO
+    vec3 reflected_color = vec3(0.0f); // black or white? TODO
 
     const vec3 new_dir = glm::reflect(ray.direction, rec.normal);
     HitRecord reflected_rec;
@@ -225,14 +225,12 @@ vec3 Scene::get_color(const Ray &ray, const HitRecord& rec, const u32 n, Materia
     if (hit(reflected, 0.001f, std::numeric_limits<f32>::max(), reflected_rec, reflected_mat, reflected_uv))
         reflected_color = get_color(reflected, reflected_rec, n, reflected_mat, reflected_uv, depth_left-1);
 
-    vec3 diffuse_reflectance = glm::mix(color, reflected_color, metallic);
-
-
     f32 occlusion = 1.0f;
     if (mat.occlusion_index.has_value())
         occlusion = sample(&textures_[*mat.occlusion_index], uv, CHANNEL_R);
 
-    return flux * diffuse_reflectance * occlusion / area + emissive;
+    vec3 diffuse_color = flux * color * occlusion / area;
+    return  glm::mix(diffuse_color, reflected_color, metallic) + emissive;
 }
 
 Camera &Scene::get_camera() {
