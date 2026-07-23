@@ -1,6 +1,8 @@
 # Phosphor
 
 ## TODO (before GPU stuff)
+- dielectrics
+- fix normal maps
 - more light types (spherical, light-emitting surfaces, ...)
 - random light source sampling instead of fixed num photons per light
 - make everything graphics-related plain old structs (will make life easier down the line)
