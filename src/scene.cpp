@@ -331,6 +331,7 @@ LightSample sample_textured_light(RngState &rng, const TexturedLight &light, con
     const Texture &tex = scene.textures()[light.tex_index];
 
     // pick a random triangle from this mesh's range
+    // TODO: importance sampling proportional to triangle's area
     u32 i = static_cast<u32>(random_float(rng) * light.triangle_count);
     if (i >= light.triangle_count)
         i = light.triangle_count - 1;
