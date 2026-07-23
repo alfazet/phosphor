@@ -45,8 +45,7 @@ static void parse_camera(const aiScene *aiscene, const aiCamera *ai_camera, Scen
     f32 fov_h = ai_camera->mHorizontalFOV;
     f32 aspect = ai_camera->mAspect;
 
-    Camera engineCamera;
-    engineCamera = Camera(position, lookAtWorld, up, (fov_h * (180.0f / M_PI)), aspect);
+    Camera engineCamera(position, lookAtWorld, up, (fov_h * (180.0f / M_PI)), aspect);
     out_scene.add_camera(engineCamera);
 }
 

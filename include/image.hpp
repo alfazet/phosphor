@@ -9,13 +9,7 @@ class Image {
   public:
     Image(u32 width, u32 height) : width_(width), height_(height), pixels_(width * height * 3) {}
 
-    void set_pixel(u32 x, u32 y, const vec3 &color) {
-        const usize idx = (y * width_ + x) * 3;
-        pixels_[idx + 0] = to_byte(color.r);
-        pixels_[idx + 1] = to_byte(color.g);
-        pixels_[idx + 2] = to_byte(color.b);
-    }
-
+    void set_pixel(u32 x, u32 y, const vec3 &color);
     void write_png(const char *path) const;
 
     u32 width() const { return width_; }

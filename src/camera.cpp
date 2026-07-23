@@ -1,13 +1,6 @@
 #include "camera.hpp"
 #include "logger.hpp"
 
-// TODO: some gltf models don't have a specified camera, so to display those we need a default for now
-// (camera position, light positions, powers, colors etc. will be parsed from a config file later on)
-Camera::Camera()
-    : position_{vec3(1, 1, 1)}, target_{vec3(0, 0, 0)}, up_{vec3(0, 1, 0)}, hfov{60}, aspect_ratio{16.0 / 9.0} {
-    update();
-}
-
 Camera::Camera(vec3 position, vec3 target, vec3 up, f32 hfov_degrees, f32 aspect_ratio)
     : position_(position), target_(target), up_(up), hfov(hfov_degrees), aspect_ratio(aspect_ratio) {
     update();

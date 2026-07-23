@@ -14,8 +14,8 @@ constexpr u32 DEFAULT_DEPTH = 3;
 constexpr const char *DEFAULT_MODEL = "./models/BarramundiFish/glTF/BarramundiFish.gltf";
 constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
 constexpr u32 DEFAULT_SEED = 2137;
-constexpr u32 DEFAULT_THREAD_NUMBER = 6;
-constexpr u32 DEFAULT_SAMPLE_NUMBER = 1;
+constexpr u32 DEFAULT_N_THREADS = 6;
+constexpr u32 DEFAULT_IMAGE_ITERS = 1;
 
 #define ARG_TABLE(X)                                                                                                   \
     X("-r", resolution, u32, parse_u32, DEFAULT_RESOLUTION, "resolution")                                              \
@@ -24,8 +24,8 @@ constexpr u32 DEFAULT_SAMPLE_NUMBER = 1;
     X("-d", depth, u32, parse_u32, DEFAULT_DEPTH, "depth")                                                             \
     X("-m", model, std::string, parse_string, DEFAULT_MODEL, "model name")                                             \
     X("-o", output_path, std::string, parse_string, DEFAULT_OUTPUT_PATH, "output image path")                          \
-    X("-t", thread_number, u32, parse_u32, DEFAULT_THREAD_NUMBER, "thread number")                                     \
-    X("--sample", sample_number, u32, parse_u32, DEFAULT_SAMPLE_NUMBER, "sample number")                               \
+    X("-t", n_threads, u32, parse_u32, DEFAULT_N_THREADS, "number of CPU threads")                                     \
+    X("-i", image_iters, u32, parse_u32, DEFAULT_IMAGE_ITERS, "image iterations")                                            \
     X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")
 
 struct ArgsList {

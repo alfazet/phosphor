@@ -4,9 +4,11 @@
 #include "common.hpp"
 #include "ray.hpp"
 
+constexpr f32 DEFAULT_CAMERA_HFOV = 60.0;
+constexpr f32 DEFAULT_CAMERA_RATIO = 16.0 / 9.0;
+
 class Camera {
   public:
-    explicit Camera();
     Camera(vec3 position, vec3 target, vec3 up, f32 hfov_degrees, f32 aspect_ratio);
     Camera(const vec3 &minp, const vec3 &maxp, f32 hfov_degrees, f32 aspect_ratio);
 
