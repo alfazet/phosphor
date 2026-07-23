@@ -46,9 +46,9 @@ class Scene {
     const std::vector<Triangle> &triangles() const { return triangles_; }
     const std::vector<Texture> &textures() const { return textures_; }
 
-    void run_thread_image_generation(u32 offset, u32 n_threads, ProgressScope &img_progress, Image &img,
+    void run_thread_image_generation(RngState &rng, u32 offset, u32 n_threads, ProgressScope &img_progress, Image &img,
                                      u32 image_height, u32 image_width, u32 n, u32 image_iters);
-    void generate_image_row(Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n, u32 image_iters);
+    void generate_image_row(RngState &rng, Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n, u32 image_iters);
     void generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
                         const char *output_path, u32 n_threads, u32 image_iters);
     BoundingBox get_bounding_box() const;

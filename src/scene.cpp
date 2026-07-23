@@ -41,7 +41,7 @@ bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &ma
     return hit_anything;
 }
 
-void Scene::generate_image_row(Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n,
+void Scene::generate_image_row(RngState &rng, Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n,
                                u32 image_iters) {
     u32 y = row_number;
     HitRecord rec;
@@ -50,9 +50,9 @@ void Scene::generate_image_row(Image &img, u32 row_number, u32 image_height, u32
     for (u32 x = 0; x < image_width; x++) {
         vec3 color = vec3(0.0f);
         for (i32 j = 0; j < image_iters; j++) {
-            const f32 s = (x + 0.5f) / static_cast<f32>(image_width);
-            const f32 t = 1.0f - (y + 0.5f) / static_cast<f32>(image_height);
-            Ray r = get_camera().get_ray(s, t);
+            const f32 s = ((x + 0.5f + random_float(rng) - 0.5f) / static_cast<f32>(image_width));
+            const f32 t = (1.0f - (y + 0.5f + random_float(rng) - 0.5f) / static_cast<f32>(image_height));
+            Ray r = get_camera().get_ray(rng, s, t);
 
             if (hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat, uv))
                 color += get_color(r, rec, n, mat, uv, 5);
@@ -61,10 +61,10 @@ void Scene::generate_image_row(Image &img, u32 row_number, u32 image_height, u32
     }
 }
 
-void Scene::run_thread_image_generation(u32 offset, u32 n_threads, ProgressScope &img_progress, Image &img,
-                                        u32 image_height, u32 image_width, u32 n, u32 image_iters) {
+void Scene::run_thread_image_generation(RngState &rng, u32 offset, u32 n_threads, ProgressScope &img_progress,
+                                        Image &img, u32 image_height, u32 image_width, u32 n, u32 image_iters) {
     for (u32 i = offset; i < image_height; i += n_threads) {
-        generate_image_row(img, i, image_height, image_width, n, image_iters);
+        generate_image_row(rng, img, i, image_height, image_width, n, image_iters);
         img_progress.increase(1);
     }
 }
@@ -86,8 +86,8 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
     ProgressScope img_progress("generating image", image_height);
     std::thread threads[n_threads];
     for (u32 i = 0; i < n_threads; i++) {
-        threads[i] = std::thread(&Scene::run_thread_image_generation, this, i, n_threads, std::ref(img_progress),
-                                 std::ref(img), image_height, image_width, n, image_iters);
+        threads[i] = std::thread(&Scene::run_thread_image_generation, this, std::ref(rng), i, n_threads,
+                                 std::ref(img_progress), std::ref(img), image_height, image_width, n, image_iters);
     }
     for (u32 i = 0; i < n_threads; i++) {
         threads[i].join();

@@ -50,15 +50,26 @@ inline vec3 sample(const Texture *t, vec2 uv) {
     vec3 Q21 = vec3(t->data[idx21], t->data[idx21 + 1], t->data[idx21 + 2]) / 255.0f;
     vec3 Q22 = vec3(t->data[idx22], t->data[idx22 + 1], t->data[idx22 + 2]) / 255.0f;
 
-    f32 denom = (x2 - x1) * (y2 - y1);
-    // TODO FIX THIS
-    if (denom < EPS)
+    f32 w11, w12, w21, w22;
+    if (x2 == x1 && y2 == y1)
         return naive_sample(t, uv);
-
-    f32 w11 = (x2 - x) * (y2 - y) / denom;
-    f32 w12 = (x2 - x) * (y - y1) / denom;
-    f32 w21 = (x - x1) * (y2 - y) / denom;
-    f32 w22 = (x - x1) * (y - y1) / denom;
+    else if (x2 == x1) {
+        w11 = (y2 - y) / (y2 - y1);
+        w12 = (y - y1) / (y2 - y1);
+        w21 = (y2 - y) / (y2 - y1);
+        w22 = (y - y1) / (y2 - y1);
+    } else if (y2 == y1) {
+        w11 = (x2 - x) / (x2 - x1);
+        w12 = (x2 - x) / (x2 - x1);
+        w21 = (x - x1) / (x2 - x1);
+        w22 = (x - x1) / (x2 - x1);
+    } else {
+        f32 denom = (x2 - x1) * (y2 - y1);
+        w11 = (x2 - x) * (y2 - y) / denom;
+        w12 = (x2 - x) * (y - y1) / denom;
+        w21 = (x - x1) * (y2 - y) / denom;
+        w22 = (x - x1) * (y - y1) / denom;
+    }
 
     return w11 * Q11 + w12 * Q12 + w21 * Q21 + w22 * Q22;
 }

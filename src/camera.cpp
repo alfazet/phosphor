@@ -1,5 +1,4 @@
 #include "camera.hpp"
-#include "logger.hpp"
 
 Camera::Camera(vec3 position, vec3 target, vec3 up, f32 hfov_degrees, f32 aspect_ratio)
     : position_(position), target_(target), up_(up), hfov(hfov_degrees), aspect_ratio(aspect_ratio) {
@@ -48,7 +47,7 @@ void Camera::set_position(const vec3 &position) {
     update();
 }
 
-Ray Camera::get_ray(f32 s, f32 t) const {
+Ray Camera::get_ray(RngState &rng, f32 s, f32 t) const {
     const vec3 direction = lower_left_corner_ + s * horizontal_ + t * vertical_ - position_;
     return Ray(position_, glm::normalize(direction));
 }

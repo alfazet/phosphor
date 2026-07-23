@@ -27,8 +27,10 @@ struct HitRecord {
 class Triangle {
   public:
     Triangle(const vec3 &v0, const vec3 &v1, const vec3 &v2, Material &mat, const vec2 &uv0, const vec2 &uv1,
-             const vec2 &uv2, const vec3 &n0, const vec3 &n1, const vec3 &n2, const vec3 &t0, const vec3 &t1, const vec3 &t2)
-        : v0_(v0), v1_(v1), v2_(v2), mat_(mat), uv0_(uv0), uv1_(uv1), uv2_(uv2), n0_(n0), n1_(n1), n2_(n2), t0_(t0), t1_(t1), t2_(t2) {}
+             const vec2 &uv2, const vec3 &n0, const vec3 &n1, const vec3 &n2, const vec3 &t0, const vec3 &t1,
+             const vec3 &t2)
+        : v0_(v0), v1_(v1), v2_(v2), mat_(mat), uv0_(uv0), uv1_(uv1), uv2_(uv2), n0_(n0), n1_(n1), n2_(n2), t0_(t0),
+          t1_(t1), t2_(t2) {}
 
     bool hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, const std::vector<Texture> &textures) const {
         vec2 bary;
@@ -49,13 +51,19 @@ class Triangle {
     // https://learnopengl.com/Advanced-Lighting/Normal-Mapping
     vec3 get_normal(const vec2 &bary, const std::vector<Texture> &textures) const {
         vec3 N = glm::normalize(compute_bary(bary, n0_, n1_, n2_));
+        // return N;
+
         if (mat_.norm_index.has_value()) {
+            // LOG_INFO("N before: {}, {}, {}", N.x, N.y, N.z);
             vec3 normal = normal_sample(&textures[*mat_.norm_index], compute_bary(bary, uv0_, uv1_, uv2_));
             vec3 T = glm::normalize(compute_bary(bary, t0_, t1_, t2_));
             T = glm::normalize(T - N * glm::dot(N, T));
             vec3 B = glm::cross(N, T);
             mat3 TBN(T, B, N);
-            return glm::normalize(TBN * normal);
+            vec3 qqq = glm::normalize(TBN * normal);
+            // LOG_INFO("N after: {}, {}, {}", qqq.x, qqq.y, qqq.z);
+
+            return qqq;
         }
         return N;
     }
