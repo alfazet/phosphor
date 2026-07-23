@@ -128,6 +128,15 @@ void load_texture(const aiScene *aiscene, aiMaterial *mat, aiTextureType type, c
     Texture t;
     t.name = std::filesystem::path(path.C_Str()).filename().string();
     t.channels = 3;
+    aiUVTransform ai_transform;
+    if (mat->Get(AI_MATKEY_UVTRANSFORM(type, 0), ai_transform) == AI_SUCCESS) {
+        UVTransform ut;
+        ut.offset = vec2(ai_transform.mTranslation.x, ai_transform.mTranslation.y);
+        ut.rotation = ai_transform.mRotation;
+        ut.scale = vec2(ai_transform.mScaling.x, ai_transform.mScaling.y);
+        t.uv_transform = ut;
+    }
+
     const aiTexture *embedded_tex = aiscene->GetEmbeddedTexture(path.C_Str());
 
     // load embedded
@@ -294,7 +303,6 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
             }
 
             vec3 t0(0.0f), t1(0.0f), t2(0.0f);
-            vec3 b0(0.0f), b1(0.0f), b2(0.0f);
             if (mesh->mTangents) {
                 aiVector3D at0 = mesh->mTangents[face.mIndices[0]];
                 aiVector3D at1 = mesh->mTangents[face.mIndices[1]];

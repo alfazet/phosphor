@@ -5,15 +5,35 @@
 #include "glm/gtx/raw_data.hpp"
 #include "stb_image.h"
 
+struct UVTransform {
+    vec2 offset{0.0f, 0.0f};
+    f32 rotation = 0.0f;
+    vec2 scale{1.0f, 1.0f};
+};
+
 struct Texture {
     i32 width;
     i32 height;
     i32 channels;
     std::string name;
     std::vector<u8> data;
+
+    std::optional<UVTransform> uv_transform;
 };
 
 enum channels { CHANNEL_R, CHANNEL_G, CHANNEL_B };
+
+inline vec2 apply_uv_transform(vec2 uv, const UVTransform &t) {
+    vec2 scaled = uv * t.scale;
+    f32 c = glm::cos(t.rotation);
+    f32 s = glm::sin(t.rotation);
+    vec2 rotated(c * scaled.x - s * scaled.y, s * scaled.x + c * scaled.y);
+    return rotated + t.offset;
+}
+
+inline vec2 transformed_uv(const Texture *t, vec2 uv) {
+    return t->uv_transform.has_value() ? apply_uv_transform(uv, *t->uv_transform) : uv;
+}
 
 inline vec3 naive_sample(const Texture *t, vec2 uv) {
     uv.x = uv.x - floor(uv.x);
@@ -26,9 +46,10 @@ inline vec3 naive_sample(const Texture *t, vec2 uv) {
     return vec3(t->data[idx], t->data[idx + 1], t->data[idx + 2]) / 255.0f;
 }
 
-// TODO: different sampling here
 // https://en.wikipedia.org/wiki/Bilinear_interpolation
 inline vec3 sample(const Texture *t, vec2 uv) {
+    uv = transformed_uv(t, uv);
+
     uv.x = uv.x - floor(uv.x);
     uv.y = uv.y - floor(uv.y);
     uv.y = 1.0 - uv.y;
