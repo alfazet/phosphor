@@ -9,7 +9,6 @@
 
 void Scene::add_point_light(const PointLight &light) { point_lights.push_back(light); }
 void Scene::add_textured_light(const TexturedLight &light) { textured_lights.push_back(light); }
-void Scene::add_triangle(const Triangle &object) { objects.triangles.push_back(object); }
 void Scene::add_camera(const Camera &camera) { cameras.push_back(camera); }
 void Scene::add_texture(const Texture &texture) { textures.push_back(texture); }
 
@@ -53,7 +52,7 @@ void Scene::generate_image(u32 image_height, u32 n, u32 photons_per_light, u32 m
 
     if (point_lights.empty() && textured_lights.empty())
         LOG_ERROR("scene contains no lights");
-    if (objects.triangles.empty())
+    if ((*objects.objects).empty())
         LOG_ERROR("scene contains no triangles");
 
     const u32 image_width = image_height * get_camera().aspect_ratio;
@@ -272,24 +271,13 @@ void Scene::set_camera(i32 i) {
 
 void Scene::add_default_camera() {
     BoundingBox b = get_bounding_box();
-    cameras.emplace_back(b.min, b.max, DEFAULT_CAMERA_HFOV, DEFAULT_CAMERA_RATIO);
+    vec3 minb = vec3(b.x.start, b.y.start, b.z.start);
+    vec3 maxb = vec3(b.x.end, b.y.end, b.z.end);
+    cameras.emplace_back(minb, maxb, DEFAULT_CAMERA_HFOV, DEFAULT_CAMERA_RATIO);
 }
 
 BoundingBox Scene::get_bounding_box() const {
-    vec3 minp(INF);
-    vec3 maxp(-INF);
-
-    for (const auto &tri : objects.triangles) {
-        minp = glm::min(minp, tri.v0_);
-        minp = glm::min(minp, tri.v1_);
-        minp = glm::min(minp, tri.v2_);
-
-        maxp = glm::max(maxp, tri.v0_);
-        maxp = glm::max(maxp, tri.v1_);
-        maxp = glm::max(maxp, tri.v2_);
-    }
-
-    return {minp, maxp};
+    return objects.boundingBox;
 }
 
 static LightSample sample_point_light(RngState &rng, const PointLight &l) {
@@ -311,10 +299,10 @@ LightSample sample_textured_light(RngState &rng, const TexturedLight &light, con
 
     // pick a random triangle from this mesh's range
     // TODO: importance sampling proportional to triangle's area
-    u32 i = static_cast<u32>(random_float(rng) * light.triangle_count);
-    if (i >= light.triangle_count)
-        i = light.triangle_count - 1;
-    const Triangle &tri = scene.objects.triangles[light.triangle_start + i];
+    u32 count = static_cast<u32>(light.triangles.size());
+    u32 i = static_cast<u32>(random_float(rng) * count);
+    if (i >= count) i = count - 1;
+    const Triangle &tri = light.triangles[i];
 
     f32 u = random_float(rng);
     f32 v = random_float(rng);

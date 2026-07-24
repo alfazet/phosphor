@@ -8,7 +8,7 @@
 #include <filesystem>
 #include <iostream>
 
-void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 current_transform);
+void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 current_transform, std::vector<Triangle> &triangles);
 
 mat4 ai_matrix4x4_to_glm(const aiMatrix4x4 &from) {
     mat4 to;
@@ -226,7 +226,10 @@ std::vector<Scene> read_file(const char *file_name, RngState rng) {
     parse_textures(aiscene, parsed_scene, texture_path.c_str());
 
     mat4 identity(1.0f);
-    process_node(aiscene->mRootNode, aiscene, parsed_scene, identity);
+    std::vector<Triangle> triangles;
+    process_node(aiscene->mRootNode, aiscene, parsed_scene, identity, triangles);
+    parsed_scene.objects = Triangles(std::make_shared<std::vector<Triangle>>(triangles), 0, triangles.size());
+
     if (!aiscene->HasCameras()) {
         LOG_WARN("scene has no cameras, using default");
         parsed_scene.add_default_camera();
@@ -240,7 +243,7 @@ std::vector<Scene> read_file(const char *file_name, RngState rng) {
 }
 
 // parsing the tree
-void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 parent_transform) {
+void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 parent_transform, std::vector<Triangle> &triangles) {
     mat4 local_transform = ai_matrix4x4_to_glm(node->mTransformation);
     mat4 global_transform = parent_transform * local_transform;
 
@@ -266,8 +269,8 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
 
         std::optional<usize> emis_tex_index;
         Material mat = parse_material(aiscene, mesh, out_scene.textures, emis_tex_index);
-        u32 triangle_start = static_cast<u32>(out_scene.objects.triangles.size());
 
+        u32 triangle_start = static_cast<u32>(triangles.size());
         for (usize f = 0; f < mesh->mNumFaces; f++) {
             aiFace face = mesh->mFaces[f];
 
@@ -330,27 +333,24 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
             }
 
             Triangle triangle(p0, p1, p2, mat, uv0, uv1, uv2, n0, n1, n2, t0, t1, t2);
-            out_scene.add_triangle(triangle);
+            triangles.push_back(triangle);
         }
 
         if (emis_tex_index.has_value()) {
-            u32 triangle_count = static_cast<u32>(out_scene.objects.triangles.size()) - triangle_start;
-            if (triangle_count > 0) {
-                f32 total_area = 0.0f;
-                for (u32 k = 0; k < triangle_count; k++)
-                    total_area += out_scene.objects.triangles[triangle_start + k].area();
-                TexturedLight light;
-                light.tex_index = *emis_tex_index;
-                light.triangle_start = triangle_start;
-                light.triangle_count = triangle_count;
-                light.total_area = total_area;
-                out_scene.add_textured_light(light);
+            TexturedLight light;
+            light.tex_index = *emis_tex_index;
+            light.total_area = 0.0f;
+            for (u32 k = triangle_start; k < triangles.size(); k++) {
+                light.triangles.push_back(triangles[k]);
+                light.total_area += triangles[k].area();
             }
+            if (!light.triangles.empty())
+                out_scene.add_textured_light(light);
         }
     }
 
     // parse children
     for (usize i = 0; i < node->mNumChildren; i++) {
-        process_node(node->mChildren[i], aiscene, out_scene, global_transform);
+        process_node(node->mChildren[i], aiscene, out_scene, global_transform, triangles);
     }
 }

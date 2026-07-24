@@ -45,8 +45,9 @@ inline void print_spanning_box(const Scene &scene) {
     BoundingBox b = scene.get_bounding_box();
 
     LOG_INFO("scene bounding box {{");
-    LOG_INFO("  min : {}", b.min);
-    LOG_INFO("  max : {}", b.max);
+    LOG_INFO("  x : [{}, {}]", b.x.start, b.x.end);
+    LOG_INFO("  y : [{}, {}]", b.y.start, b.y.end);
+    LOG_INFO("  z : [{}, {}]", b.z.start, b.z.end);
     LOG_INFO("}}");
 }
 

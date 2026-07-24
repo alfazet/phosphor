@@ -3,6 +3,7 @@
 
 #include "common.hpp"
 #include "ray.hpp"
+#include "triangle.hpp"
 
 struct LightSample {
     Ray ray;
@@ -24,8 +25,7 @@ struct AreaLight {
 
 struct TexturedLight {
     usize tex_index;
-    u32 triangle_start; // index into Scene::triangles_
-    u32 triangle_count;
+    std::vector<Triangle> triangles;
     f32 total_area;
 };
 

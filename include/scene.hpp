@@ -1,6 +1,7 @@
 #ifndef PHOSPHOR_SCENE_HPP
 #define PHOSPHOR_SCENE_HPP
 
+#include "bounding_box.hpp"
 #include "camera.hpp"
 #include "common.hpp"
 #include "image.hpp"
@@ -15,15 +16,18 @@
 
 #include <vector>
 
-struct BoundingBox {
-    vec3 min;
-    vec3 max;
-};
-
 struct Scene {
+    Triangles objects;
+    std::vector<PointLight> point_lights;
+    std::vector<TexturedLight> textured_lights;
+    std::vector<Camera> cameras;
+    std::vector<Texture> textures;
+    i32 chosen_camera = -1;
+    PhotonMap photon_map;
+
     void add_point_light(const PointLight &light);
     void add_textured_light(const TexturedLight &light);
-    void add_triangle(const Triangle &object);
+    void add_triangle(const Triangle &triangle);
     void add_camera(const Camera &camera);
     void add_texture(const Texture &texture);
 
@@ -50,14 +54,6 @@ struct Scene {
     BoundingBox get_bounding_box() const;
 
     void trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces);
-
-    Triangles objects;
-    std::vector<PointLight> point_lights;
-    std::vector<TexturedLight> textured_lights;
-    std::vector<Camera> cameras;
-    std::vector<Texture> textures;
-    i32 chosen_camera = -1;
-    PhotonMap photon_map;
 };
 
 #endif // PHOSPHOR_SCENE_HPP
