@@ -3,7 +3,6 @@
 
 #include "camera.hpp"
 #include "common.hpp"
-#include "hittable.hpp"
 #include "image.hpp"
 #include "light.hpp"
 #include "material.hpp"
@@ -11,6 +10,8 @@
 #include "random.hpp"
 #include "ray.hpp"
 #include "texture.hpp"
+#include "triangle.hpp"
+#include "triangles.hpp"
 
 #include <vector>
 
@@ -19,15 +20,13 @@ struct BoundingBox {
     vec3 max;
 };
 
-class Scene {
-  public:
+struct Scene {
     void add_point_light(const PointLight &light);
     void add_textured_light(const TexturedLight &light);
     void add_triangle(const Triangle &object);
     void add_camera(const Camera &camera);
     void add_texture(const Texture &texture);
 
-    bool hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out, vec2 &uv) const;
 
     void emit(u32 photons_per_light, u32 max_bounces, u32 n_threads);
     void run_thread_emit(u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces, const vec3 photon_power,
@@ -35,7 +34,7 @@ class Scene {
     void run_thread_textured_emit(u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces, f32 fraction,
                                   const TexturedLight &light);
 
-    vec3 get_color(const Ray &ray, const HitRecord &rec, u32 n, Material &mat, vec2 &uv, u32 depth_left);
+    vec3 get_color(RngState &rng, const Ray &ray, const HitRecord &rec, u32 n, Material &mat, vec2 &uv, u32 depth_left);
 
     Camera &get_camera();
 
@@ -43,21 +42,16 @@ class Scene {
 
     void add_default_camera();
 
-    const std::vector<Triangle> &triangles() const { return triangles_; }
-    const std::vector<Texture> &textures() const { return textures_; }
-
-    void run_thread_image_generation(RngState &rng, u32 offset, u32 n_threads, ProgressScope &img_progress, Image &img,
+    void run_thread_image_generation(u32 offset, u32 n_threads, ProgressScope &img_progress, Image &img,
                                      u32 image_height, u32 image_width, u32 n, u32 image_iters);
-    void generate_image_row(RngState &rng, Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n, u32 image_iters);
-    void generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
+    void generate_image_row(Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n, u32 image_iters);
+    void generate_image(u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
                         const char *output_path, u32 n_threads, u32 image_iters);
     BoundingBox get_bounding_box() const;
 
-  private:
-    void trace_photon(u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces);
+    void trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces);
 
-    RngState rng;
-    std::vector<Triangle> triangles_;
+    Triangles objects;
     std::vector<PointLight> point_lights_;
     std::vector<TexturedLight> textured_lights_;
     std::vector<Camera> cameras_;

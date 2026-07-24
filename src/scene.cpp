@@ -1,4 +1,5 @@
 #include "scene.hpp"
+#include "glm/detail/_noise.hpp"
 #include "image.hpp"
 #include "logger.hpp"
 #include "random.hpp"
@@ -8,7 +9,7 @@
 
 void Scene::add_point_light(const PointLight &light) { point_lights_.push_back(light); }
 void Scene::add_textured_light(const TexturedLight &light) { textured_lights_.push_back(light); }
-void Scene::add_triangle(const Triangle &object) { triangles_.push_back(object); }
+void Scene::add_triangle(const Triangle &object) { objects.triangles_.push_back(object); }
 void Scene::add_camera(const Camera &camera) { cameras_.push_back(camera); }
 void Scene::add_texture(const Texture &texture) { textures_.push_back(texture); }
 
@@ -17,32 +18,9 @@ static LightSample sample_textured_light(RngState &rng, const TexturedLight &lig
 static LightSample sample_point_light(RngState &rng, const PointLight &l);
 static LightSample sample_area_light(RngState &rng, const AreaLight &l);
 
-bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out, vec2 &uv) const {
-    HitRecord temp;
-    bool hit_anything = false;
-    f32 closest = t_max;
-    const Triangle *closest_t = nullptr;
-
-    // space for improvement - do not check all objects in scene
-    for (const auto &object : triangles_) {
-        if (object.hit(r, t_min, closest, temp, textures())) {
-            hit_anything = true;
-            closest = temp.t;
-            rec = temp;
-            closest_t = &object;
-        }
-    }
-
-    if (hit_anything) {
-        mat_out = closest_t->mat_;
-        uv = compute_bary(rec.bary, closest_t->uv0_, closest_t->uv1_, closest_t->uv2_);
-    }
-
-    return hit_anything;
-}
-
-void Scene::generate_image_row(RngState &rng, Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n,
+void Scene::generate_image_row(Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n,
                                u32 image_iters) {
+    RngState rng_local = RngState(row_number);
     u32 y = row_number;
     HitRecord rec;
     Material mat;
@@ -50,33 +28,32 @@ void Scene::generate_image_row(RngState &rng, Image &img, u32 row_number, u32 im
     for (u32 x = 0; x < image_width; x++) {
         vec3 color = vec3(0.0f);
         for (i32 j = 0; j < image_iters; j++) {
-            const f32 s = ((x + 0.5f + random_float(rng) - 0.5f) / static_cast<f32>(image_width));
-            const f32 t = (1.0f - (y + 0.5f + random_float(rng) - 0.5f) / static_cast<f32>(image_height));
-            Ray r = get_camera().get_ray(rng, s, t);
+            const f32 s = ((x + 0.5f + random_float(rng_local) - 0.5f) / static_cast<f32>(image_width));
+            const f32 t = (1.0f - (y + 0.5f + random_float(rng_local) - 0.5f) / static_cast<f32>(image_height));
+            Ray r = get_camera().get_ray(rng_local, s, t);
 
-            if (hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat, uv))
-                color += get_color(r, rec, n, mat, uv, 5);
+            if (objects.hit(r, interval(0.001f, std::numeric_limits<f32>::max()), rec, mat, uv, textures_))
+                color += get_color(rng_local, r, rec, n, mat, uv, 5);
         }
         img.set_pixel(x, y, color / static_cast<f32>(image_iters));
     }
 }
 
-void Scene::run_thread_image_generation(RngState &rng, u32 offset, u32 n_threads, ProgressScope &img_progress,
+void Scene::run_thread_image_generation(u32 offset, u32 n_threads, ProgressScope &img_progress,
                                         Image &img, u32 image_height, u32 image_width, u32 n, u32 image_iters) {
     for (u32 i = offset; i < image_height; i += n_threads) {
-        generate_image_row(rng, img, i, image_height, image_width, n, image_iters);
+        generate_image_row(img, i, image_height, image_width, n, image_iters);
         img_progress.increase(1);
     }
 }
 
-void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
+void Scene::generate_image(u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
                            const char *output_path, u32 n_threads, u32 image_iters) {
     TimerScope timer_scope("generating image");
 
-    this->rng = rng;
     if (point_lights_.empty() && textured_lights_.empty())
         LOG_ERROR("scene contains no lights");
-    if (triangles_.empty())
+    if (objects.triangles_.empty())
         LOG_ERROR("scene contains no triangles");
 
     const u32 image_width = image_height * get_camera().aspect_ratio;
@@ -86,7 +63,7 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
     ProgressScope img_progress("generating image", image_height);
     std::thread threads[n_threads];
     for (u32 i = 0; i < n_threads; i++) {
-        threads[i] = std::thread(&Scene::run_thread_image_generation, this, std::ref(rng), i, n_threads,
+        threads[i] = std::thread(&Scene::run_thread_image_generation, this, i, n_threads,
                                  std::ref(img_progress), std::ref(img), image_height, image_width, n, image_iters);
     }
     for (u32 i = 0; i < n_threads; i++) {
@@ -98,14 +75,14 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
     LOG_INFO("saved image to {}", output_path);
 }
 
-void Scene::trace_photon(u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
+void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
     if (depth >= max_bounces)
         return;
 
     HitRecord rec;
     Material mat;
     vec2 uv;
-    if (!hit(r, 0.001f, std::numeric_limits<f32>::max(), rec, mat, uv))
+    if (!objects.hit(r, interval(0.001f, std::numeric_limits<f32>::max()), rec, mat, uv, textures_))
         return;
 
     f32 phi = glm::atan(r.direction.y, r.direction.x);
@@ -123,7 +100,7 @@ void Scene::trace_photon(u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bo
         metallic *= sample(tex, uv, CHANNEL_B);
         roughness *= sample(tex, uv, CHANNEL_G);
     }
-    const f32 xi = random_float(this->rng);
+    const f32 xi = random_float(rng);
 
     // https://github.com/KhronosGroup/glTF/blob/77b44be7bef26e01fb0b140e3d5bb1716421c5e9/extensions/2.0/Archived/KHR_materials_pbrSpecularGlossiness/examples/convert-between-workflows-bjs/js/babylon.pbrUtilities.js#L12
     vec3 dielectric_specular = vec3(0.04f);
@@ -143,12 +120,12 @@ void Scene::trace_photon(u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bo
     f32 rho_s = rho_r - rho_d;
 
     if (xi < rho_d) {
-        const vec3 new_dir = random_in_hemisphere_cosine(this->rng, rec.normal);
-        trace_photon(id, Ray(rec.point, new_dir), power * d / rho_d, depth + 1, max_bounces);
+        const vec3 new_dir = random_in_hemisphere_cosine(rng, rec.normal);
+        trace_photon(rng, id, Ray(rec.point, new_dir), power * d / rho_d, depth + 1, max_bounces);
     } else if (xi < rho_s + rho_d) {
-        const vec3 new_dir = ggx_sample_direction(this->rng, r.direction, rec.normal, roughness);
+        const vec3 new_dir = ggx_sample_direction(rng, r.direction, rec.normal, roughness);
         if (new_dir != ZERO_VEC)
-            trace_photon(id, Ray(rec.point, new_dir), power * s_eff / rho_s, depth + 1, max_bounces);
+            trace_photon(rng, id, Ray(rec.point, new_dir), power * s_eff / rho_s, depth + 1, max_bounces);
     }
     // else the photon is absorbed
 }
@@ -201,23 +178,25 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces, u32 n_threads) {
 
 void Scene::run_thread_emit(u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces, const vec3 photon_power,
                             const vec3 light_pos) {
+    RngState rng = RngState(id);
     for (u32 i = 0; i < photons; i++) {
-        const vec3 dir = random_unit_vector(this->rng);
-        trace_photon(id, Ray(light_pos, dir), photon_power, 0, max_bounces);
+        const vec3 dir = random_unit_vector(rng);
+        trace_photon(rng, id, Ray(light_pos, dir), photon_power, 0, max_bounces);
         img_progress.increase(1);
     }
 }
 
 void Scene::run_thread_textured_emit(u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces, f32 fraction,
                                      const TexturedLight &light) {
+    RngState rng = RngState(id);
     for (u32 i = 0; i < photons; i++) {
-        auto sample = sample_textured_light(this->rng, light, *this, fraction);
-        trace_photon(id, sample.ray, sample.power, 0, max_bounces);
+        auto sample = sample_textured_light(rng, light, *this, fraction);
+        trace_photon(rng, id, sample.ray, sample.power, 0, max_bounces);
         img_progress.increase(1);
     }
 }
 
-vec3 Scene::get_color(const Ray &ray, const HitRecord &rec, const u32 n, Material &mat, vec2 &uv, u32 depth_left) {
+vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const u32 n, Material &mat, vec2 &uv, u32 depth_left) {
     if (depth_left == 0)
         return BLACK;
     auto pos = rec.point;
@@ -262,14 +241,14 @@ vec3 Scene::get_color(const Ray &ray, const HitRecord &rec, const u32 n, Materia
     }
 
     vec3 reflected_color = BLACK;
-    const vec3 new_dir = ggx_sample_direction(this->rng, ray.direction, normal, roughness);
+    const vec3 new_dir = ggx_sample_direction(rng, ray.direction, normal, roughness);
     if (new_dir != ZERO_VEC) {
         HitRecord reflected_rec;
         Material reflected_mat;
         vec2 reflected_uv;
         Ray reflected = Ray(pos, glm::normalize(new_dir));
-        if (hit(reflected, 0.001f, std::numeric_limits<f32>::max(), reflected_rec, reflected_mat, reflected_uv))
-            reflected_color = get_color(reflected, reflected_rec, n, reflected_mat, reflected_uv, depth_left - 1);
+        if (objects.hit(reflected, interval(0.001f, std::numeric_limits<f32>::max()), reflected_rec, reflected_mat, reflected_uv, textures_))
+            reflected_color = get_color(rng, reflected, reflected_rec, n, reflected_mat, reflected_uv, depth_left - 1);
     }
 
     f32 occlusion = 1.0f;
@@ -300,7 +279,7 @@ BoundingBox Scene::get_bounding_box() const {
     vec3 minp(INF);
     vec3 maxp(-INF);
 
-    for (const auto &tri : triangles_) {
+    for (const auto &tri : objects.triangles_) {
         minp = glm::min(minp, tri.v0_);
         minp = glm::min(minp, tri.v1_);
         minp = glm::min(minp, tri.v2_);
@@ -328,14 +307,14 @@ static LightSample sample_area_light(RngState &rng, const AreaLight &l) {
 }
 
 LightSample sample_textured_light(RngState &rng, const TexturedLight &light, const Scene &scene, f32 photon_fraction) {
-    const Texture &tex = scene.textures()[light.tex_index];
+    const Texture &tex = scene.textures_[light.tex_index];
 
     // pick a random triangle from this mesh's range
     // TODO: importance sampling proportional to triangle's area
     u32 i = static_cast<u32>(random_float(rng) * light.triangle_count);
     if (i >= light.triangle_count)
         i = light.triangle_count - 1;
-    const Triangle &tri = scene.triangles()[light.triangle_start + i];
+    const Triangle &tri = scene.objects.triangles_[light.triangle_start + i];
 
     f32 u = random_float(rng);
     f32 v = random_float(rng);
@@ -347,7 +326,7 @@ LightSample sample_textured_light(RngState &rng, const TexturedLight &light, con
     vec3 point = tri.point_at(u, v);
     vec2 uv = tri.uv_at(u, v);
     vec3 emission = sample(&tex, uv);
-    vec3 normal = tri.get_normal(vec2(u, v), scene.textures());
+    vec3 normal = tri.get_normal(vec2(u, v), scene.textures_);
     point += normal * 0.001f;
     vec3 dir = random_in_hemisphere(rng, normal);
     vec3 power = emission * light.total_area * glm::pi<f32>() * photon_fraction;

@@ -206,7 +206,7 @@ void parse_textures(const aiScene *aiscene, Scene &out_scene, const char *direct
     }
 }
 
-std::vector<Scene> read_file(const char *file_name) {
+std::vector<Scene> read_file(const char *file_name, RngState rng) {
     TimerScope timer_scope("loading scenes");
 
     std::vector<Scene> scenes;
@@ -265,8 +265,8 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
         mat3 normal_matrix = glm::transpose(glm::inverse(mat3(global_transform)));
 
         std::optional<usize> emis_tex_index;
-        Material mat = parse_material(aiscene, mesh, out_scene.textures(), emis_tex_index);
-        u32 triangle_start = static_cast<u32>(out_scene.triangles().size());
+        Material mat = parse_material(aiscene, mesh, out_scene.textures_, emis_tex_index);
+        u32 triangle_start = static_cast<u32>(out_scene.objects.triangles_.size());
 
         for (usize f = 0; f < mesh->mNumFaces; f++) {
             aiFace face = mesh->mFaces[f];
@@ -334,11 +334,11 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
         }
 
         if (emis_tex_index.has_value()) {
-            u32 triangle_count = static_cast<u32>(out_scene.triangles().size()) - triangle_start;
+            u32 triangle_count = static_cast<u32>(out_scene.objects.triangles_.size()) - triangle_start;
             if (triangle_count > 0) {
                 f32 total_area = 0.0f;
                 for (u32 k = 0; k < triangle_count; k++)
-                    total_area += out_scene.triangles()[triangle_start + k].area();
+                    total_area += out_scene.objects.triangles_[triangle_start + k].area();
                 TexturedLight light;
                 light.tex_index = *emis_tex_index;
                 light.triangle_start = triangle_start;

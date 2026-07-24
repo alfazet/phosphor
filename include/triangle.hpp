@@ -3,6 +3,7 @@
 
 #include "common.hpp"
 #include "glm/gtx/intersect.hpp"
+#include "interval.hpp"
 #include "logger.hpp"
 #include "material.hpp"
 #include "memory"
@@ -32,18 +33,18 @@ class Triangle {
         : v0_(v0), v1_(v1), v2_(v2), mat_(mat), uv0_(uv0), uv1_(uv1), uv2_(uv2), n0_(n0), n1_(n1), n2_(n2), t0_(t0),
           t1_(t1), t2_(t2) {}
 
-    bool hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, const std::vector<Texture> &textures) const {
+    bool hit(const Ray &r, interval t, HitRecord &rec, const std::vector<Texture> &textures) const {
         vec2 bary;
-        f32 t;
-        if (!glm::intersectRayTriangle(r.origin, r.direction, v0_, v1_, v2_, bary, t))
+        f32 t0;
+        if (!glm::intersectRayTriangle(r.origin, r.direction, v0_, v1_, v2_, bary, t0))
             return false;
-        if (t < t_min || t > t_max)
+        if (t0 < t.start || t0 > t.end)
             return false;
 
         vec3 normal_ = get_normal(bary, textures);
-        rec.t = t;
+        rec.t = t0;
         rec.bary = bary;
-        rec.point = r.at(t);
+        rec.point = r.at(t0);
         rec.set_face_normal(r, normal_);
         return true;
     }
