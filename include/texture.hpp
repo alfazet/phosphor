@@ -5,6 +5,8 @@
 #include "glm/gtx/raw_data.hpp"
 #include "stb_image.h"
 
+#include <optional>
+
 struct UVTransform {
     vec2 offset{0.0f, 0.0f};
     f32 rotation = 0.0f;
