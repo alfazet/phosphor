@@ -1,7 +1,7 @@
 #include "triangles.hpp"
 
 Triangles::Triangles() {
-    triangles_ = {};
+    triangles = {};
 }
 
 bool Triangles::hit(const Ray &r, interval t, HitRecord &rec, Material &mat_out, vec2 &uv, const std::vector<Texture> &textures) const {
@@ -11,7 +11,7 @@ bool Triangles::hit(const Ray &r, interval t, HitRecord &rec, Material &mat_out,
     const Triangle *closest_t = nullptr;
 
     // space for improvement - do not check all objects in scene
-    for (const auto &object : triangles_) {
+    for (const auto &object : triangles) {
         if (object.hit(r, interval(t.start, closest), temp, textures)) {
             hit_anything = true;
             closest = temp.t;

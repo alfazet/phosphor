@@ -27,17 +27,17 @@ template <glm::length_t L, typename T, glm::qualifier Q> struct std::formatter<g
 
 inline void print_camera(const Camera &camera) {
     LOG_INFO("camera {{");
-    LOG_INFO("  position : {}", camera.position_);
-    LOG_INFO("  target   : {}", camera.target_);
-    LOG_INFO("  up       : {}", camera.up_);
+    LOG_INFO("  position : {}", camera.position);
+    LOG_INFO("  target   : {}", camera.target);
+    LOG_INFO("  up       : {}", camera.up);
     LOG_INFO("  hfov     : {} deg", camera.hfov);
     LOG_INFO("  aspect   : {}", camera.aspect_ratio);
-    LOG_INFO("  u        : {}", camera.u_);
-    LOG_INFO("  v        : {}", camera.v_);
-    LOG_INFO("  w        : {}", camera.w_);
-    LOG_INFO("  lower_left_corner : {}", camera.lower_left_corner_);
-    LOG_INFO("  horizontal        : {}", camera.horizontal_);
-    LOG_INFO("  vertical          : {}", camera.vertical_);
+    LOG_INFO("  u        : {}", camera.u);
+    LOG_INFO("  v        : {}", camera.v);
+    LOG_INFO("  w        : {}", camera.w);
+    LOG_INFO("  lower_left_corner : {}", camera.lower_left_corner);
+    LOG_INFO("  horizontal        : {}", camera.horizontal);
+    LOG_INFO("  vertical          : {}", camera.vertical);
     LOG_INFO("}}");
 }
 

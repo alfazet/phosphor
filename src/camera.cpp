@@ -1,7 +1,7 @@
 #include "camera.hpp"
 
 Camera::Camera(vec3 position, vec3 target, vec3 up, f32 hfov_degrees, f32 aspect_ratio)
-    : position_(position), target_(target), up_(up), hfov(hfov_degrees), aspect_ratio(aspect_ratio) {
+    : position(position), target(target), up(up), hfov(hfov_degrees), aspect_ratio(aspect_ratio) {
     update();
 }
 
@@ -18,9 +18,9 @@ Camera::Camera(const vec3 &minp, const vec3 &maxp, f32 hfov_degrees, f32 aspect_
     const f32 min_size = glm::max(glm::max(size.x, size.y), size.z) * 0.01f + 0.001f;
     const vec3 safe_inset = glm::max(inset, vec3(min_size));
 
-    target_ = center;
-    position_ = maxp - safe_inset;
-    up_ = vec3(0, 1, 0);
+    target = center;
+    position = maxp - safe_inset;
+    up = vec3(0, 1, 0);
 
     update();
 }
@@ -33,21 +33,21 @@ void Camera::update() {
     const f32 viewport_width = 2.0f * w;
     const f32 viewport_height = viewport_width / aspect_ratio;
 
-    w_ = glm::normalize(position_ - target_);
-    u_ = glm::normalize(glm::cross(up_, w_));
-    v_ = glm::cross(w_, u_);
+    w = glm::normalize(position - target);
+    u = glm::normalize(glm::cross(up, w));
+    v = glm::cross(w, u);
 
-    horizontal_ = viewport_width * u_;
-    vertical_ = viewport_height * v_;
-    lower_left_corner_ = position_ - horizontal_ / 2.0f - vertical_ / 2.0f - w_;
+    horizontal = viewport_width * u;
+    vertical = viewport_height * v;
+    lower_left_corner = position - horizontal / 2.0f - vertical / 2.0f - w;
 }
 
 void Camera::set_position(const vec3 &position) {
-    position_ = position;
+    position = position;
     update();
 }
 
 Ray Camera::get_ray(RngState &rng, f32 s, f32 t) const {
-    const vec3 direction = lower_left_corner_ + s * horizontal_ + t * vertical_ - position_;
-    return Ray(position_, glm::normalize(direction));
+    const vec3 direction = lower_left_corner + s * horizontal + t * vertical - position;
+    return Ray(position, glm::normalize(direction));
 }

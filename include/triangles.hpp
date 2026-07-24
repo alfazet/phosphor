@@ -7,7 +7,7 @@
 
 struct Triangles {
     Triangles();
-    std::vector<Triangle> triangles_;
+    std::vector<Triangle> triangles;
 
     bool hit(const Ray &r, interval t, HitRecord &rec, Material &mat_out, vec2 &uv, const std::vector<Texture> &textures) const;
 };

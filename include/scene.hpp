@@ -52,12 +52,12 @@ struct Scene {
     void trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces);
 
     Triangles objects;
-    std::vector<PointLight> point_lights_;
-    std::vector<TexturedLight> textured_lights_;
-    std::vector<Camera> cameras_;
-    std::vector<Texture> textures_;
+    std::vector<PointLight> point_lights;
+    std::vector<TexturedLight> textured_lights;
+    std::vector<Camera> cameras;
+    std::vector<Texture> textures;
     i32 chosen_camera = -1;
-    PhotonMap photon_map_;
+    PhotonMap photon_map;
 };
 
 #endif // PHOSPHOR_SCENE_HPP
