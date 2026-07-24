@@ -29,8 +29,8 @@ void Camera::update() {
     ASSERT(hfov > 0 && hfov < 180, "hfov must be between 0 and 180 degrees exclusive");
     ASSERT(aspect_ratio > 0, "aspect_ratio must be positive");
 
-    const f32 w = glm::tan(glm::radians(hfov) / 2.0f);
-    const f32 viewport_width = 2.0f * w;
+    const f32 w2 = glm::tan(glm::radians(hfov) / 2.0f);
+    const f32 viewport_width = 2.0f * w2;
     const f32 viewport_height = viewport_width / aspect_ratio;
 
     w = glm::normalize(position - target);
@@ -40,11 +40,6 @@ void Camera::update() {
     horizontal = viewport_width * u;
     vertical = viewport_height * v;
     lower_left_corner = position - horizontal / 2.0f - vertical / 2.0f - w;
-}
-
-void Camera::set_position(const vec3 &position) {
-    position = position;
-    update();
 }
 
 Ray Camera::get_ray(RngState &rng, f32 s, f32 t) const {
