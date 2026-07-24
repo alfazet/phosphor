@@ -266,7 +266,7 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
 
         std::optional<usize> emis_tex_index;
         Material mat = parse_material(aiscene, mesh, out_scene.textures(), emis_tex_index);
-        u32 triangle_start = static_cast<u32>(out_scene.triangles().size());
+        u32 starting_tri_idx = static_cast<u32>(out_scene.triangles().size());
 
         for (usize f = 0; f < mesh->mNumFaces; f++) {
             aiFace face = mesh->mFaces[f];
@@ -334,16 +334,18 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
         }
 
         if (emis_tex_index.has_value()) {
-            u32 triangle_count = static_cast<u32>(out_scene.triangles().size()) - triangle_start;
-            if (triangle_count > 0) {
-                f32 total_area = 0.0f;
-                for (u32 k = 0; k < triangle_count; k++)
-                    total_area += out_scene.triangles()[triangle_start + k].area();
+            auto triangles = out_scene.triangles();
+            u32 n_triangles = static_cast<u32>(triangles.size()) - starting_tri_idx;
+            if (n_triangles > 0) {
+                std::vector<f32> area_pref_sum{triangles[starting_tri_idx].area()};
+                for (u32 k = 1; k < n_triangles; k++)
+                    area_pref_sum.push_back(area_pref_sum.back() + triangles[starting_tri_idx + k].area());
+
                 TexturedLight light;
                 light.tex_index = *emis_tex_index;
-                light.triangle_start = triangle_start;
-                light.triangle_count = triangle_count;
-                light.total_area = total_area;
+                light.starting_tri_idx = starting_tri_idx;
+                light.n_triangles = n_triangles;
+                light.area_pref_sum = area_pref_sum;
                 out_scene.add_textured_light(light);
             }
         }

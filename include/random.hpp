@@ -24,19 +24,13 @@ inline void pcg_seed(RngState &rng, u32 seed) {
     rng.state = rng.state * 747796405u + 2891336453u;
 }
 
-inline vec3 random_in_unit_sphere(RngState &rng) {
+inline vec3 random_unit_vector(RngState &rng) {
     vec3 p;
     do {
         p = 2.0f * vec3(random_float(rng), random_float(rng), random_float(rng)) - vec3(1.0f);
     } while (glm::dot(p, p) >= 1.0f);
-    return p;
-}
 
-inline vec3 random_unit_vector(RngState &rng) { return glm::normalize(random_in_unit_sphere(rng)); }
-
-inline vec3 random_in_hemisphere(RngState &rng, const vec3 &normal) {
-    const vec3 v = random_unit_vector(rng);
-    return (glm::dot(v, normal) > 0.0f) ? v : -v;
+    return glm::normalize(p);
 }
 
 inline void make_tbn(const vec3 &n, vec3 &t, vec3 &b) {
@@ -51,7 +45,7 @@ inline void make_tbn(const vec3 &n, vec3 &t, vec3 &b) {
 }
 
 // cosine-weighted random unit vector on a hemisphere (for diffuse)
-inline vec3 random_in_hemisphere_cosine(RngState &rng, const vec3 &normal) {
+inline vec3 random_in_unit_hemisphere(RngState &rng, const vec3 &normal) {
     f32 r1 = random_float(rng);
     f32 r2 = random_float(rng);
     f32 phi = 2.0f * glm::pi<f32>() * r1;

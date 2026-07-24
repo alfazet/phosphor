@@ -12,11 +12,6 @@ void Scene::add_triangle(const Triangle &object) { triangles_.push_back(object);
 void Scene::add_camera(const Camera &camera) { cameras_.push_back(camera); }
 void Scene::add_texture(const Texture &texture) { textures_.push_back(texture); }
 
-static LightSample sample_textured_light(RngState &rng, const TexturedLight &light, const Scene &scene,
-                                         f32 photon_fraction);
-static LightSample sample_point_light(RngState &rng, const PointLight &l);
-static LightSample sample_area_light(RngState &rng, const AreaLight &l);
-
 bool Scene::hit(const Ray &r, f32 t_min, f32 t_max, HitRecord &rec, Material &mat_out, vec2 &uv) const {
     HitRecord temp;
     bool hit_anything = false;
@@ -143,7 +138,7 @@ void Scene::trace_photon(u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bo
     f32 rho_s = rho_r - rho_d;
 
     if (xi < rho_d) {
-        const vec3 new_dir = random_in_hemisphere_cosine(this->rng, rec.normal);
+        const vec3 new_dir = random_in_unit_hemisphere(this->rng, rec.normal);
         trace_photon(id, Ray(rec.point, new_dir), power * d / rho_d, depth + 1, max_bounces);
     } else if (xi < rho_s + rho_d) {
         const vec3 new_dir = ggx_sample_direction(this->rng, r.direction, rec.normal, roughness);
@@ -211,7 +206,7 @@ void Scene::run_thread_emit(u32 id, u32 photons, ProgressScope &img_progress, u3
 void Scene::run_thread_textured_emit(u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces, f32 fraction,
                                      const TexturedLight &light) {
     for (u32 i = 0; i < photons; i++) {
-        auto sample = sample_textured_light(this->rng, light, *this, fraction);
+        auto sample = light.sample_light(this->rng, this->triangles_, this->textures_, fraction);
         trace_photon(id, sample.ray, sample.power, 0, max_bounces);
         img_progress.increase(1);
     }
@@ -311,46 +306,4 @@ BoundingBox Scene::get_bounding_box() const {
     }
 
     return {minp, maxp};
-}
-
-static LightSample sample_point_light(RngState &rng, const PointLight &l) {
-    return {Ray(l.pos, random_unit_vector(rng)), l.power};
-}
-
-static LightSample sample_area_light(RngState &rng, const AreaLight &l) {
-    float u = random_float(rng);
-    float v = random_float(rng);
-    vec3 pos = l.position + u * l.edge_u + v * l.edge_v;
-    vec3 normal = normalize(cross(l.edge_u, l.edge_v));
-    vec3 dir = random_in_hemisphere(rng, normal);
-
-    return {Ray(pos, dir), l.emission};
-}
-
-LightSample sample_textured_light(RngState &rng, const TexturedLight &light, const Scene &scene, f32 photon_fraction) {
-    const Texture &tex = scene.textures()[light.tex_index];
-
-    // pick a random triangle from this mesh's range
-    // TODO: importance sampling proportional to triangle's area
-    u32 i = static_cast<u32>(random_float(rng) * light.triangle_count);
-    if (i >= light.triangle_count)
-        i = light.triangle_count - 1;
-    const Triangle &tri = scene.triangles()[light.triangle_start + i];
-
-    f32 u = random_float(rng);
-    f32 v = random_float(rng);
-    if (u + v > 1.0f) {
-        u = 1.0f - u;
-        v = 1.0f - v;
-    }
-
-    vec3 point = tri.point_at(u, v);
-    vec2 uv = tri.uv_at(u, v);
-    vec3 emission = sample(&tex, uv);
-    vec3 normal = tri.get_normal(vec2(u, v), scene.textures());
-    point += normal * 0.001f;
-    vec3 dir = random_in_hemisphere(rng, normal);
-    vec3 power = emission * light.total_area * glm::pi<f32>() * photon_fraction;
-
-    return {Ray(point, dir), power};
 }
