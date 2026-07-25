@@ -2,7 +2,7 @@
 #define PHOSPHOR_RANDOM_HPP
 
 #include "common.hpp"
-#include "hittable.hpp"
+#include "triangle.hpp"
 
 struct RngState {
     u32 state;
@@ -79,9 +79,9 @@ inline vec3 ggx_sample_vndf(RngState &rng, const vec3 &normal, const vec3 &view,
 
     f32 r = glm::sqrt(u1);
     f32 phi = 2.0f * glm::pi<f32>() * u2;
-    float t1 = r * glm::cos(phi);
-    float t2 = r * glm::sin(phi);
-    float s = 0.5f * (1.0f + vh.z);
+    f32 t1 = r * glm::cos(phi);
+    f32 t2 = r * glm::sin(phi);
+    f32 s = 0.5f * (1.0f + vh.z);
     t2 = (1.0f - s) * glm::sqrt(1.0f - t1 * t1) + s * t2;
 
     vec3 nh = t1 * T1 + t2 * T2 + glm::sqrt(glm::max(0.0f, 1.0f - t1 * t1 - t2 * t2)) * vh;

@@ -10,9 +10,14 @@
 #include <iostream>
 
 void phosphor_main(const ArgsList &args) {
+    RngState rng;
+    pcg_seed(args.seed);
+
     auto scenes = read_file(args.model.c_str());
     usize scene_index = 0;
     LOG_INFO("using scene {}", scene_index);
+    if (scenes.size() == 0)
+        LOG_FATAL("scene not found");
     auto scene = scenes[scene_index];
 
     vec3 white = vec3(50.0f);
@@ -21,10 +26,8 @@ void phosphor_main(const ArgsList &args) {
     scene.add_point_light(PointLight(vec3(0.0f, 0.0f, 0.0f), white));
     print_spanning_box(scene);
     print_camera(scene.get_camera());
-
-    RngState rng = pcg_seed(args.seed);
-    scene.generate_image(std::move(rng), args.resolution, args.samples, args.photons_per_light, args.depth,
-                         args.output_path.c_str(), args.n_threads, args.image_iters);
+    scene.generate_image(args.resolution, args.samples, args.photons_per_light, args.depth, args.output_path.c_str(),
+                         args.n_threads, args.image_iters);
 }
 
 void init_logger() {

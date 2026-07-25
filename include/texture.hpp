@@ -102,6 +102,9 @@ inline vec3 normal_sample(const Texture *t, vec2 uv) {
     return glm::normalize(raw * 2.0f - 1.0f);
 }
 
+// TODO: put this behind a namespace because right
+// now the quite useful word "sample" leaks everywhere and can't be used
+// to name anything else
 inline f32 sample(const Texture *t, vec2 uv, channels ch) {
     auto sample_all = sample(t, uv);
     return sample_all[ch];

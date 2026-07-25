@@ -13,15 +13,15 @@ LightSample AreaLight::sample_light(RngState &rng) const {
 }
 
 // sample a random triangle from this mesh with importance sampling weighted by area
-LightSample TexturedLight::sample_light(RngState &rng, const std::vector<Triangle> &triangles,
-                                        const std::vector<Texture> &textures, f32 photon_frac) const {
+LightSample TexturedLight::sample_light(RngState &rng, const Triangles &triangles, const std::vector<Texture> &textures,
+                                        f32 photon_frac) const {
     auto pref_sum = this->area_pref_sum;
     f32 total_area = pref_sum.back();
     usize sample_idx =
         std::lower_bound(pref_sum.begin(), pref_sum.end(), random_float(rng) * total_area) - pref_sum.begin();
 
     const Texture &tex = textures[this->tex_index];
-    const Triangle &tri = triangles[sample_idx];
+    const Triangle &tri = triangles.at(sample_idx);
     f32 u = random_float(rng);
     f32 v = random_float(rng);
     if (u + v > 1.0f) {

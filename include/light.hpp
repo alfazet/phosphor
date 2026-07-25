@@ -4,6 +4,10 @@
 #include "common.hpp"
 #include "random.hpp"
 #include "ray.hpp"
+#include "triangle.hpp"
+#include "triangles.hpp"
+
+#include <algorithm>
 
 #include <algorithm>
 
@@ -32,16 +36,11 @@ struct AreaLight {
 
 struct TexturedLight {
     usize tex_index;
-    u32 starting_tri_idx; // index into Scene::triangles_
-    u32 n_triangles;
-    // TODO: this is very memory intensive,
-    // once we have a BVH this will be replaced by
-    // accessing the total area of all meshes contained
-    // in a given tree node
+    std::vector<Triangle> triangles;
     std::vector<f32> area_pref_sum;
 
-    LightSample sample_light(RngState &rng, const std::vector<Triangle> &triangles,
-                             const std::vector<Texture> &textures, f32 photon_frac) const;
+    LightSample sample_light(RngState &rng, const Triangles &triangles, const std::vector<Texture> &textures,
+                             f32 photon_frac) const;
 };
 
 #endif // PHOSPHOR_LIGHT_HPP
