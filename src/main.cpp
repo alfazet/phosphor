@@ -11,7 +11,7 @@
 
 void phosphor_main(const ArgsList &args) {
     RngState rng;
-    pcg_seed(rng, args.seed);
+    pcg_seed(args.seed);
 
     auto scenes = read_file(args.model.c_str());
     usize scene_index = 0;
@@ -26,8 +26,8 @@ void phosphor_main(const ArgsList &args) {
     scene.add_point_light(PointLight(vec3(0.0f, 0.0f, 0.0f), white));
     print_spanning_box(scene);
     print_camera(scene.get_camera());
-    scene.generate_image(args.resolution, args.samples, args.photons_per_light, args.depth,
-                         args.output_path.c_str(), args.n_threads, args.image_iters);
+    scene.generate_image(args.resolution, args.samples, args.photons_per_light, args.depth, args.output_path.c_str(),
+                         args.n_threads, args.image_iters);
 }
 
 void init_logger() {

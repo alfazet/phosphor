@@ -15,28 +15,26 @@ inline u32 pcg_random(RngState &rng) {
     return (((oldstate >> ((oldstate >> 28u) + 4u)) ^ oldstate) * 277803737u) >> 16u;
 }
 
-inline f32 random_float(RngState &rng) { return static_cast<f32>(pcg_random(rng)) / 65535.0f; }
-
-inline void pcg_seed(RngState &rng, u32 seed) {
+inline RngState pcg_seed(u32 seed) {
+    RngState rng;
     rng.state = 0u;
     rng.state = rng.state * 747796405u + 2891336453u;
     rng.state += seed;
     rng.state = rng.state * 747796405u + 2891336453u;
+    return rng;
 }
 
-inline vec3 random_in_unit_sphere(RngState &rng) {
+inline RngState make_thread_rng(RngState base, u32 thread_index) { return pcg_seed(base.state + thread_index); }
+
+inline f32 random_float(RngState &rng) { return static_cast<f32>(pcg_random(rng)) / 65535.0f; }
+
+inline vec3 random_unit_vector(RngState &rng) {
     vec3 p;
     do {
         p = 2.0f * vec3(random_float(rng), random_float(rng), random_float(rng)) - vec3(1.0f);
     } while (glm::dot(p, p) >= 1.0f);
-    return p;
-}
 
-inline vec3 random_unit_vector(RngState &rng) { return glm::normalize(random_in_unit_sphere(rng)); }
-
-inline vec3 random_in_hemisphere(RngState &rng, const vec3 &normal) {
-    const vec3 v = random_unit_vector(rng);
-    return (glm::dot(v, normal) > 0.0f) ? v : -v;
+    return glm::normalize(p);
 }
 
 inline void make_tbn(const vec3 &n, vec3 &t, vec3 &b) {
@@ -51,7 +49,7 @@ inline void make_tbn(const vec3 &n, vec3 &t, vec3 &b) {
 }
 
 // cosine-weighted random unit vector on a hemisphere (for diffuse)
-inline vec3 random_in_hemisphere_cosine(RngState &rng, const vec3 &normal) {
+inline vec3 random_in_unit_hemisphere(RngState &rng, const vec3 &normal) {
     f32 r1 = random_float(rng);
     f32 r2 = random_float(rng);
     f32 phi = 2.0f * glm::pi<f32>() * r1;
@@ -81,9 +79,9 @@ inline vec3 ggx_sample_vndf(RngState &rng, const vec3 &normal, const vec3 &view,
 
     f32 r = glm::sqrt(u1);
     f32 phi = 2.0f * glm::pi<f32>() * u2;
-    float t1 = r * glm::cos(phi);
-    float t2 = r * glm::sin(phi);
-    float s = 0.5f * (1.0f + vh.z);
+    f32 t1 = r * glm::cos(phi);
+    f32 t2 = r * glm::sin(phi);
+    f32 s = 0.5f * (1.0f + vh.z);
     t2 = (1.0f - s) * glm::sqrt(1.0f - t1 * t1) + s * t2;
 
     vec3 nh = t1 * T1 + t2 * T2 + glm::sqrt(glm::max(0.0f, 1.0f - t1 * t1 - t2 * t2)) * vh;

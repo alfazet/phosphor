@@ -15,13 +15,15 @@ bool box_compare1(Triangle &a, Triangle &b) { return box_compare(a, b, 1); }
 bool box_compare2(Triangle &a, Triangle &b) { return box_compare(a, b, 2); }
 
 Triangles::Triangles(std::shared_ptr<std::vector<Triangle>> triangles, u32 start, u32 end) {
-    objects = triangles;
+    this->objects = triangles;
     this->start = start;
     this->end = end;
     this->left = nullptr;
     this->right = nullptr;
     split();
 }
+
+const Triangle &Triangles::at(u32 i) const { return (*(this->objects))[i]; }
 
 void Triangles::split() {
     u32 span = end - start;
@@ -42,7 +44,7 @@ void Triangles::split() {
     boundingBox = BoundingBox(left->boundingBox, right->boundingBox);
 }
 
-bool Triangles::hit(const Ray &r, interval t, HitRecord &rec, Material &mat_out, vec2 &uv,
+bool Triangles::hit(const Ray &r, Interval t, HitRecord &rec, Material &mat_out, vec2 &uv,
                     const std::vector<Texture> &textures) const {
     if (!boundingBox.hit(r, t) || t.start > t.end)
         return false;
@@ -58,7 +60,7 @@ bool Triangles::hit(const Ray &r, interval t, HitRecord &rec, Material &mat_out,
     }
 
     bool hit_left = left->hit(r, t, rec, mat_out, uv, textures);
-    bool hit_right = right->hit(r, interval(t.start, hit_left ? rec.t : t.end), rec, mat_out, uv, textures);
+    bool hit_right = right->hit(r, Interval(t.start, hit_left ? rec.t : t.end), rec, mat_out, uv, textures);
 
     return hit_left || hit_right;
 }

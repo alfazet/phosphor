@@ -340,10 +340,12 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
         if (emis_tex_index.has_value()) {
             TexturedLight light;
             light.tex_index = *emis_tex_index;
-            light.total_area = 0.0f;
+            light.triangles.reserve(triangles.size());
+            light.area_pref_sum.reserve(triangles.size());
             for (u32 k = triangle_start; k < triangles.size(); k++) {
                 light.triangles.push_back(triangles[k]);
-                light.total_area += triangles[k].area();
+                light.area_pref_sum.push_back(triangles[k].area() +
+                                              (k == triangle_start ? 0 : light.area_pref_sum.back()));
             }
             if (!light.triangles.empty())
                 out_scene.add_textured_light(light);

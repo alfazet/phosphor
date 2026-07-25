@@ -1,5 +1,5 @@
 .idea/
 .cache/
 build/
-output.png
+/*.png
 *.log

@@ -37,7 +37,7 @@ struct Triangle {
         : v0(v0), v1(v1), v2(v2), mat(mat), uv0(uv0), uv1(uv1), uv2(uv2), n0(n0), n1(n1), n2(n2), t0(t0), t1(t1),
           t2(t2) {}
 
-    bool hit(const Ray &r, interval t, HitRecord &rec, const std::vector<Texture> &textures) const {
+    bool hit(const Ray &r, Interval t, HitRecord &rec, const std::vector<Texture> &textures) const {
         vec2 bary;
         f32 t_found;
         if (!glm::intersectRayTriangle(r.origin, r.direction, v0, v1, v2, bary, t_found))
@@ -56,20 +56,15 @@ struct Triangle {
     // https://learnopengl.com/Advanced-Lighting/Normal-Mapping
     vec3 get_normal(const vec2 &bary, const std::vector<Texture> &textures) const {
         vec3 N = glm::normalize(compute_bary(bary, n0, n1, n2));
-        // return N;
-
         if (mat.norm_index.has_value()) {
-            // LOG_INFO("N before: {}, {}, {}", N.x, N.y, N.z);
             vec3 normal = normal_sample(&textures[*mat.norm_index], compute_bary(bary, uv0, uv1, uv2));
             vec3 T = glm::normalize(compute_bary(bary, t0, t1, t2));
             T = glm::normalize(T - N * glm::dot(N, T));
             vec3 B = glm::cross(N, T);
             mat3 TBN(T, B, N);
-            vec3 qqq = glm::normalize(TBN * normal);
-            // LOG_INFO("N after: {}, {}, {}", qqq.x, qqq.y, qqq.z);
-
-            return qqq;
+            return glm::normalize(TBN * normal);
         }
+
         return N;
     }
 
@@ -78,9 +73,9 @@ struct Triangle {
     f32 area() const { return 0.5f * glm::length(glm::cross(v1 - v0, v2 - v0)); }
 
     BoundingBox get_bounding_box() const {
-        interval x{INF, -INF};
-        interval y{INF, -INF};
-        interval z{INF, -INF};
+        Interval x{INF, -INF};
+        Interval y{INF, -INF};
+        Interval z{INF, -INF};
 
         auto expand = [&](const vec3 &p) {
             x.start = glm::min(x.start, p.x);
