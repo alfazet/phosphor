@@ -9,6 +9,8 @@
 
 #include <algorithm>
 
+#include <algorithm>
+
 struct LightSample {
     Ray ray;
     vec3 power;

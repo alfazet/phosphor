@@ -50,16 +50,17 @@ void Scene::generate_image(u32 image_height, u32 n, u32 photons_per_light, u32 m
 
     const u32 image_width = image_height * get_camera().aspect_ratio;
     Image img(image_width, image_height);
-    emit(photons_per_light, max_bounces, n_threads);
+    emit(rng, photons_per_light, max_bounces, n_threads);
 
     ProgressScope img_progress("generating image", image_height);
-    std::thread threads[n_threads];
+    std::vector<std::thread> threads;
+    threads.reserve(n_threads);
     for (u32 i = 0; i < n_threads; i++) {
         threads[i] = std::thread(&Scene::run_thread_image_generation, this, i, n_threads, std::ref(img_progress),
                                  std::ref(img), image_height, image_width, n, image_iters);
     }
-    for (u32 i = 0; i < n_threads; i++) {
-        threads[i].join();
+    for (auto &t : threads) {
+        t.join();
     }
 
     img.write_png(output_path);
@@ -133,15 +134,17 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces, u32 n_threads) {
         u32 photons_left = photons_per_light;
         u32 photons_per_thread = (photons_per_light + n_threads - 1) / n_threads;
 
-        std::thread threads[n_threads];
+        std::vector<std::thread> threads;
+        threads.reserve(n_threads);
         for (u32 i = 0; i < n_threads; i++) {
             u32 photons_to_cast = glm::min(photons_per_thread, photons_left);
-            threads[i] = std::thread(&Scene::run_thread_emit, this, i, photons_to_cast, std::ref(progress), max_bounces,
-                                     photon_power, light.pos);
+            RngState thread_rng = make_thread_rng(rng, i);
+            threads.emplace_back(std::thread(&Scene::run_thread_emit, this, std::move(thread_rng), i, photons_to_cast,
+                                             std::ref(progress), max_bounces, photon_power, light.pos));
             photons_left -= photons_per_thread;
         }
-        for (u32 i = 0; i < n_threads; i++) {
-            threads[i].join();
+        for (auto &t : threads) {
+            t.join();
         }
     }
 
@@ -150,15 +153,18 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces, u32 n_threads) {
         u32 photons_left = photons_per_light;
         u32 photons_per_thread = (photons_per_light + n_threads - 1) / n_threads;
 
-        std::thread threads[n_threads];
+        std::vector<std::thread> threads;
+        threads.reserve(n_threads);
         for (u32 i = 0; i < n_threads; i++) {
             u32 photons_to_cast = glm::min(photons_per_thread, photons_left);
-            threads[i] = std::thread(&Scene::run_thread_textured_emit, this, i, photons_to_cast, std::ref(progress),
-                                     max_bounces, fraction, std::ref(light));
+            RngState thread_rng = make_thread_rng(rng, i);
+            threads.emplace_back(std::thread(&Scene::run_thread_textured_emit, this, std::move(thread_rng), i,
+                                             photons_to_cast, std::ref(progress), max_bounces, fraction,
+                                             std::ref(light)));
             photons_left -= photons_per_thread;
         }
-        for (u32 i = 0; i < n_threads; i++) {
-            threads[i].join();
+        for (auto &t : threads) {
+            t.join();
         }
     }
 
