@@ -11,8 +11,8 @@ void Scene::add_textured_light(const TexturedLight &light) { textured_lights.pus
 void Scene::add_camera(const Camera &camera) { cameras.push_back(camera); }
 void Scene::add_texture(const Texture &texture) { textures.push_back(texture); }
 
-void Scene::generate_image_row(Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n, u32 image_iters) {
-    RngState rng_local = RngState(row_number);
+void Scene::generate_image_row(RngState &rng, Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n,
+                               u32 image_iters) {
     u32 y = row_number;
     HitRecord rec;
     Material mat;
@@ -20,27 +20,27 @@ void Scene::generate_image_row(Image &img, u32 row_number, u32 image_height, u32
     for (u32 x = 0; x < image_width; x++) {
         vec3 color = vec3(0.0f);
         for (i32 j = 0; j < image_iters; j++) {
-            const f32 s = ((x + 0.5f + random_float(rng_local) - 0.5f) / static_cast<f32>(image_width));
-            const f32 t = (1.0f - (y + 0.5f + random_float(rng_local) - 0.5f) / static_cast<f32>(image_height));
-            Ray r = get_camera().get_ray(rng_local, s, t);
+            const f32 s = ((x + 0.5f + random_float(rng) - 0.5f) / static_cast<f32>(image_width));
+            const f32 t = (1.0f - (y + 0.5f + random_float(rng) - 0.5f) / static_cast<f32>(image_height));
+            Ray r = get_camera().get_ray(rng, s, t);
 
             if (objects.hit(r, Interval(0.001f, std::numeric_limits<f32>::max()), rec, mat, uv, textures))
-                color += get_color(rng_local, r, rec, n, mat, uv, 5);
+                color += get_color(rng, r, rec, n, mat, uv, 5);
         }
         img.set_pixel(x, y, color / static_cast<f32>(image_iters));
     }
 }
 
-void Scene::run_thread_image_generation(u32 offset, u32 n_threads, ProgressScope &img_progress, Image &img,
-                                        u32 image_height, u32 image_width, u32 n, u32 image_iters) {
+void Scene::run_thread_image_generation(RngState rng, u32 offset, u32 n_threads, ProgressScope &img_progress,
+                                        Image &img, u32 image_height, u32 image_width, u32 n, u32 image_iters) {
     for (u32 i = offset; i < image_height; i += n_threads) {
-        generate_image_row(img, i, image_height, image_width, n, image_iters);
+        generate_image_row(rng, img, i, image_height, image_width, n, image_iters);
         img_progress.increase(1);
     }
 }
 
-void Scene::generate_image(u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces, const char *output_path,
-                           u32 n_threads, u32 image_iters) {
+void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
+                           const char *output_path, u32 n_threads, u32 image_iters) {
     TimerScope timer_scope("generating image");
 
     if (point_lights.empty() && textured_lights.empty())
@@ -56,13 +56,14 @@ void Scene::generate_image(u32 image_height, u32 n, u32 photons_per_light, u32 m
     std::vector<std::thread> threads;
     threads.reserve(n_threads);
     for (u32 i = 0; i < n_threads; i++) {
-        threads[i] = std::thread(&Scene::run_thread_image_generation, this, i, n_threads, std::ref(img_progress),
-                                 std::ref(img), image_height, image_width, n, image_iters);
+        RngState thread_rng = make_thread_rng(rng, i);
+        threads.emplace_back(std::thread(&Scene::run_thread_image_generation, this, std::move(thread_rng), i, n_threads,
+                                         std::ref(img_progress), std::ref(img), image_height, image_width, n,
+                                         image_iters));
     }
     for (auto &t : threads) {
         t.join();
     }
-
     img.write_png(output_path);
 
     LOG_INFO("saved image to {}", output_path);
@@ -123,7 +124,7 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
     // else the photon is absorbed
 }
 
-void Scene::emit(u32 photons_per_light, u32 max_bounces, u32 n_threads) {
+void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_threads) {
     photon_map.init_thread_buffers(n_threads);
     // TODO: change to random sampling
     u32 total_photons = photons_per_light * (point_lights.size() + textured_lights.size());
@@ -174,9 +175,8 @@ void Scene::emit(u32 photons_per_light, u32 max_bounces, u32 n_threads) {
     timer_.stop();
 }
 
-void Scene::run_thread_emit(u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces, const vec3 photon_power,
-                            const vec3 light_pos) {
-    RngState rng = RngState(id);
+void Scene::run_thread_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
+                            const vec3 photon_power, const vec3 light_pos) {
     for (u32 i = 0; i < photons; i++) {
         const vec3 dir = random_unit_vector(rng);
         trace_photon(rng, id, Ray(light_pos, dir), photon_power, 0, max_bounces);
@@ -184,11 +184,9 @@ void Scene::run_thread_emit(u32 id, u32 photons, ProgressScope &img_progress, u3
     }
 }
 
-void Scene::run_thread_textured_emit(u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces, f32 fraction,
-                                     const TexturedLight &light) {
-    RngState rng = RngState(id);
+void Scene::run_thread_textured_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
+                                     f32 fraction, const TexturedLight &light) {
     for (u32 i = 0; i < photons; i++) {
-        // auto sample = sample_textured_light(rng, light, *this, fraction);
         auto sample = light.sample_light(rng, this->objects, this->textures, fraction);
         trace_photon(rng, id, sample.ray, sample.power, 0, max_bounces);
         img_progress.increase(1);

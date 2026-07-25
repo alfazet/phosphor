@@ -31,12 +31,11 @@ struct Scene {
     void add_camera(const Camera &camera);
     void add_texture(const Texture &texture);
 
-
     void emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_threads);
-    void run_thread_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces, const vec3 photon_power,
-                         const vec3 light_pos);
-    void run_thread_textured_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces, f32 fraction,
-                                  const TexturedLight &light);
+    void run_thread_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
+                         const vec3 photon_power, const vec3 light_pos);
+    void run_thread_textured_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
+                                  f32 fraction, const TexturedLight &light);
 
     vec3 get_color(RngState &rng, const Ray &ray, const HitRecord &rec, u32 n, Material &mat, vec2 &uv, u32 depth_left);
 
@@ -46,10 +45,11 @@ struct Scene {
 
     void add_default_camera();
 
-    void run_thread_image_generation(u32 offset, u32 n_threads, ProgressScope &img_progress, Image &img,
+    void run_thread_image_generation(RngState rng, u32 offset, u32 n_threads, ProgressScope &img_progress, Image &img,
                                      u32 image_height, u32 image_width, u32 n, u32 image_iters);
-    void generate_image_row(Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n, u32 image_iters);
-    void generate_image(u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
+    void generate_image_row(RngState &rng, Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n,
+                            u32 image_iters);
+    void generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
                         const char *output_path, u32 n_threads, u32 image_iters);
     BoundingBox get_bounding_box() const;
 
