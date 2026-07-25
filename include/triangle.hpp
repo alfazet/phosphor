@@ -1,15 +1,13 @@
-#ifndef PHOSPHOR_SPHERE_HPP
-#define PHOSPHOR_SPHERE_HPP
+#ifndef PHOSPHOR_TRIANGLE_HPP
+#define PHOSPHOR_TRIANGLE_HPP
 
+#include "bounding_box.hpp"
 #include "common.hpp"
 #include "glm/gtx/intersect.hpp"
 #include "interval.hpp"
-#include "logger.hpp"
 #include "material.hpp"
-#include "memory"
 #include "ray.hpp"
 #include "texture.hpp"
-#include "bounding_box.hpp"
 
 #include <optional>
 
@@ -36,8 +34,8 @@ struct Triangle {
     Triangle(const vec3 &v0, const vec3 &v1, const vec3 &v2, Material &mat, const vec2 &uv0, const vec2 &uv1,
              const vec2 &uv2, const vec3 &n0, const vec3 &n1, const vec3 &n2, const vec3 &t0, const vec3 &t1,
              const vec3 &t2)
-        : v0(v0), v1(v1), v2(v2), mat(mat), uv0(uv0), uv1(uv1), uv2(uv2), n0(n0), n1(n1), n2(n2), t0(t0),
-          t1(t1), t2(t2) {}
+        : v0(v0), v1(v1), v2(v2), mat(mat), uv0(uv0), uv1(uv1), uv2(uv2), n0(n0), n1(n1), n2(n2), t0(t0), t1(t1),
+          t2(t2) {}
 
     bool hit(const Ray &r, interval t, HitRecord &rec, const std::vector<Texture> &textures) const {
         vec2 bary;
@@ -86,11 +84,11 @@ struct Triangle {
 
         auto expand = [&](const vec3 &p) {
             x.start = glm::min(x.start, p.x);
-            x.end   = glm::max(x.end,   p.x);
+            x.end = glm::max(x.end, p.x);
             y.start = glm::min(y.start, p.y);
-            y.end   = glm::max(y.end,   p.y);
+            y.end = glm::max(y.end, p.y);
             z.start = glm::min(z.start, p.z);
-            z.end   = glm::max(z.end,   p.z);
+            z.end = glm::max(z.end, p.z);
         };
 
         expand(v0);
@@ -101,4 +99,4 @@ struct Triangle {
     }
 };
 
-#endif // PHOSPHOR_SPHERE_HPP
+#endif // PHOSPHOR_TRIANGLE_HPP

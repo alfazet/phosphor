@@ -3,6 +3,6 @@
 
 #include "scene.hpp"
 
-std::vector<Scene> read_file(const char *file_name, RngState rng);
+std::vector<Scene> read_file(const char *file_name);
 
 #endif // PHOSPHOR_SCENE_READER_HPP

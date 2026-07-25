@@ -13,7 +13,7 @@ void phosphor_main(const ArgsList &args) {
     RngState rng;
     pcg_seed(rng, args.seed);
 
-    auto scenes = read_file(args.model.c_str(), rng);
+    auto scenes = read_file(args.model.c_str());
     usize scene_index = 0;
     LOG_INFO("using scene {}", scene_index);
     if (scenes.size() == 0)

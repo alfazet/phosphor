@@ -9,7 +9,6 @@ include_directories(include)
 file(GLOB SOURCES CONFIGURE_DEPENDS src/*.cpp)
 add_executable(phosphor ${SOURCES}
         src/stb_impl.cpp
-        include/bounding_box.hpp
 )
 
 FetchContent_Declare(

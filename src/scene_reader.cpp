@@ -6,9 +6,9 @@
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
 #include <filesystem>
-#include <iostream>
 
-void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 current_transform, std::vector<Triangle> &triangles);
+void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 current_transform,
+                  std::vector<Triangle> &triangles);
 
 mat4 ai_matrix4x4_to_glm(const aiMatrix4x4 &from) {
     mat4 to;
@@ -206,7 +206,7 @@ void parse_textures(const aiScene *aiscene, Scene &out_scene, const char *direct
     }
 }
 
-std::vector<Scene> read_file(const char *file_name, RngState rng) {
+std::vector<Scene> read_file(const char *file_name) {
     TimerScope timer_scope("loading scenes");
 
     std::vector<Scene> scenes;
@@ -243,7 +243,8 @@ std::vector<Scene> read_file(const char *file_name, RngState rng) {
 }
 
 // parsing the tree
-void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 parent_transform, std::vector<Triangle> &triangles) {
+void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 parent_transform,
+                  std::vector<Triangle> &triangles) {
     mat4 local_transform = ai_matrix4x4_to_glm(node->mTransformation);
     mat4 global_transform = parent_transform * local_transform;
 
