@@ -114,9 +114,11 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
     f32 rho_s = rho_r - rho_d;
 
     if (xi < rho_d) {
+        LOG_INFO("DIFFUSE");
         const vec3 new_dir = random_in_unit_hemisphere(rng, rec.normal);
         trace_photon(rng, id, Ray(rec.point, new_dir), power * d / rho_d, depth + 1, max_bounces);
     } else if (xi < rho_s + rho_d) {
+        LOG_INFO("SPECULAR");
         const vec3 new_dir = ggx_sample_direction(rng, r.direction, rec.normal, roughness);
         if (new_dir != ZERO_VEC)
             trace_photon(rng, id, Ray(rec.point, new_dir), power * s_eff / rho_s, depth + 1, max_bounces);
