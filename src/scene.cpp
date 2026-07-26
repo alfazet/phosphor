@@ -67,6 +67,7 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
     }
     img.write_png(output_path);
 
+
     LOG_INFO("saved image to {}", output_path);
 }
 
@@ -114,11 +115,11 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
     f32 rho_d = sum_total > EPS ? (rho_r * sum_d / sum_total) : 0.0f;
     f32 rho_s = rho_r - rho_d;
 
-    if (xi < rho_d) {
+    if (false && xi < rho_d) {
         const vec3 new_dir = random_in_unit_hemisphere(rng, rec.normal);
         trace_photon(rng, id, Ray(rec.point, new_dir), power * d / rho_d, depth + 1, max_bounces, curr_ior);
     } else if (xi < rho_s + rho_d) {
-        const vec3 new_dir = ggx_sample_direction(rng, r.direction, rec.normal, roughness, curr_ior, mat.ior);
+        const vec3 new_dir = ggx_sample_direction(rng, r.direction, rec.normal, roughness, curr_ior, mat.ior, mat.transmission);
         if (new_dir != ZERO_VEC)
             trace_photon(rng, id, Ray(rec.point, new_dir), power * s_eff / rho_s, depth + 1, max_bounces, mat.ior);
     }
@@ -240,7 +241,7 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
     }
 
     vec3 reflected_color = BLACK;
-    const vec3 new_dir = ggx_sample_direction(rng, ray.direction, normal, roughness, curr_ior, mat.ior);
+    const vec3 new_dir = ggx_sample_direction(rng, ray.direction, normal, roughness, curr_ior, mat.ior, mat.transmission);
     if (new_dir != ZERO_VEC) {
         HitRecord reflected_rec;
         Material reflected_mat;
@@ -256,7 +257,7 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
         occlusion = sample(&textures[*mat.occlusion_index], uv, CHANNEL_R);
 
     vec3 diffuse_color = flux * base_color * occlusion / area;
-    return glm::mix(diffuse_color, reflected_color, metallic) + emissive;
+    return glm::mix(diffuse_color, reflected_color, glm::max(metallic,mat.transmission)) + emissive;
 }
 
 Camera &Scene::get_camera() {

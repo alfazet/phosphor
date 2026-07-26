@@ -27,6 +27,28 @@ void phosphor_main(const ArgsList &args) {
     RngState rng = pcg_seed(args.seed);
     scene.generate_image(std::move(rng), args.resolution, args.samples, args.photons_per_light, args.depth, args.output_path.c_str(),
                          args.n_threads, args.image_iters);
+
+
+    // Build a metadata comment string with the render parameters
+    std::ostringstream comment;
+    comment << "resolution=" << args.resolution
+            << " samples=" << args.samples
+            << " photons_per_light=" << args.photons_per_light
+            << " depth=" << args.depth
+            << " n_threads=" << args.n_threads
+            << " image_iters=" << args.image_iters;
+
+    // Call exiftool to embed the comment into the image's metadata
+    std::ostringstream cmd;
+    cmd << "exiftool -overwrite_original "
+        << "-Comment=\"" << comment.str() << "\" "
+        << "\"" << args.output_path << "\"";
+
+    int ret = std::system(cmd.str().c_str());
+    if (ret != 0) {
+        std::cerr << "Warning: exiftool failed to write metadata (exit code "
+                  << ret << ")" << std::endl;
+    }
 }
 
 void init_logger() {

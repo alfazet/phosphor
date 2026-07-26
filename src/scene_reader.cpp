@@ -72,7 +72,7 @@ usize find_texture(std::string name, const std::vector<Texture> &textures) {
 
 Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Texture> &textures,
                         std::optional<usize> &emis_index) {
-    Material mat = Material{vec4(1.0f, 1.0f, 1.0f, 1.0f), 0.0f, 1.0f, BLACK, 0.0f, 1.5f};
+    Material mat = Material{vec4(1.0f, 1.0f, 1.0f, 1.0f), 0.0f, 1.0f, BLACK, DEFAULT_TRANSMISSION, DEFAULT_IOR};
 
     if (mesh->mMaterialIndex < 0)
         return mat;
