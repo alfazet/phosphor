@@ -86,7 +86,8 @@ Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Te
     ai_mat->Get(AI_MATKEY_METALLIC_FACTOR, mat.metallic);
     ai_mat->Get(AI_MATKEY_ROUGHNESS_FACTOR, mat.roughness);
     ai_mat->Get(AI_MATKEY_TRANSMISSION_FACTOR, mat.transmission);
-    ai_mat->Get(AI_MATKEY_REFRACTI, mat.ior);
+    if (ai_mat->Get(AI_MATKEY_REFRACTI, mat.ior) == AI_SUCCESS);
+        LOG_INFO("ior read as {}", mat.ior);
 
     aiColor3D emissive(0.0f, 0.0f, 0.0f);
     if (ai_mat->Get(AI_MATKEY_COLOR_EMISSIVE, emissive) == AI_SUCCESS)

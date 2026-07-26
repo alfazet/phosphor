@@ -37,7 +37,8 @@ struct Scene {
     void run_thread_textured_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
                                   f32 fraction, const TexturedLight &light);
 
-    vec3 get_color(RngState &rng, const Ray &ray, const HitRecord &rec, u32 n, Material &mat, vec2 &uv, u32 depth_left);
+    vec3 get_color(RngState &rng, const Ray &ray, const HitRecord &rec, u32 n, Material &mat, vec2 &uv, u32 depth_left,
+                   f32 curr_ior);
 
     Camera &get_camera();
 
@@ -53,7 +54,7 @@ struct Scene {
                         const char *output_path, u32 n_threads, u32 image_iters);
     BoundingBox get_bounding_box() const;
 
-    void trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces);
+    void trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces, f32 curr_ior);
 };
 
 #endif // PHOSPHOR_SCENE_HPP

@@ -1,4 +1,5 @@
 #include "scene.hpp"
+#include "glm/detail/_noise.hpp"
 #include "image.hpp"
 #include "logger.hpp"
 #include "random.hpp"
@@ -25,7 +26,7 @@ void Scene::generate_image_row(RngState &rng, Image &img, u32 row_number, u32 im
             Ray r = get_camera().get_ray(rng, s, t);
 
             if (objects.hit(r, Interval(0.001f, std::numeric_limits<f32>::max()), rec, mat, uv, textures))
-                color += get_color(rng, r, rec, n, mat, uv, 5);
+                color += get_color(rng, r, rec, n, mat, uv, 5, AIR_IOR);
         }
         img.set_pixel(x, y, color / static_cast<f32>(image_iters));
     }
@@ -69,7 +70,7 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
     LOG_INFO("saved image to {}", output_path);
 }
 
-void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
+void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces, f32 curr_ior) {
     if (depth >= max_bounces)
         return;
 
@@ -114,14 +115,12 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
     f32 rho_s = rho_r - rho_d;
 
     if (xi < rho_d) {
-        LOG_INFO("DIFFUSE");
         const vec3 new_dir = random_in_unit_hemisphere(rng, rec.normal);
-        trace_photon(rng, id, Ray(rec.point, new_dir), power * d / rho_d, depth + 1, max_bounces);
+        trace_photon(rng, id, Ray(rec.point, new_dir), power * d / rho_d, depth + 1, max_bounces, curr_ior);
     } else if (xi < rho_s + rho_d) {
-        LOG_INFO("SPECULAR");
-        const vec3 new_dir = ggx_sample_direction(rng, r.direction, rec.normal, roughness);
+        const vec3 new_dir = ggx_sample_direction(rng, r.direction, rec.normal, roughness, curr_ior, mat.ior);
         if (new_dir != ZERO_VEC)
-            trace_photon(rng, id, Ray(rec.point, new_dir), power * s_eff / rho_s, depth + 1, max_bounces);
+            trace_photon(rng, id, Ray(rec.point, new_dir), power * s_eff / rho_s, depth + 1, max_bounces, mat.ior);
     }
     // else the photon is absorbed
 }
@@ -181,7 +180,7 @@ void Scene::run_thread_emit(RngState rng, u32 id, u32 photons, ProgressScope &im
                             const vec3 photon_power, const vec3 light_pos) {
     for (u32 i = 0; i < photons; i++) {
         const vec3 dir = random_unit_vector(rng);
-        trace_photon(rng, id, Ray(light_pos, dir), photon_power, 0, max_bounces);
+        trace_photon(rng, id, Ray(light_pos, dir), photon_power, 0, max_bounces, AIR_IOR);
         img_progress.increase(1);
     }
 }
@@ -190,13 +189,13 @@ void Scene::run_thread_textured_emit(RngState rng, u32 id, u32 photons, Progress
                                      f32 fraction, const TexturedLight &light) {
     for (u32 i = 0; i < photons; i++) {
         auto sample = light.sample_light(rng, this->objects, this->textures, fraction);
-        trace_photon(rng, id, sample.ray, sample.power, 0, max_bounces);
+        trace_photon(rng, id, sample.ray, sample.power, 0, max_bounces, AIR_IOR);
         img_progress.increase(1);
     }
 }
 
 vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const u32 n, Material &mat, vec2 &uv,
-                      u32 depth_left) {
+                      u32 depth_left, f32 curr_ior) {
     if (depth_left == 0)
         return BLACK;
     auto pos = rec.point;
@@ -241,7 +240,7 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
     }
 
     vec3 reflected_color = BLACK;
-    const vec3 new_dir = ggx_sample_direction(rng, ray.direction, normal, roughness);
+    const vec3 new_dir = ggx_sample_direction(rng, ray.direction, normal, roughness, curr_ior, mat.ior);
     if (new_dir != ZERO_VEC) {
         HitRecord reflected_rec;
         Material reflected_mat;
@@ -249,7 +248,7 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
         Ray reflected = Ray(pos, glm::normalize(new_dir));
         if (objects.hit(reflected, Interval(0.001f, std::numeric_limits<f32>::max()), reflected_rec, reflected_mat,
                         reflected_uv, textures))
-            reflected_color = get_color(rng, reflected, reflected_rec, n, reflected_mat, reflected_uv, depth_left - 1);
+            reflected_color = get_color(rng, reflected, reflected_rec, n, reflected_mat, reflected_uv, depth_left - 1, mat.ior);
     }
 
     f32 occlusion = 1.0f;

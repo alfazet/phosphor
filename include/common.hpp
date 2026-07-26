@@ -32,6 +32,7 @@ constexpr f32 INF = 1e9;
 constexpr vec3 ZERO_VEC = vec3(0.0f);
 constexpr vec3 BLACK = vec3(0.0f);
 constexpr vec3 WHITE = vec3(1.0f);
+constexpr f32 AIR_IOR = 1.0f;
 
 inline vec2 compute_bary(vec2 bary, vec2 v0, vec2 v1, vec2 v2) {
     return (1.0f - bary.x - bary.y) * v0 + bary.x * v1 + bary.y * v2;

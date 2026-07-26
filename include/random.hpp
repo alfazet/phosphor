@@ -2,6 +2,7 @@
 #define PHOSPHOR_RANDOM_HPP
 
 #include "common.hpp"
+#include "glm/gtx/vector_angle.hpp"
 #include "triangle.hpp"
 
 struct RngState {
@@ -100,14 +101,29 @@ inline f32 smith_g1_ggx(f32 theta, f32 alpha) {
     return 2.0f / (1.0f + glm::sqrt(1.0f + alpha * alpha * tan * tan));
 }
 
-inline vec3 ggx_sample_direction(RngState &rng, const vec3 &incoming, const vec3 &normal, f32 roughness) {
-    if (roughness < EPS)
-        return glm::normalize(glm::reflect(incoming, normal));
-    vec3 h = ggx_sample_vndf(rng, normal, -incoming, roughness);
-    vec3 reflected = glm::reflect(incoming, h);
-    if (glm::dot(reflected, normal) < 0.0f)
-        return ZERO_VEC; // absorb if it reflected below the surface
+// https://en.wikipedia.org/wiki/Schlick's_approximation
+inline f32 fresnel_refracted(f32 ior_1, f32 ior_2, const vec3 &incoming, const vec3 &normal) {
+    f32 R_0 = glm::pow((ior_1 - ior_2)/(ior_1 + ior_2), 2);
+    f32 theta = glm::angle(incoming, normal);
+    return R_0 + (1-R_0) * glm::pow(1-glm::cos(theta), 5.0f);
+}
 
+inline vec3 reflect_or_refract(RngState &rng, const vec3 &incoming, const vec3 &normal, f32 curr_ior, f32 mat_ior) {
+    f32 refracted_chance = fresnel_refracted(curr_ior, mat_ior, incoming, normal);
+    if (random_float(rng)<refracted_chance) {
+        vec3 reflected =  glm::normalize(glm::reflect(incoming, normal));
+        if (glm::dot(reflected, normal) < 0.0f)
+            return ZERO_VEC; // absorb if it reflected below the surface
+        return reflected;
+    }
+    return glm::normalize(glm::refract(incoming, normal, curr_ior/mat_ior));
+}
+
+inline vec3 ggx_sample_direction(RngState &rng, const vec3 &incoming, const vec3 &normal, f32 roughness, f32 curr_ior, f32 mat_ior) {
+    if (roughness < EPS)
+        return reflect_or_refract(rng, incoming, normal, curr_ior, mat_ior);
+    vec3 h = ggx_sample_vndf(rng, normal, -incoming, roughness);
+    vec3 reflected = reflect_or_refract(rng, incoming, h, curr_ior, mat_ior);
     return glm::normalize(reflected);
 }
 
