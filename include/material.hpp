@@ -9,6 +9,8 @@ struct Material {
     f32 metallic;
     f32 roughness;
     vec3 emissive;
+    f32 transmission;
+    f32 ior;
 
     std::optional<usize> diff_index;
     std::optional<usize> emis_index;
