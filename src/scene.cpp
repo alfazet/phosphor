@@ -297,7 +297,7 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
         }
     }
 
-    return diffuse_color + reflected_color + (depth_left == 5 ? emissive : BLACK);
+    return diffuse_color + reflected_color + emissive;
 }
 
 Camera &Scene::get_camera() {
