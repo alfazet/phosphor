@@ -247,27 +247,40 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
     }
 
     vec3 reflected_color = BLACK;
-    const vec3 new_dir = ggx_sample_direction(rng, ray.direction, normal, roughness, curr_ior, mat.ior,
-                                              mat.transmission, rec.front_face);
-    if (new_dir != ZERO_VEC) {
-        bool refracted = glm::dot(new_dir, rec.normal) < 0.0f;
-        f32 next_ior = refracted ? (rec.front_face ? mat.ior : AIR_IOR) : curr_ior;
-        HitRecord reflected_rec;
-        Material reflected_mat;
-        vec2 reflected_uv;
-        Ray reflected = Ray(pos, glm::normalize(new_dir));
-        if (objects.hit(reflected, Interval(0.001f, std::numeric_limits<f32>::max()), reflected_rec, reflected_mat,
-                        reflected_uv, textures))
-            reflected_color =
-                get_color(rng, reflected, reflected_rec, n, reflected_mat, reflected_uv, depth_left - 1, next_ior);
+    if (metallic > 0.0) {
+        const vec3 new_dir = ggx_sample_direction(rng, ray.direction, normal, roughness, curr_ior, mat.ior, mat.transmission, rec.front_face);
+        if (new_dir != ZERO_VEC) {
+            HitRecord reflected_rec;
+            Material reflected_mat;
+            vec2 reflected_uv;
+            Ray reflected = Ray(pos, glm::normalize(new_dir));
+            if (objects.hit(reflected, Interval(0.001f, std::numeric_limits<f32>::max()), reflected_rec, reflected_mat,
+                            reflected_uv, textures))
+                reflected_color = get_color(rng, reflected, reflected_rec, n, reflected_mat, reflected_uv, depth_left - 1, mat.ior);
+        }
     }
+
+    vec3 refracted_color = BLACK;
+    if (mat.transmission > EPS) {
+        const vec3 new_dir2 = reflect_or_refract(rng, ray.direction, normal,  curr_ior, mat.ior, mat.transmission, rec.front_face);
+        if (new_dir2 != ZERO_VEC) {
+            HitRecord refracted_rec;
+            Material refracted_mat;
+            vec2 refracted_uv;
+            Ray refracted = Ray(pos, glm::normalize(new_dir2));
+            if (objects.hit(refracted, Interval(0.001f, std::numeric_limits<f32>::max()), refracted_rec, refracted_mat,
+                            refracted_uv, textures))
+                refracted_color = get_color(rng, refracted, refracted_rec, n, refracted_mat, refracted_uv, depth_left - 1, mat.ior);
+        }
+    }
+
 
     f32 occlusion = 1.0f;
     if (mat.occlusion_index.has_value())
         occlusion = sample(&textures[*mat.occlusion_index], uv, CHANNEL_R);
 
     vec3 diffuse_color = flux * base_color * occlusion / area;
-    return glm::mix(diffuse_color, reflected_color, glm::max(metallic, mat.transmission)) + emissive;
+    return glm::mix(glm::mix(diffuse_color, reflected_color, metallic), refracted_color, mat.transmission) + emissive;
 }
 
 Camera &Scene::get_camera() {
