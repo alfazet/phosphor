@@ -1,11 +1,10 @@
 # Phosphor
 
 ## TODO (before GPU stuff)
-- dielectrics
 - improve bvh splitting
 - more light types (spherical, light-emitting surfaces, ...)
-- random light source sampling instead of fixed num photons per light
 - make everything graphics-related plain old structs (will make life easier down the line)
+- russian roulette instead of fixed number of bounces
 
 ## Possible optimizations
 - projection map (jensen p. 13)

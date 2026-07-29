@@ -29,6 +29,7 @@ typedef double f64;
 
 constexpr f32 EPS = 1e-9;
 constexpr f32 INF = 1e9;
+constexpr f32 PI = glm::pi<f32>();
 constexpr vec3 ZERO_VEC = vec3(0.0f);
 constexpr vec3 BLACK = vec3(0.0f);
 constexpr vec3 WHITE = vec3(1.0f);

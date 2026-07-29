@@ -53,7 +53,7 @@ inline void make_tbn(const vec3 &n, vec3 &t, vec3 &b) {
 inline vec3 random_in_unit_hemisphere(RngState &rng, const vec3 &normal) {
     f32 r1 = random_float(rng);
     f32 r2 = random_float(rng);
-    f32 phi = 2.0f * glm::pi<f32>() * r1;
+    f32 phi = 2.0f * PI * r1;
     f32 sin_theta = glm::sqrt(r2);
     f32 cos_theta = glm::sqrt(1.0f - r2);
     vec3 local(sin_theta * glm::cos(phi), sin_theta * glm::sin(phi), cos_theta);
@@ -79,7 +79,7 @@ inline vec3 ggx_sample_vndf(RngState &rng, const vec3 &normal, const vec3 &view,
     vec3 T2 = glm::cross(vh, T1);
 
     f32 r = glm::sqrt(u1);
-    f32 phi = 2.0f * glm::pi<f32>() * u2;
+    f32 phi = 2.0f * PI * u2;
     f32 t1 = r * glm::cos(phi);
     f32 t2 = r * glm::sin(phi);
     f32 s = 0.5f * (1.0f + vh.z);
@@ -101,11 +101,15 @@ inline f32 smith_g1_ggx(f32 theta, f32 alpha) {
     return 2.0f / (1.0f + glm::sqrt(1.0f + alpha * alpha * tan * tan));
 }
 
+inline f32 fresnel(f32 R_0, const vec3 &incoming, const vec3 &normal) {
+    f32 theta = glm::abs(glm::angle(incoming, normal));
+    return R_0 + (1 - R_0) * glm::pow(1 - glm::cos(theta), 5);
+}
+
 // https://en.wikipedia.org/wiki/Schlick's_approximation
 inline f32 fresnel_refracted(f32 ior_1, f32 ior_2, const vec3 &incoming, const vec3 &normal) {
     f32 R_0 = glm::pow((ior_1 - ior_2) / (ior_1 + ior_2), 2);
-    f32 theta = glm::angle(incoming, normal);
-    return R_0 + (1 - R_0) * glm::pow(1 - glm::cos(theta), 5);
+    return fresnel(R_0, incoming, normal);
 }
 
 inline vec3 reflect(const vec3 &incoming, const vec3 &normal) {

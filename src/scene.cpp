@@ -24,7 +24,7 @@ void Scene::generate_image_row(RngState &rng, Image &img, u32 row_number, u32 im
             const f32 t = (1.0f - (y + 0.5f + random_float(rng) - 0.5f) / static_cast<f32>(image_height));
             Ray r = get_camera().get_ray(rng, s, t);
 
-            if (objects.hit(r, Interval(0.001f, std::numeric_limits<f32>::max()), rec, mat, uv, textures))
+            if (objects.hit(r, Interval(0.001f, INF), rec, mat, uv, textures))
                 color += get_color(rng, r, rec, n, mat, uv, 5, AIR_IOR);
         }
         img.set_pixel(x, y, color / static_cast<f32>(image_iters));
@@ -76,7 +76,7 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
     HitRecord rec;
     Material mat;
     vec2 uv;
-    if (!objects.hit(r, Interval(0.001f, std::numeric_limits<f32>::max()), rec, mat, uv, textures))
+    if (!objects.hit(r, Interval(0.001f, INF), rec, mat, uv, textures))
         return;
 
     f32 phi = glm::atan(r.direction.y, r.direction.x);
@@ -119,7 +119,9 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
 
     if (xi < rho_d) {
         const vec3 new_dir = random_in_unit_hemisphere(rng, rec.normal);
-        trace_photon(rng, id, Ray(rec.point, new_dir), power * d / rho_d, depth + 1, max_bounces, curr_ior);
+        vec3 new_power = power * d / rho_d;
+        photon_map.store(id, {rec.point, new_power, phi, theta});
+        trace_photon(rng, id, Ray(rec.point, new_dir), new_power, depth + 1, max_bounces, curr_ior);
     } else if (xi < rho_d + rho_st) {
         const vec3 new_dir = ggx_sample_direction(rng, r.direction, rec.normal, roughness, curr_ior, mat.ior,
                                                   mat.transmission, rec.front_face);
@@ -130,9 +132,10 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
             if (refracted)
                 return;
         }
+    } else {
+        // the photon is absorbed
+        photon_map.store(id, potential_photon);
     }
-    // else the photon is absorbed
-    photon_map.store(id, potential_photon);
 }
 
 void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_threads) {
@@ -250,15 +253,20 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
             flux += p->power;
         }
 
-        f32 area = glm::pi<f32>() * max_dist_sq;
+        f32 area = PI * max_dist_sq;
         if (area > EPS) {
             f32 occlusion = 1.0f;
             if (mat.occlusion_index.has_value())
                 occlusion = sample(&textures[*mat.occlusion_index], uv, CHANNEL_R);
-            diffuse_color = flux * base_color * occlusion / area;
+            // TODO: need a better brdf here?
+            diffuse_color = flux * ((1.0f - metallic) * base_color / PI) * occlusion / area;
         }
     }
 
+    f32 from_ior = rec.front_face ? curr_ior : mat.ior;
+    f32 to_ior = rec.front_face ? mat.ior : curr_ior;
+    f32 eta = from_ior / to_ior;
+    f32 F = fresnel_refracted(from_ior, to_ior, -glm::normalize(ray.direction), normal);
     vec3 reflected_color = BLACK;
     // mix_factor greater than 0, so it's at least
     // somewhat a transmissive or a metallic and
@@ -267,20 +275,29 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
         vec3 new_dir = ggx_sample_direction(rng, ray.direction, normal, roughness, curr_ior, mat.ior, mat.transmission,
                                             rec.front_face);
         if (new_dir != ZERO_VEC) {
-            bool refracted = glm::dot(new_dir, rec.normal) < 0.0f;
+            vec3 new_dir_norm = glm::normalize(new_dir);
+            bool refracted = glm::dot(new_dir_norm, rec.normal) < 0.0f;
             f32 next_ior = refracted ? (rec.front_face ? mat.ior : AIR_IOR) : curr_ior;
             HitRecord reflected_rec;
             Material reflected_mat;
             vec2 reflected_uv;
-            Ray reflected = Ray(pos, glm::normalize(new_dir));
-            if (objects.hit(reflected, Interval(0.001f, std::numeric_limits<f32>::max()), reflected_rec, reflected_mat,
-                            reflected_uv, textures))
+            vec3 offset = refracted ? -normal : normal;
+            Ray reflected = Ray(pos + offset * 0.001f, new_dir_norm);
+
+            if (objects.hit(reflected, Interval(0.001f, INF), reflected_rec, reflected_mat, reflected_uv, textures))
                 reflected_color =
                     get_color(rng, reflected, reflected_rec, n, reflected_mat, reflected_uv, depth_left - 1, next_ior);
+
+            if (refracted) {
+                // https://pbr-book.org/3ed-2018/Reflection_Models/Specular_Reflection_and_Transmission#SpecularTransmission
+                reflected_color *= (1.0f - F) * eta * eta;
+            } else {
+                reflected_color *= F;
+            }
         }
     }
 
-    return glm::mix(diffuse_color, reflected_color, mix_factor) + emissive;
+    return diffuse_color + reflected_color + (depth_left == 5 ? emissive : BLACK);
 }
 
 Camera &Scene::get_camera() {

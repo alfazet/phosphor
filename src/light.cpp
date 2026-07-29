@@ -34,7 +34,7 @@ LightSample TexturedLight::sample_light(RngState &rng, const Triangles &triangle
     vec3 normal = tri.get_normal(vec2(u, v), textures);
     point += normal * 0.001f;
     vec3 dir = random_in_unit_hemisphere(rng, normal);
-    vec3 power = emission * total_area * glm::pi<f32>() * photon_frac;
+    vec3 power = emission * total_area * PI * photon_frac;
 
     return {Ray(point, dir), power};
 }
