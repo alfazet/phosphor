@@ -46,6 +46,13 @@ struct BoundingBox {
         }
     }
 
+    u32 longest() const {
+        if (x.size() > y.size()) {
+            return x.size() > z.size() ? 0 : 2;
+        }
+        return y.size() > z.size() ? 1 : 2;
+    }
+
     bool hit(const Ray &r, Interval t) const {
         for (u32 axis = 0; axis < 3; axis++) {
             const Interval &ax = index(axis);
