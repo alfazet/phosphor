@@ -72,7 +72,7 @@ usize find_texture(std::string name, const std::vector<Texture> &textures) {
 
 Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Texture> &textures,
                         std::optional<usize> &emis_index) {
-    Material mat = Material{vec4(1.0f, 1.0f, 1.0f, 1.0f), 0.0f, 1.0f, BLACK};
+    Material mat = Material{vec4(1.0f, 1.0f, 1.0f, 1.0f), 0.0f, 1.0f, BLACK, DEFAULT_TRANSMISSION, DEFAULT_IOR};
 
     if (mesh->mMaterialIndex < 0)
         return mat;
@@ -85,6 +85,10 @@ Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Te
 
     ai_mat->Get(AI_MATKEY_METALLIC_FACTOR, mat.metallic);
     ai_mat->Get(AI_MATKEY_ROUGHNESS_FACTOR, mat.roughness);
+    ai_mat->Get(AI_MATKEY_TRANSMISSION_FACTOR, mat.transmission);
+    if (ai_mat->Get(AI_MATKEY_REFRACTI, mat.ior) == AI_SUCCESS)
+        ;
+    LOG_INFO("ior read as {}", mat.ior);
 
     aiColor3D emissive(0.0f, 0.0f, 0.0f);
     if (ai_mat->Get(AI_MATKEY_COLOR_EMISSIVE, emissive) == AI_SUCCESS)
@@ -113,6 +117,7 @@ Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Te
         std::string name = std::filesystem::path(path.C_Str()).filename().string();
         mat.occlusion_index = find_texture(name, textures);
     }
+
     return mat;
 }
 

@@ -25,7 +25,7 @@ void Scene::generate_image_row(RngState &rng, Image &img, u32 row_number, u32 im
             Ray r = get_camera().get_ray(rng, s, t);
 
             if (objects.hit(r, Interval(0.001f, std::numeric_limits<f32>::max()), rec, mat, uv, textures))
-                color += get_color(rng, r, rec, n, mat, uv, 5);
+                color += get_color(rng, r, rec, n, mat, uv, 5, AIR_IOR);
         }
         img.set_pixel(x, y, color / static_cast<f32>(image_iters));
     }
@@ -69,7 +69,7 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
     LOG_INFO("saved image to {}", output_path);
 }
 
-void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces) {
+void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces, f32 curr_ior) {
     if (depth >= max_bounces)
         return;
 
@@ -81,7 +81,8 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
 
     f32 phi = glm::atan(r.direction.y, r.direction.x);
     f32 theta = glm::acos(glm::clamp(r.direction.z, -1.0f, 1.0f));
-    photon_map.store(id, {rec.point, power, phi, theta});
+
+    Photon potential_photon = {rec.point, power, phi, theta};
     vec3 base_color = vec3(mat.base_color);
     if (mat.diff_index.has_value()) {
         base_color *= sample(&textures[*mat.diff_index], uv);
@@ -100,28 +101,38 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
     vec3 dielectric_specular = vec3(0.04f);
     vec3 s = glm::mix(dielectric_specular, base_color, metallic);
     f32 max_s = glm::max(s.r, glm::max(s.g, s.b));
-    vec3 d = base_color * ((1.0f - dielectric_specular.r) * (1.0f - metallic) / (1.0f - max_s));
+    vec3 d = base_color * ((1.0f - dielectric_specular.r) * (1.0f - metallic) * (1.0f - mat.transmission) /
+                           glm::max(1.0f - max_s, EPS));
 
     f32 alpha = roughness * roughness;
-    f32 g1 = smith_g1_ggx(glm::acos(glm::dot(r.direction, rec.normal)), alpha);
+    f32 g1 = smith_g1_ggx(glm::acos(glm::dot(-r.direction, rec.normal)), alpha);
     vec3 s_eff = s * g1;
+    // st = specular/transmission
+    vec3 st = s_eff + base_color * ((1.0f - max_s) * mat.transmission * (1.0f - metallic));
 
     f32 sum_d = d.r + d.g + d.b;
-    f32 sum_s = s_eff.r + s_eff.g + s_eff.b;
-    f32 sum_total = sum_d + sum_s;
-    f32 rho_r = glm::max(d.r + s_eff.r, glm::max(d.g + s_eff.g, d.b + s_eff.b));
+    f32 sum_st = st.r + st.g + st.b;
+    f32 sum_total = sum_d + sum_st;
+    f32 rho_r = glm::max(d.r + st.r, glm::max(d.g + st.g, d.b + st.b));
     f32 rho_d = sum_total > EPS ? (rho_r * sum_d / sum_total) : 0.0f;
-    f32 rho_s = rho_r - rho_d;
+    f32 rho_st = rho_r - rho_d;
 
     if (xi < rho_d) {
         const vec3 new_dir = random_in_unit_hemisphere(rng, rec.normal);
-        trace_photon(rng, id, Ray(rec.point, new_dir), power * d / rho_d, depth + 1, max_bounces);
-    } else if (xi < rho_s + rho_d) {
-        const vec3 new_dir = ggx_sample_direction(rng, r.direction, rec.normal, roughness);
-        if (new_dir != ZERO_VEC)
-            trace_photon(rng, id, Ray(rec.point, new_dir), power * s_eff / rho_s, depth + 1, max_bounces);
+        trace_photon(rng, id, Ray(rec.point, new_dir), power * d / rho_d, depth + 1, max_bounces, curr_ior);
+    } else if (xi < rho_d + rho_st) {
+        const vec3 new_dir = ggx_sample_direction(rng, r.direction, rec.normal, roughness, curr_ior, mat.ior,
+                                                  mat.transmission, rec.front_face);
+        if (new_dir != ZERO_VEC) {
+            bool refracted = glm::dot(new_dir, rec.normal) < 0.0f;
+            f32 next_ior = refracted ? (rec.front_face ? mat.ior : AIR_IOR) : curr_ior;
+            trace_photon(rng, id, Ray(rec.point, new_dir), power * st / rho_st, depth + 1, max_bounces, next_ior);
+            if (refracted)
+                return;
+        }
     }
     // else the photon is absorbed
+    photon_map.store(id, potential_photon);
 }
 
 void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_threads) {
@@ -179,7 +190,7 @@ void Scene::run_thread_emit(RngState rng, u32 id, u32 photons, ProgressScope &im
                             const vec3 photon_power, const vec3 light_pos) {
     for (u32 i = 0; i < photons; i++) {
         const vec3 dir = random_unit_vector(rng);
-        trace_photon(rng, id, Ray(light_pos, dir), photon_power, 0, max_bounces);
+        trace_photon(rng, id, Ray(light_pos, dir), photon_power, 0, max_bounces, AIR_IOR);
         img_progress.increase(1);
     }
 }
@@ -188,13 +199,13 @@ void Scene::run_thread_textured_emit(RngState rng, u32 id, u32 photons, Progress
                                      f32 fraction, const TexturedLight &light) {
     for (u32 i = 0; i < photons; i++) {
         auto sample = light.sample_light(rng, this->objects, this->textures, fraction);
-        trace_photon(rng, id, sample.ray, sample.power, 0, max_bounces);
+        trace_photon(rng, id, sample.ray, sample.power, 0, max_bounces, AIR_IOR);
         img_progress.increase(1);
     }
 }
 
 vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const u32 n, Material &mat, vec2 &uv,
-                      u32 depth_left) {
+                      u32 depth_left, f32 curr_ior) {
     if (depth_left == 0)
         return BLACK;
     auto pos = rec.point;
@@ -204,27 +215,6 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
     vec3 emissive = BLACK;
     if (mat.emis_index.has_value())
         emissive = sample(&textures[*mat.emis_index], uv);
-
-    std::vector<const Photon *> nearest;
-    photon_map.locate(pos, n, 1000.0f, nearest);
-    if (nearest.empty())
-        return emissive;
-
-    vec3 flux(0.0f);
-    f32 max_dist_sq = 0.0f;
-    for (auto p : nearest) {
-        vec3 from(glm::cos(p->phi) * glm::sin(p->theta), glm::sin(p->phi) * glm::sin(p->theta), glm::cos(p->theta));
-        // don't count photons coming from "inside" the surface
-        if (glm::dot(from, normal) > 0.0f)
-            continue;
-        f32 dist = glm::dot(p->pos - pos, p->pos - pos);
-        max_dist_sq = glm::max(max_dist_sq, dist);
-        flux += p->power;
-    }
-
-    f32 area = glm::pi<f32>() * max_dist_sq;
-    if (area < EPS)
-        return emissive;
 
     vec3 base_color = mat.base_color;
     if (mat.diff_index.has_value())
@@ -238,24 +228,59 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
         roughness *= sample(tex, uv, CHANNEL_G);
     }
 
-    vec3 reflected_color = BLACK;
-    const vec3 new_dir = ggx_sample_direction(rng, ray.direction, normal, roughness);
-    if (new_dir != ZERO_VEC) {
-        HitRecord reflected_rec;
-        Material reflected_mat;
-        vec2 reflected_uv;
-        Ray reflected = Ray(pos, glm::normalize(new_dir));
-        if (objects.hit(reflected, Interval(0.001f, std::numeric_limits<f32>::max()), reflected_rec, reflected_mat,
-                        reflected_uv, textures))
-            reflected_color = get_color(rng, reflected, reflected_rec, n, reflected_mat, reflected_uv, depth_left - 1);
+    f32 mix_factor = glm::max(metallic, mat.transmission);
+
+    vec3 diffuse_color = BLACK;
+    // mix_factor smaller than 1, so it's at least
+    // somewhat a non-transmissive dielectric and
+    // we should do a photon lookup
+    if (mix_factor < 1.0f - EPS) {
+        std::vector<const Photon *> nearest;
+        photon_map.locate(pos, n, 1000.0f, nearest);
+
+        vec3 flux(0.0f);
+        f32 max_dist_sq = 0.0f;
+        for (auto p : nearest) {
+            vec3 from(glm::cos(p->phi) * glm::sin(p->theta), glm::sin(p->phi) * glm::sin(p->theta), glm::cos(p->theta));
+            // don't count photons coming from "inside" the surface
+            if (glm::dot(from, normal) > 0.0f)
+                continue;
+            f32 dist = glm::dot(p->pos - pos, p->pos - pos);
+            max_dist_sq = glm::max(max_dist_sq, dist);
+            flux += p->power;
+        }
+
+        f32 area = glm::pi<f32>() * max_dist_sq;
+        if (area > EPS) {
+            f32 occlusion = 1.0f;
+            if (mat.occlusion_index.has_value())
+                occlusion = sample(&textures[*mat.occlusion_index], uv, CHANNEL_R);
+            diffuse_color = flux * base_color * occlusion / area;
+        }
     }
 
-    f32 occlusion = 1.0f;
-    if (mat.occlusion_index.has_value())
-        occlusion = sample(&textures[*mat.occlusion_index], uv, CHANNEL_R);
+    vec3 reflected_color = BLACK;
+    // mix_factor greater than 0, so it's at least
+    // somewhat a transmissive or a metallic and
+    // we should reflect the ray
+    if (mix_factor > EPS) {
+        vec3 new_dir = ggx_sample_direction(rng, ray.direction, normal, roughness, curr_ior, mat.ior, mat.transmission,
+                                            rec.front_face);
+        if (new_dir != ZERO_VEC) {
+            bool refracted = glm::dot(new_dir, rec.normal) < 0.0f;
+            f32 next_ior = refracted ? (rec.front_face ? mat.ior : AIR_IOR) : curr_ior;
+            HitRecord reflected_rec;
+            Material reflected_mat;
+            vec2 reflected_uv;
+            Ray reflected = Ray(pos, glm::normalize(new_dir));
+            if (objects.hit(reflected, Interval(0.001f, std::numeric_limits<f32>::max()), reflected_rec, reflected_mat,
+                            reflected_uv, textures))
+                reflected_color =
+                    get_color(rng, reflected, reflected_rec, n, reflected_mat, reflected_uv, depth_left - 1, next_ior);
+        }
+    }
 
-    vec3 diffuse_color = flux * base_color * occlusion / area;
-    return glm::mix(diffuse_color, reflected_color, metallic) + emissive;
+    return glm::mix(diffuse_color, reflected_color, mix_factor) + emissive;
 }
 
 Camera &Scene::get_camera() {
