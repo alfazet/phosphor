@@ -82,7 +82,8 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
 
     f32 phi = glm::atan(r.direction.y, r.direction.x);
     f32 theta = glm::acos(glm::clamp(r.direction.z, -1.0f, 1.0f));
-    photon_map.store(id, {rec.point, power, phi, theta});
+
+    Photon potential_photon = {rec.point, power, phi, theta};
     vec3 base_color = vec3(mat.base_color);
     if (mat.diff_index.has_value()) {
         base_color *= sample(&textures[*mat.diff_index], uv);
@@ -127,9 +128,12 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
             bool refracted = glm::dot(new_dir, rec.normal) < 0.0f;
             f32 next_ior = refracted ? (rec.front_face ? mat.ior : AIR_IOR) : curr_ior;
             trace_photon(rng, id, Ray(rec.point, new_dir), power * st / rho_st, depth + 1, max_bounces, next_ior);
+            if (refracted)
+                return;
         }
     }
     // else the photon is absorbed
+    photon_map.store(id, potential_photon);
 }
 
 void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_threads) {
