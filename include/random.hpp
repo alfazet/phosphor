@@ -108,6 +108,21 @@ inline f32 fresnel_refracted(f32 ior_1, f32 ior_2, const vec3 &incoming, const v
     return R_0 + (1 - R_0) * glm::pow(1 - glm::cos(theta), 5);
 }
 
+inline vec3 reflect(const vec3 &incoming, const vec3 &normal) {
+    vec3 reflected = glm::normalize(glm::reflect(incoming, normal));
+    if (glm::dot(reflected, normal) < 0.0f)
+        return ZERO_VEC; // absorb if it reflected below the surface
+    return reflected;
+}
+
+inline vec3 refract(const vec3 &incoming, const vec3 &normal, f32 eta1, f32 eta2) {
+    vec3 refracted = glm::refract(incoming, normal, eta1 / eta2);
+    if (refracted == ZERO_VEC) {
+        return reflect(incoming, normal);
+    }
+    return glm::normalize(refracted);
+}
+
 inline vec3 reflect_or_refract(RngState &rng, const vec3 &incoming, const vec3 &normal, f32 curr_ior, f32 mat_ior,
                                f32 mat_transmission, bool front_face) {
     f32 eta1 = front_face ? curr_ior : mat_ior;
@@ -115,16 +130,10 @@ inline vec3 reflect_or_refract(RngState &rng, const vec3 &incoming, const vec3 &
     f32 reflection_prob = fresnel_refracted(eta1, eta2, -incoming, normal);
     f32 x = random_float(rng);
     if (x < reflection_prob) {
-        // reflect
-        vec3 reflected = glm::normalize(glm::reflect(incoming, normal));
-        if (glm::dot(reflected, normal) < 0.0f)
-            return ZERO_VEC; // absorb if it reflected below the surface
-        return reflected;
+        return reflect(incoming, normal);
     } else if (x < (1.0f - reflection_prob) * mat_transmission) {
-        // refract
-        return glm::normalize(glm::refract(incoming, normal, eta1 / eta2));
+        return refract(incoming, normal, eta1, eta2);
     }
-
     return ZERO_VEC;
 }
 
