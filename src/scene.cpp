@@ -1,5 +1,4 @@
 #include "scene.hpp"
-#include "glm/detail/_noise.hpp"
 #include "image.hpp"
 #include "logger.hpp"
 #include "random.hpp"
@@ -217,27 +216,6 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
     if (mat.emis_index.has_value())
         emissive = sample(&textures[*mat.emis_index], uv);
 
-    std::vector<const Photon *> nearest;
-    photon_map.locate(pos, n, 1000.0f, nearest);
-    if (nearest.empty())
-        return emissive;
-
-    vec3 flux(0.0f);
-    f32 max_dist_sq = 0.0f;
-    for (auto p : nearest) {
-        vec3 from(glm::cos(p->phi) * glm::sin(p->theta), glm::sin(p->phi) * glm::sin(p->theta), glm::cos(p->theta));
-        // don't count photons coming from "inside" the surface
-        if (glm::dot(from, normal) > 0.0f)
-            continue;
-        f32 dist = glm::dot(p->pos - pos, p->pos - pos);
-        max_dist_sq = glm::max(max_dist_sq, dist);
-        flux += p->power;
-    }
-
-    f32 area = glm::pi<f32>() * max_dist_sq;
-    if (area < EPS)
-        return emissive;
-
     vec3 base_color = mat.base_color;
     if (mat.diff_index.has_value())
         base_color = sample(&textures[*mat.diff_index], uv);
@@ -250,28 +228,59 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
         roughness *= sample(tex, uv, CHANNEL_G);
     }
 
-    vec3 reflected_color = BLACK;
-    const vec3 new_dir = ggx_sample_direction(rng, ray.direction, normal, roughness, curr_ior, mat.ior,
-                                              mat.transmission, rec.front_face);
-    if (new_dir != ZERO_VEC) {
-        bool refracted = glm::dot(new_dir, rec.normal) < 0.0f;
-        f32 next_ior = refracted ? (rec.front_face ? mat.ior : AIR_IOR) : curr_ior;
-        HitRecord reflected_rec;
-        Material reflected_mat;
-        vec2 reflected_uv;
-        Ray reflected = Ray(pos, glm::normalize(new_dir));
-        if (objects.hit(reflected, Interval(0.001f, std::numeric_limits<f32>::max()), reflected_rec, reflected_mat,
-                        reflected_uv, textures))
-            reflected_color =
-                get_color(rng, reflected, reflected_rec, n, reflected_mat, reflected_uv, depth_left - 1, next_ior);
+    f32 mix_factor = glm::max(metallic, mat.transmission);
+
+    vec3 diffuse_color = BLACK;
+    // mix_factor smaller than 1, so it's at least
+    // somewhat a non-transmissive dielectric and
+    // we should do a photon lookup
+    if (mix_factor < 1.0f - EPS) {
+        std::vector<const Photon *> nearest;
+        photon_map.locate(pos, n, 1000.0f, nearest);
+
+        vec3 flux(0.0f);
+        f32 max_dist_sq = 0.0f;
+        for (auto p : nearest) {
+            vec3 from(glm::cos(p->phi) * glm::sin(p->theta), glm::sin(p->phi) * glm::sin(p->theta), glm::cos(p->theta));
+            // don't count photons coming from "inside" the surface
+            if (glm::dot(from, normal) > 0.0f)
+                continue;
+            f32 dist = glm::dot(p->pos - pos, p->pos - pos);
+            max_dist_sq = glm::max(max_dist_sq, dist);
+            flux += p->power;
+        }
+
+        f32 area = glm::pi<f32>() * max_dist_sq;
+        if (area > EPS) {
+            f32 occlusion = 1.0f;
+            if (mat.occlusion_index.has_value())
+                occlusion = sample(&textures[*mat.occlusion_index], uv, CHANNEL_R);
+            diffuse_color = flux * base_color * occlusion / area;
+        }
     }
 
-    f32 occlusion = 1.0f;
-    if (mat.occlusion_index.has_value())
-        occlusion = sample(&textures[*mat.occlusion_index], uv, CHANNEL_R);
+    vec3 reflected_color = BLACK;
+    // mix_factor greater than 0, so it's at least
+    // somewhat a transmissive or a metallic and
+    // we should reflect the ray
+    if (mix_factor > EPS) {
+        vec3 new_dir = ggx_sample_direction(rng, ray.direction, normal, roughness, curr_ior, mat.ior, mat.transmission,
+                                            rec.front_face);
+        if (new_dir != ZERO_VEC) {
+            bool refracted = glm::dot(new_dir, rec.normal) < 0.0f;
+            f32 next_ior = refracted ? (rec.front_face ? mat.ior : AIR_IOR) : curr_ior;
+            HitRecord reflected_rec;
+            Material reflected_mat;
+            vec2 reflected_uv;
+            Ray reflected = Ray(pos, glm::normalize(new_dir));
+            if (objects.hit(reflected, Interval(0.001f, std::numeric_limits<f32>::max()), reflected_rec, reflected_mat,
+                            reflected_uv, textures))
+                reflected_color =
+                    get_color(rng, reflected, reflected_rec, n, reflected_mat, reflected_uv, depth_left - 1, next_ior);
+        }
+    }
 
-    vec3 diffuse_color = flux * base_color * occlusion / area;
-    return glm::mix(diffuse_color, reflected_color, glm::max(metallic, mat.transmission)) + emissive;
+    return glm::mix(diffuse_color, reflected_color, mix_factor) + emissive;
 }
 
 Camera &Scene::get_camera() {
