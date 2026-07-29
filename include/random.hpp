@@ -103,34 +103,37 @@ inline f32 smith_g1_ggx(f32 theta, f32 alpha) {
 
 // https://en.wikipedia.org/wiki/Schlick's_approximation
 inline f32 fresnel_refracted(f32 ior_1, f32 ior_2, const vec3 &incoming, const vec3 &normal) {
-    f32 R_0 = glm::pow((ior_1 - ior_2)/(ior_1 + ior_2), 2);
+    f32 R_0 = glm::pow((ior_1 - ior_2) / (ior_1 + ior_2), 2);
     f32 theta = glm::angle(incoming, normal);
-    // DBG(R_0);
-    // DBG(theta);
-    return R_0 + (1-R_0) * glm::pow(1-glm::cos(theta), 5);
+    return R_0 + (1 - R_0) * glm::pow(1 - glm::cos(theta), 5);
 }
 
-inline vec3 reflect_or_refract(RngState &rng, const vec3 &incoming, const vec3 &normal, f32 curr_ior, f32 mat_ior, f32 mat_transmission) {
-    f32 refracted_chance = fresnel_refracted(curr_ior, mat_ior, -incoming, normal);
-    // DBG(refracted_chance);
-    f32 chance = random_float(rng);
-    if (chance<refracted_chance) {
-        vec3 reflected =  glm::normalize(glm::reflect(incoming, normal));
+inline vec3 reflect_or_refract(RngState &rng, const vec3 &incoming, const vec3 &normal, f32 curr_ior, f32 mat_ior,
+                               f32 mat_transmission, bool front_face) {
+    f32 eta1 = front_face ? curr_ior : mat_ior;
+    f32 eta2 = front_face ? mat_ior : curr_ior;
+    f32 reflection_prob = fresnel_refracted(eta1, eta2, -incoming, normal);
+    f32 x = random_float(rng);
+    if (x < reflection_prob) {
+        // reflect
+        vec3 reflected = glm::normalize(glm::reflect(incoming, normal));
         if (glm::dot(reflected, normal) < 0.0f)
             return ZERO_VEC; // absorb if it reflected below the surface
         return reflected;
+    } else if (x < (1.0f - reflection_prob) * mat_transmission) {
+        // refract
+        return glm::normalize(glm::refract(incoming, normal, eta1 / eta2));
     }
-    else if (chance < mat_transmission) {
-        return glm::normalize(glm::refract(incoming, normal, curr_ior/mat_ior));
-    }
+
     return ZERO_VEC;
 }
 
-inline vec3 ggx_sample_direction(RngState &rng, const vec3 &incoming, const vec3 &normal, f32 roughness, f32 curr_ior, f32 mat_ior, f32 mat_transmission) {
+inline vec3 ggx_sample_direction(RngState &rng, const vec3 &incoming, const vec3 &normal, f32 roughness, f32 curr_ior,
+                                 f32 mat_ior, f32 mat_transmission, bool front_face) {
     if (roughness < EPS)
-        return reflect_or_refract(rng, incoming, normal, curr_ior, mat_ior, mat_transmission);
+        return reflect_or_refract(rng, incoming, normal, curr_ior, mat_ior, mat_transmission, front_face);
     vec3 h = ggx_sample_vndf(rng, normal, -incoming, roughness);
-    vec3 outcome = reflect_or_refract(rng, incoming, h, curr_ior, mat_ior, mat_transmission);
+    vec3 outcome = reflect_or_refract(rng, incoming, h, curr_ior, mat_ior, mat_transmission, front_face);
     return glm::normalize(outcome);
 }
 

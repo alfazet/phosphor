@@ -67,7 +67,6 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
     }
     img.write_png(output_path);
 
-
     LOG_INFO("saved image to {}", output_path);
 }
 
@@ -102,26 +101,33 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
     vec3 dielectric_specular = vec3(0.04f);
     vec3 s = glm::mix(dielectric_specular, base_color, metallic);
     f32 max_s = glm::max(s.r, glm::max(s.g, s.b));
-    vec3 d = base_color * ((1.0f - dielectric_specular.r) * (1.0f - metallic) / (1.0f - max_s));
+    vec3 d = base_color * ((1.0f - dielectric_specular.r) * (1.0f - metallic) * (1.0f - mat.transmission) /
+                           glm::max(1.0f - max_s, EPS));
 
     f32 alpha = roughness * roughness;
-    f32 g1 = smith_g1_ggx(glm::acos(glm::dot(r.direction, rec.normal)), alpha);
+    f32 g1 = smith_g1_ggx(glm::acos(glm::dot(-r.direction, rec.normal)), alpha);
     vec3 s_eff = s * g1;
+    // st = specular/transmission
+    vec3 st = s_eff + base_color * ((1.0f - max_s) * mat.transmission * (1.0f - metallic));
 
     f32 sum_d = d.r + d.g + d.b;
-    f32 sum_s = s_eff.r + s_eff.g + s_eff.b;
-    f32 sum_total = sum_d + sum_s;
-    f32 rho_r = glm::max(d.r + s_eff.r, glm::max(d.g + s_eff.g, d.b + s_eff.b));
+    f32 sum_st = st.r + st.g + st.b;
+    f32 sum_total = sum_d + sum_st;
+    f32 rho_r = glm::max(d.r + st.r, glm::max(d.g + st.g, d.b + st.b));
     f32 rho_d = sum_total > EPS ? (rho_r * sum_d / sum_total) : 0.0f;
-    f32 rho_s = rho_r - rho_d;
+    f32 rho_st = rho_r - rho_d;
 
-    if (false && xi < rho_d) {
+    if (xi < rho_d) {
         const vec3 new_dir = random_in_unit_hemisphere(rng, rec.normal);
         trace_photon(rng, id, Ray(rec.point, new_dir), power * d / rho_d, depth + 1, max_bounces, curr_ior);
-    } else if (xi < rho_s + rho_d) {
-        const vec3 new_dir = ggx_sample_direction(rng, r.direction, rec.normal, roughness, curr_ior, mat.ior, mat.transmission);
-        if (new_dir != ZERO_VEC)
-            trace_photon(rng, id, Ray(rec.point, new_dir), power * s_eff / rho_s, depth + 1, max_bounces, mat.ior);
+    } else if (xi < rho_d + rho_st) {
+        const vec3 new_dir = ggx_sample_direction(rng, r.direction, rec.normal, roughness, curr_ior, mat.ior,
+                                                  mat.transmission, rec.front_face);
+        if (new_dir != ZERO_VEC) {
+            bool refracted = glm::dot(new_dir, rec.normal) < 0.0f;
+            f32 next_ior = refracted ? (rec.front_face ? mat.ior : AIR_IOR) : curr_ior;
+            trace_photon(rng, id, Ray(rec.point, new_dir), power * st / rho_st, depth + 1, max_bounces, next_ior);
+        }
     }
     // else the photon is absorbed
 }
@@ -241,15 +247,19 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
     }
 
     vec3 reflected_color = BLACK;
-    const vec3 new_dir = ggx_sample_direction(rng, ray.direction, normal, roughness, curr_ior, mat.ior, mat.transmission);
+    const vec3 new_dir = ggx_sample_direction(rng, ray.direction, normal, roughness, curr_ior, mat.ior,
+                                              mat.transmission, rec.front_face);
     if (new_dir != ZERO_VEC) {
+        bool refracted = glm::dot(new_dir, rec.normal) < 0.0f;
+        f32 next_ior = refracted ? (rec.front_face ? mat.ior : AIR_IOR) : curr_ior;
         HitRecord reflected_rec;
         Material reflected_mat;
         vec2 reflected_uv;
         Ray reflected = Ray(pos, glm::normalize(new_dir));
         if (objects.hit(reflected, Interval(0.001f, std::numeric_limits<f32>::max()), reflected_rec, reflected_mat,
                         reflected_uv, textures))
-            reflected_color = get_color(rng, reflected, reflected_rec, n, reflected_mat, reflected_uv, depth_left - 1, mat.ior);
+            reflected_color =
+                get_color(rng, reflected, reflected_rec, n, reflected_mat, reflected_uv, depth_left - 1, next_ior);
     }
 
     f32 occlusion = 1.0f;
@@ -257,7 +267,7 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
         occlusion = sample(&textures[*mat.occlusion_index], uv, CHANNEL_R);
 
     vec3 diffuse_color = flux * base_color * occlusion / area;
-    return glm::mix(diffuse_color, reflected_color, glm::max(metallic,mat.transmission)) + emissive;
+    return glm::mix(diffuse_color, reflected_color, glm::max(metallic, mat.transmission)) + emissive;
 }
 
 Camera &Scene::get_camera() {
