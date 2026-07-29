@@ -32,11 +32,9 @@ void Triangles::split() {
         return;
     }
 
-
     boundingBox = (*objects)[start].get_bounding_box();
 
-
-    for (u32 i = start+1; i < end; i++) {
+    for (u32 i = start + 1; i < end; i++) {
         boundingBox = BoundingBox(boundingBox, (*objects)[i].get_bounding_box());
     }
     u32 axis = boundingBox.longest();

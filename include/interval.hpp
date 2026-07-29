@@ -13,9 +13,7 @@ struct Interval {
         end = -INF;
     }
 
-    [[nodiscard]] f32 size() const {
-        return end - start;
-    }
+    [[nodiscard]] f32 size() const { return end - start; }
 
     Interval(f32 a, f32 b) {
         start = a;

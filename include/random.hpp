@@ -117,9 +117,8 @@ inline vec3 reflect(const vec3 &incoming, const vec3 &normal) {
 
 inline vec3 refract(const vec3 &incoming, const vec3 &normal, f32 eta1, f32 eta2) {
     vec3 refracted = glm::refract(incoming, normal, eta1 / eta2);
-    if (refracted == ZERO_VEC) {
+    if (refracted == ZERO_VEC)
         return reflect(incoming, normal);
-    }
     return glm::normalize(refracted);
 }
 
