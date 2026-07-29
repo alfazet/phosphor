@@ -32,7 +32,15 @@ void Triangles::split() {
         return;
     }
 
-    u32 axis = random() % 3;
+
+    boundingBox = (*objects)[start].get_bounding_box();
+
+
+    for (u32 i = start+1; i < end; i++) {
+        boundingBox = BoundingBox(boundingBox, (*objects)[i].get_bounding_box());
+    }
+    u32 axis = boundingBox.longest();
+
     auto comparator = (axis == 0) ? box_compare0 : (axis == 1) ? box_compare1 : box_compare2;
 
     std::sort(std::begin(*objects) + start, std::begin(*objects) + end, comparator);
@@ -40,8 +48,6 @@ void Triangles::split() {
     auto mid = start + (end - start) / 2;
     left = std::make_shared<Triangles>(objects, start, mid);
     right = std::make_shared<Triangles>(objects, mid, end);
-
-    boundingBox = BoundingBox(left->boundingBox, right->boundingBox);
 }
 
 bool Triangles::hit(const Ray &r, Interval t, HitRecord &rec, Material &mat_out, vec2 &uv,
