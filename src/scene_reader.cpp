@@ -52,6 +52,7 @@ static void parse_camera(const aiScene *aiscene, const aiCamera *ai_camera, Scen
 static void parse_light(const aiScene *aiscene, const aiLight *ai_light, Scene &out_scene, mat4 global_transform) {
     vec3 position =
         vec3(global_transform * vec4(ai_light->mPosition.x, ai_light->mPosition.y, ai_light->mPosition.z, 1.0f));
+    mat3 global_rotation(global_transform);
     // diffuse/specular values are pre-multiplied by light intensity I (in candelas) taken from the gltf file
     // assuming a light with power P (in watts, as specified in Blender), and luminous efficacy K = 683 cd * sr / W,
     // we have I = (P * K) / (4 * pi) = 54.35 * P
@@ -65,9 +66,8 @@ static void parse_light(const aiScene *aiscene, const aiLight *ai_light, Scene &
     } else if (ai_light->mType == aiLightSource_SPOT) {
         f32 inner = ai_light->mAngleInnerCone;
         f32 outer = ai_light->mAngleOuterCone;
-        vec3 dir =
-            vec3(global_transform * vec4(ai_light->mDirection.x, ai_light->mDirection.y, ai_light->mDirection.z, 1.0f));
-        dir = glm::normalize(dir);
+        vec3 dir = glm::normalize(global_rotation *
+                                  vec3(ai_light->mDirection.x, ai_light->mDirection.y, ai_light->mDirection.z));
         out_scene.spot_lights.emplace_back(position, power, dir, inner, outer);
     } else {
         LOG_WARN("scene contains an unsupported light type: {}", static_cast<i32>(ai_light->mType));
