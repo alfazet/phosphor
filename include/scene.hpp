@@ -19,6 +19,7 @@
 struct Scene {
     Triangles objects;
     std::vector<PointLight> point_lights;
+    std::vector<SpotLight> spot_lights;
     std::vector<TexturedLight> textured_lights;
     std::vector<Camera> cameras;
     std::vector<Texture> textures;
@@ -32,8 +33,10 @@ struct Scene {
     void add_texture(const Texture &texture);
 
     void emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_threads);
-    void run_thread_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
-                         const vec3 photon_power, const vec3 light_pos);
+    void run_thread_point_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
+                               vec3 photon_power, const PointLight& light);
+    void run_thread_spot_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
+                              vec3 photon_power, const SpotLight& light);
     void run_thread_textured_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
                                   f32 fraction, const TexturedLight &light);
 

@@ -140,9 +140,12 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
 
 void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_threads) {
     photon_map.init_thread_buffers(n_threads);
-    u32 total_photons = photons_per_light * (point_lights.size() + textured_lights.size());
+    u32 total_photons = photons_per_light * (point_lights.size() + spot_lights.size() + textured_lights.size());
     f32 total_light_power = 0.0f;
     for (const auto &light : point_lights) {
+        total_light_power += glm::length(light.power);
+    }
+    for (const auto &light : spot_lights) {
         total_light_power += glm::length(light.power);
     }
     for (const auto &light : textured_lights) {
@@ -161,8 +164,31 @@ void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_th
         for (u32 i = 0; i < n_threads; i++) {
             u32 photons_to_cast = glm::min(photons_per_thread, photons_left);
             RngState thread_rng = make_thread_rng(rng, i);
-            threads.emplace_back(std::thread(&Scene::run_thread_emit, this, std::move(thread_rng), i, photons_to_cast,
-                                             std::ref(progress), max_bounces, photon_power, light.pos));
+            threads.emplace_back(std::thread(&Scene::run_thread_point_emit, this, std::move(thread_rng), i,
+                                             photons_to_cast, std::ref(progress), max_bounces, photon_power,
+                                             std::ref(light)));
+            photons_left -= photons_per_thread;
+        }
+        for (auto &t : threads) {
+            t.join();
+        }
+    }
+
+    // TODO: there's a ton of code duplication
+    for (const auto &light : spot_lights) {
+        u32 local_photons = (glm::length(light.power) / total_light_power) * static_cast<f32>(photons_per_light);
+        vec3 photon_power = vec3(light.power / static_cast<f32>(local_photons));
+        u32 photons_left = local_photons;
+        u32 photons_per_thread = (local_photons + n_threads - 1) / n_threads;
+
+        std::vector<std::thread> threads;
+        threads.reserve(n_threads);
+        for (u32 i = 0; i < n_threads; i++) {
+            u32 photons_to_cast = glm::min(photons_per_thread, photons_left);
+            RngState thread_rng = make_thread_rng(rng, i);
+            threads.emplace_back(std::thread(&Scene::run_thread_spot_emit, this, std::move(thread_rng), i,
+                                             photons_to_cast, std::ref(progress), max_bounces, photon_power,
+                                             std::ref(light)));
             photons_left -= photons_per_thread;
         }
         for (auto &t : threads) {
@@ -198,11 +224,20 @@ void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_th
     timer_.stop();
 }
 
-void Scene::run_thread_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
-                            const vec3 photon_power, const vec3 light_pos) {
+void Scene::run_thread_point_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
+                                  vec3 photon_power, const PointLight &light) {
     for (u32 i = 0; i < photons; i++) {
-        const vec3 dir = random_unit_vector(rng);
-        trace_photon(rng, id, Ray(light_pos, dir), photon_power, 0, max_bounces, AIR_IOR);
+        vec3 dir = random_unit_vector(rng);
+        trace_photon(rng, id, Ray(light.pos, dir), photon_power, 0, max_bounces, AIR_IOR);
+        img_progress.increase(1);
+    }
+}
+
+void Scene::run_thread_spot_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
+                                 vec3 photon_power, const SpotLight &light) {
+    for (u32 i = 0; i < photons; i++) {
+        auto sample = light.sample_light(rng);
+        trace_photon(rng, id, sample.ray, sample.power, 0, max_bounces, AIR_IOR);
         img_progress.increase(1);
     }
 }

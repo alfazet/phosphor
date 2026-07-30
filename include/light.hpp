@@ -21,6 +21,16 @@ struct PointLight {
     LightSample sample_light(RngState &rng) const;
 };
 
+struct SpotLight {
+    vec3 pos;
+    vec3 power;
+    vec3 dir;
+    f32 inner;
+    f32 outer;
+
+    LightSample sample_light(RngState &rng) const;
+};
+
 struct TexturedLight {
     usize tex_index;
     std::vector<Triangle> triangles;
