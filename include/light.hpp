@@ -7,10 +7,6 @@
 #include "triangle.hpp"
 #include "triangles.hpp"
 
-#include <algorithm>
-
-#include <algorithm>
-
 struct LightSample {
     Ray ray;
     vec3 power;
@@ -25,15 +21,6 @@ struct PointLight {
     LightSample sample_light(RngState &rng) const;
 };
 
-struct AreaLight {
-    vec3 pos;
-    vec3 edge_u;
-    vec3 edge_v;
-    vec3 emission;
-
-    LightSample sample_light(RngState &rng) const;
-};
-
 struct TexturedLight {
     usize tex_index;
     std::vector<Triangle> triangles;
@@ -41,6 +28,8 @@ struct TexturedLight {
 
     LightSample sample_light(RngState &rng, const Triangles &triangles, const std::vector<Texture> &textures,
                              f32 photon_frac) const;
+
+    vec3 total_power(const std::vector<Texture> &textures) const;
 };
 
 #endif // PHOSPHOR_LIGHT_HPP

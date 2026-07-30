@@ -1,15 +1,7 @@
 #include "light.hpp"
 
-LightSample PointLight::sample_light(RngState &rng) const { return {Ray(this->pos, random_unit_vector(rng)), power}; }
-
-LightSample AreaLight::sample_light(RngState &rng) const {
-    float u = random_float(rng);
-    float v = random_float(rng);
-    vec3 pos = this->pos + u * this->edge_u + v * this->edge_v;
-    vec3 normal = glm::normalize(glm::cross(this->edge_u, this->edge_v));
-    vec3 dir = random_in_unit_hemisphere(rng, normal);
-
-    return {Ray(pos, dir), emission};
+LightSample PointLight::sample_light(RngState &rng) const {
+    return {Ray(this->pos, random_unit_vector(rng)), this->power};
 }
 
 // sample a random triangle from this mesh with importance sampling weighted by area
@@ -37,4 +29,19 @@ LightSample TexturedLight::sample_light(RngState &rng, const Triangles &triangle
     vec3 power = emission * total_area * PI * photon_frac;
 
     return {Ray(point, dir), power};
+}
+
+// estimate the total power of an emissive light source
+// by sampling in the middle of each triangle - this is only used once
+// to decide how to distribute photons between the light sources so it's
+// fine even if it's not that accurate
+vec3 TexturedLight::total_power(const std::vector<Texture> &textures) const {
+    vec3 total_power = vec3(0.0f);
+    const Texture &tex = textures[this->tex_index];
+    for (const auto &tri : this->triangles) {
+        vec3 emission = sample(&tex, tri.uv_at(0.5, 0.5));
+        total_power += emission * tri.area() * glm::pi<f32>();
+    }
+
+    return total_power;
 }

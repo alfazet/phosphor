@@ -50,15 +50,23 @@ static void parse_camera(const aiScene *aiscene, const aiCamera *ai_camera, Scen
 }
 
 static void parse_light(const aiScene *aiscene, const aiLight *ai_light, Scene &out_scene, mat4 global_transform) {
-    if (ai_light->mType == aiLightSource_POINT) {
-        vec3 position =
-            vec3(global_transform * vec4(ai_light->mPosition.x, ai_light->mPosition.y, ai_light->mPosition.z, 1.0f));
-        // TODO: PointLight change is needed; hardcoded for now
-        PointLight engineLight(position, vec3(100.0f, 100.0f, 100.0f));
-        out_scene.add_point_light(engineLight);
-        return;
+    vec3 position =
+        vec3(global_transform * vec4(ai_light->mPosition.x, ai_light->mPosition.y, ai_light->mPosition.z, 1.0f));
+    // diffuse/specular values are pre-multiplied by light intensity I (in candelas) taken from the gltf file
+    // assuming a light with power P (in watts, as specified in Blender), and luminous efficacy K = 683 cd * sr / W,
+    // we have I = (P * K) / (4 * pi) = 54.35 * P
+    // so, for example, a 1000 W pure red light will be represented as approx. (54350, 0, 0)
+
+    // mColorDiffuse is the same as mColorSpecular in gltf
+    vec3 power = vec3(ai_light->mColorDiffuse.r, ai_light->mColorDiffuse.g, ai_light->mColorDiffuse.b) / 683.0f;
+
+    switch (ai_light->mType) {
+    case aiLightSource_POINT:
+        out_scene.point_lights.emplace_back(position, power);
+        break;
+    default:
+        LOG_WARN("scene contains an unsupported light type: {}", static_cast<i32>(ai_light->mType));
     }
-    LOG_WARN("scene has unsupported light type: {}", static_cast<i32>(ai_light->mType));
 }
 
 usize find_texture(std::string name, const std::vector<Texture> &textures) {
