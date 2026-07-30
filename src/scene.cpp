@@ -237,7 +237,8 @@ void Scene::run_thread_spot_emit(RngState rng, u32 id, u32 photons, ProgressScop
                                  vec3 photon_power, const SpotLight &light) {
     for (u32 i = 0; i < photons; i++) {
         auto sample = light.sample_light(rng);
-        trace_photon(rng, id, sample.ray, sample.power, 0, max_bounces, AIR_IOR);
+        vec3 power = photon_power * sample.power / light.power;
+        trace_photon(rng, id, sample.ray, power, 0, max_bounces, AIR_IOR);
         img_progress.increase(1);
     }
 }

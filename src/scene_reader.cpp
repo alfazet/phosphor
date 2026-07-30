@@ -65,7 +65,8 @@ static void parse_light(const aiScene *aiscene, const aiLight *ai_light, Scene &
     } else if (ai_light->mType == aiLightSource_SPOT) {
         f32 inner = ai_light->mAngleInnerCone;
         f32 outer = ai_light->mAngleOuterCone;
-        vec3 dir = vec3(ai_light->mDirection.x, ai_light->mDirection.y, ai_light->mDirection.z);
+        vec3 dir =
+            vec3(global_transform * vec4(ai_light->mDirection.x, ai_light->mDirection.y, ai_light->mDirection.z, 1.0f));
         dir = glm::normalize(dir);
         out_scene.spot_lights.emplace_back(position, power, dir, inner, outer);
     } else {

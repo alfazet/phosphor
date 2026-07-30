@@ -5,8 +5,23 @@ LightSample PointLight::sample_light(RngState &rng) const {
 }
 
 LightSample SpotLight::sample_light(RngState &rng) const {
-    // TODO: implement
-    return {};
+    f32 cos_inner = glm::cos(this->inner);
+    f32 cos_outer = glm::cos(this->outer);
+    f32 r1 = random_float(rng);
+    f32 r2 = random_float(rng);
+    f32 cos_theta = 1.0f - r1 * (1.0f - cos_outer);
+    f32 sin_theta = glm::sqrt(1.0f - cos_theta * cos_theta);
+    f32 phi = 2.0f * PI * r2;
+
+    vec3 local_dir(sin_theta * glm::cos(phi), sin_theta * glm::sin(phi), cos_theta);
+    vec3 tangent, bitangent;
+    make_tbn(this->dir, tangent, bitangent);
+    vec3 world_dir = glm::normalize(local_dir.x * tangent + local_dir.y * bitangent + local_dir.z * this->dir);
+
+    f32 t = glm::clamp((cos_theta - cos_outer) / (cos_inner - cos_outer), 0.0f, 1.0f);
+    f32 falloff = t * t * (-2.0f * t + 3.0f); // smoothstep
+
+    return {Ray(this->pos, world_dir), this->power * falloff};
 }
 
 // sample a random triangle from this mesh with importance sampling weighted by area
