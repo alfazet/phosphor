@@ -24,6 +24,8 @@ LightSample SpotLight::sample_light(RngState &rng) const {
     return {Ray(this->pos, world_dir), this->power * falloff};
 }
 
+LightSample DirectionalLight::sample_light(RngState &rng) const { return {}; }
+
 // sample a random triangle from this mesh with importance sampling weighted by area
 LightSample TexturedLight::sample_light(RngState &rng, const Triangles &triangles, const std::vector<Texture> &textures,
                                         f32 photon_frac) const {

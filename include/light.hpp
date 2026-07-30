@@ -31,6 +31,12 @@ struct SpotLight {
     LightSample sample_light(RngState &rng) const;
 };
 
+struct DirectionalLight {
+    vec3 dir;
+
+    LightSample sample_light(RngState &rng) const;
+};
+
 struct TexturedLight {
     usize tex_index;
     std::vector<Triangle> triangles;

@@ -43,7 +43,7 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
                            const char *output_path, u32 n_threads, u32 image_iters) {
     TimerScope timer_scope("generating image");
 
-    if (point_lights.empty() && textured_lights.empty())
+    if (point_lights.empty() && textured_lights.empty() && spot_lights.empty())
         LOG_ERROR("scene contains no lights");
     if ((*objects.objects).empty())
         LOG_ERROR("scene contains no triangles");

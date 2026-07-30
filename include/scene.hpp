@@ -20,6 +20,7 @@ struct Scene {
     Triangles objects;
     std::vector<PointLight> point_lights;
     std::vector<SpotLight> spot_lights;
+    std::vector<DirectionalLight> dir_lights;
     std::vector<TexturedLight> textured_lights;
     std::vector<Camera> cameras;
     std::vector<Texture> textures;
