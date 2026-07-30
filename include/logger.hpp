@@ -198,11 +198,7 @@ class Logger {
 #endif
 
 #ifndef ACTIVE_LOG_LEVEL
-#ifdef NDEBUG
-#define ACTIVE_LOG_LEVEL logger::Level::Info
-#else
 #define ACTIVE_LOG_LEVEL logger::Level::Debug
-#endif
 #endif
 
 #define LOG_DETAIL(level, fmt, ...)                                                                                    \
