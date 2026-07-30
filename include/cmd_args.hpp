@@ -20,12 +20,12 @@ constexpr u32 DEFAULT_IMAGE_ITERS = 1;
 #define ARG_TABLE(X)                                                                                                   \
     X("-r", resolution, u32, parse_u32, DEFAULT_RESOLUTION, "resolution")                                              \
     X("-s", samples, u32, parse_u32, DEFAULT_SAMPLES, "number of samples")                                             \
-    X("-p", photons_per_light, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT, "photons per light source")                  \
+    X("-p", photons_per_light, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT, "average photons per light source")          \
     X("-d", depth, u32, parse_u32, DEFAULT_DEPTH, "depth")                                                             \
     X("-m", model, std::string, parse_string, DEFAULT_MODEL, "model name")                                             \
     X("-o", output_path, std::string, parse_string, DEFAULT_OUTPUT_PATH, "output image path")                          \
     X("-t", n_threads, u32, parse_u32, DEFAULT_N_THREADS, "number of CPU threads")                                     \
-    X("-i", image_iters, u32, parse_u32, DEFAULT_IMAGE_ITERS, "image iterations")                                            \
+    X("-i", image_iters, u32, parse_u32, DEFAULT_IMAGE_ITERS, "image iterations")                                      \
     X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")
 
 struct ArgsList {

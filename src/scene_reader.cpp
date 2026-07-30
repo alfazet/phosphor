@@ -171,7 +171,7 @@ void load_texture(const aiScene *aiscene, aiMaterial *mat, aiTextureType type, c
 
             std::vector<u8> converted(w * h * 3);
             const aiTexel *texels = embedded_tex->pcData;
-            for (int i = 0; i < w * h; ++i) {
+            for (u32 i = 0; i < w * h; ++i) {
                 converted[i * 3 + 0] = texels[i].r;
                 converted[i * 3 + 1] = texels[i].g;
                 converted[i * 3 + 2] = texels[i].b;
@@ -337,7 +337,7 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
                 f32 det = duv1.x * duv2.y - duv2.x * duv1.y;
                 vec3 faceTangent;
                 if (glm::abs(det) < EPS) {
-                    faceTangent = vec3(1, 0, 0); //
+                    faceTangent = vec3(1, 0, 0);
                 } else {
                     f32 f = 1.0f / det;
                     faceTangent = f * (duv2.y * edge1 - duv1.y * edge2);

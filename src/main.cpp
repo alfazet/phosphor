@@ -8,6 +8,32 @@
 
 #include <iostream>
 
+void init_logger() {
+    auto &l = logger::Logger::instance();
+
+    l.set_level(logger::Level::Debug);
+
+    auto multi = std::make_unique<logger::MultiSink>();
+    multi->add(std::make_unique<logger::ConsoleSink>());
+    multi->add(std::make_unique<logger::FileSink>("phosphor.log", false));
+    l.set_sink(std::move(multi));
+}
+
+void write_image_metadata(const ArgsList &args) {
+    std::ostringstream comment;
+    comment << "resolution=" << args.resolution << " samples=" << args.samples
+            << " photons_per_light=" << args.photons_per_light << " depth=" << args.depth
+            << " n_threads=" << args.n_threads << " image_iters=" << args.image_iters;
+    std::ostringstream cmd;
+    cmd << "exiftool -q -overwrite_original "
+        << "-Comment=\"" << comment.str() << "\" "
+        << "\"" << args.output_path << "\"";
+
+    u32 ret = std::system(cmd.str().c_str());
+    if (ret != 0)
+        LOG_ERROR("exiftool failed to write metadata (exit code {})", ret);
+}
+
 void phosphor_main(const ArgsList &args) {
     auto scenes = read_file(args.model.c_str());
     usize scene_index = 0;
@@ -23,32 +49,10 @@ void phosphor_main(const ArgsList &args) {
     scene.generate_image(std::move(rng), args.resolution, args.samples, args.photons_per_light, args.depth,
                          args.output_path.c_str(), args.n_threads, args.image_iters);
 
-    std::ostringstream comment;
-    comment << "resolution=" << args.resolution << " samples=" << args.samples
-            << " photons_per_light=" << args.photons_per_light << " depth=" << args.depth
-            << " n_threads=" << args.n_threads << " image_iters=" << args.image_iters;
-    std::ostringstream cmd;
-    cmd << "exiftool -q -overwrite_original "
-        << "-Comment=\"" << comment.str() << "\" "
-        << "\"" << args.output_path << "\"";
-
-    int ret = std::system(cmd.str().c_str());
-    if (ret != 0)
-        LOG_ERROR("exiftool failed to write metadata (exit code {})", ret);
+    write_image_metadata(args);
 }
 
-void init_logger() {
-    auto &l = logger::Logger::instance();
-
-    l.set_level(logger::Level::Debug);
-
-    auto multi = std::make_unique<logger::MultiSink>();
-    multi->add(std::make_unique<logger::ConsoleSink>());
-    multi->add(std::make_unique<logger::FileSink>("phosphor.log", false));
-    l.set_sink(std::move(multi));
-}
-
-int main(int argc, char **argv) {
+i32 main(i32 argc, char **argv) {
     init_logger();
 
     ArgParser arg_parser(argc, argv, std::cout);
