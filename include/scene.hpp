@@ -34,14 +34,6 @@ struct Scene {
     void add_texture(const Texture &texture);
 
     void emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_threads);
-    void run_thread_point_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
-                               vec3 photon_power, const PointLight& light);
-    void run_thread_spot_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
-                              vec3 photon_power, const SpotLight& light);
-    void run_thread_textured_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
-                                  f32 fraction, const TexturedLight &light);
-    void run_thread_dir_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
-                        vec3 photon_power, const DirectionalLight &light);
 
     vec3 get_color(RngState &rng, const Ray &ray, const HitRecord &rec, u32 n, Material &mat, vec2 &uv, u32 depth_left,
                    f32 curr_ior);
@@ -61,6 +53,10 @@ struct Scene {
     BoundingBox get_bounding_box() const;
 
     void trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces, f32 curr_ior);
+
+    template <class LightList, class SampleFn>
+    void emit_light_group(RngState &rng, const LightList &lights, f32 total_light_power, u32 total_photons,
+                          u32 max_bounces, u32 n_threads, ProgressScope &progress, SampleFn &&sample);
 };
 
 #endif // PHOSPHOR_SCENE_HPP

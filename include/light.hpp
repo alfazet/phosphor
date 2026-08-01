@@ -43,10 +43,14 @@ struct TexturedLight {
     std::vector<Triangle> triangles;
     std::vector<f32> area_pref_sum;
 
-    LightSample sample_light(RngState &rng, const Triangles &triangles, const std::vector<Texture> &textures,
-                             f32 photon_frac) const;
+    LightSample sample_light(RngState &rng, const Triangles &triangles, const std::vector<Texture> &textures) const;
 
     vec3 total_power(const std::vector<Texture> &textures) const;
 };
+
+inline vec3 light_power(const PointLight &l, const std::vector<Texture> &)       { return l.power; }
+inline vec3 light_power(const SpotLight &l, const std::vector<Texture> &)        { return l.power; }
+inline vec3 light_power(const DirectionalLight &l, const std::vector<Texture> &) { return l.power; }
+inline vec3 light_power(const TexturedLight &l, const std::vector<Texture> &tex) { return l.total_power(tex); }
 
 #endif // PHOSPHOR_LIGHT_HPP

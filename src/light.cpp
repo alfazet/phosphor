@@ -51,14 +51,13 @@ LightSample DirectionalLight::sample_light(RngState &rng, const BoundingBox &bbo
     vec3 disk_offset = r1 * (glm::cos(r2) * tangent + glm::sin(r2) * bitangent);
 
     vec3 origin = center - this->dir * bbox.longest_size() * 10.0f + disk_offset;
-    vec3 total_power = vec3(1.0f) * PI * radius * radius;
+    vec3 total_power = power * (PI * radius * radius) ;
 
     return {Ray(origin, this->dir), total_power};
 }
 
 // sample a random triangle from this mesh with importance sampling weighted by area
-LightSample TexturedLight::sample_light(RngState &rng, const Triangles &triangles, const std::vector<Texture> &textures,
-                                        f32 photon_frac) const {
+LightSample TexturedLight::sample_light(RngState &rng, const Triangles &triangles, const std::vector<Texture> &textures) const {
     auto pref_sum = this->area_pref_sum;
     f32 total_area = pref_sum.back();
     usize sample_idx =
@@ -78,7 +77,7 @@ LightSample TexturedLight::sample_light(RngState &rng, const Triangles &triangle
     vec3 normal = tri.get_normal(vec2(u, v), textures);
     point += normal * 0.001f;
     vec3 dir = random_in_unit_hemisphere(rng, normal);
-    vec3 power = emission * total_area * PI * photon_frac;
+    vec3 power = emission * total_area * PI;
 
     return {Ray(point, dir), power};
 }
