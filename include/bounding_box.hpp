@@ -46,6 +46,16 @@ struct BoundingBox {
         }
     }
 
+    f32 longest_size() const {
+        u32 index = longest();
+        if (index == 0)
+            return x.size();
+        else if (index == 1)
+            return y.size();
+        else
+            return z.size();
+    }
+
     u32 longest() const {
         if (x.size() > y.size()) {
             return x.size() > z.size() ? 0 : 2;

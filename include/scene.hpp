@@ -19,6 +19,8 @@
 struct Scene {
     Triangles objects;
     std::vector<PointLight> point_lights;
+    std::vector<SpotLight> spot_lights;
+    std::vector<DirectionalLight> dir_lights;
     std::vector<TexturedLight> textured_lights;
     std::vector<Camera> cameras;
     std::vector<Texture> textures;
@@ -27,15 +29,11 @@ struct Scene {
 
     void add_point_light(const PointLight &light);
     void add_textured_light(const TexturedLight &light);
-    void add_triangle(const Triangle &triangle);
+    void add_directional_light(const DirectionalLight &light);
     void add_camera(const Camera &camera);
     void add_texture(const Texture &texture);
 
     void emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_threads);
-    void run_thread_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
-                         const vec3 photon_power, const vec3 light_pos);
-    void run_thread_textured_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
-                                  f32 fraction, const TexturedLight &light);
 
     vec3 get_color(RngState &rng, const Ray &ray, const HitRecord &rec, u32 n, Material &mat, vec2 &uv, u32 depth_left,
                    f32 curr_ior);
@@ -55,6 +53,10 @@ struct Scene {
     BoundingBox get_bounding_box() const;
 
     void trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces, f32 curr_ior);
+
+    template <class LightList, class SampleFn>
+    void emit_light_group(RngState &rng, const LightList &lights, f32 total_light_power, u32 total_photons,
+                          u32 max_bounces, u32 n_threads, ProgressScope &progress, SampleFn &&sample);
 };
 
 #endif // PHOSPHOR_SCENE_HPP

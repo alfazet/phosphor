@@ -8,6 +8,7 @@
 
 void Scene::add_point_light(const PointLight &light) { point_lights.push_back(light); }
 void Scene::add_textured_light(const TexturedLight &light) { textured_lights.push_back(light); }
+void Scene::add_directional_light(const DirectionalLight &light) { dir_lights.push_back(light); }
 void Scene::add_camera(const Camera &camera) { cameras.push_back(camera); }
 void Scene::add_texture(const Texture &texture) { textures.push_back(texture); }
 
@@ -43,7 +44,7 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
                            const char *output_path, u32 n_threads, u32 image_iters) {
     TimerScope timer_scope("generating image");
 
-    if (point_lights.empty() && textured_lights.empty())
+    if (point_lights.empty() && textured_lights.empty() && spot_lights.empty() && dir_lights.empty())
         LOG_ERROR("scene contains no lights");
     if ((*objects.objects).empty())
         LOG_ERROR("scene contains no triangles");
@@ -138,73 +139,72 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
     }
 }
 
+template <typename LightList, typename SampleFn>
+void Scene::emit_light_group(RngState &rng, const LightList &lights, f32 total_light_power, u32 total_photons,
+                             u32 max_bounces, u32 n_threads, ProgressScope &progress, SampleFn &&sample) {
+    for (const auto &light : lights) {
+        f32 local_power = glm::length(light_power(light, textures));
+        u32 local_photons = (local_power / total_light_power) * static_cast<f32>(total_photons);
+        f32 fraction = 1.0f / static_cast<f32>(local_photons);
+        u32 photons_left = local_photons;
+        u32 photons_per_thread = (local_photons + n_threads - 1) / n_threads;
+
+        std::vector<std::thread> threads;
+        threads.reserve(n_threads);
+        for (u32 i = 0; i < n_threads; i++) {
+            u32 photons_to_cast = glm::min(photons_per_thread, photons_left);
+            RngState thread_rng = make_thread_rng(rng, i);
+            threads.emplace_back(
+                [this, thread_rng, i, photons_to_cast, &progress, max_bounces, fraction, &light, &sample]() mutable {
+                    for (u32 p = 0; p < photons_to_cast; p++) {
+                        LightSample s = sample(light, thread_rng);
+                        trace_photon(thread_rng, i, s.ray, fraction * s.power, 0, max_bounces, AIR_IOR);
+                        progress.increase(1);
+                    }
+                });
+            photons_left -= photons_per_thread;
+        }
+        for (auto &t : threads)
+            t.join();
+    }
+}
+
 void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_threads) {
     photon_map.init_thread_buffers(n_threads);
-    // TODO: change to random sampling
-    u32 total_photons = photons_per_light * (point_lights.size() + textured_lights.size());
+    u32 total_photons =
+        photons_per_light * (point_lights.size() + spot_lights.size() + textured_lights.size() + dir_lights.size());
+    f32 total_light_power = 0.0f;
+    for (const auto &light : point_lights) {
+        total_light_power += glm::length(light.power);
+    }
+    for (const auto &light : spot_lights) {
+        total_light_power += glm::length(light.power);
+    }
+    for (const auto &light : textured_lights) {
+        total_light_power += glm::length(light.total_power(this->textures));
+    }
+    for (auto &light : dir_lights) {
+        total_light_power += glm::length(light.power);
+        light.prepare(get_bounding_box());
+    }
     ProgressScope progress("emitting photons", total_photons);
 
-    for (const auto &light : point_lights) {
-        const vec3 photon_power = vec3(light.power / static_cast<f32>(photons_per_light));
-        u32 photons_left = photons_per_light;
-        u32 photons_per_thread = (photons_per_light + n_threads - 1) / n_threads;
+    emit_light_group(rng, point_lights, total_light_power, total_photons, max_bounces, n_threads, progress,
+                     [](const auto &l, RngState &r) { return l.sample_light(r); });
 
-        std::vector<std::thread> threads;
-        threads.reserve(n_threads);
-        for (u32 i = 0; i < n_threads; i++) {
-            u32 photons_to_cast = glm::min(photons_per_thread, photons_left);
-            RngState thread_rng = make_thread_rng(rng, i);
-            threads.emplace_back(std::thread(&Scene::run_thread_emit, this, std::move(thread_rng), i, photons_to_cast,
-                                             std::ref(progress), max_bounces, photon_power, light.pos));
-            photons_left -= photons_per_thread;
-        }
-        for (auto &t : threads) {
-            t.join();
-        }
-    }
+    emit_light_group(rng, spot_lights, total_light_power, total_photons, max_bounces, n_threads, progress,
+                     [](const auto &l, RngState &r) { return l.sample_light(r); });
 
-    for (const auto &light : textured_lights) {
-        const f32 fraction = 1.0f / static_cast<f32>(photons_per_light);
-        u32 photons_left = photons_per_light;
-        u32 photons_per_thread = (photons_per_light + n_threads - 1) / n_threads;
+    emit_light_group(rng, textured_lights, total_light_power, total_photons, max_bounces, n_threads, progress,
+                     [this](const auto &l, RngState &r) { return l.sample_light(r, objects, textures); });
 
-        std::vector<std::thread> threads;
-        threads.reserve(n_threads);
-        for (u32 i = 0; i < n_threads; i++) {
-            u32 photons_to_cast = glm::min(photons_per_thread, photons_left);
-            RngState thread_rng = make_thread_rng(rng, i);
-            threads.emplace_back(std::thread(&Scene::run_thread_textured_emit, this, std::move(thread_rng), i,
-                                             photons_to_cast, std::ref(progress), max_bounces, fraction,
-                                             std::ref(light)));
-            photons_left -= photons_per_thread;
-        }
-        for (auto &t : threads) {
-            t.join();
-        }
-    }
+    emit_light_group(rng, dir_lights, total_light_power, total_photons, max_bounces, n_threads, progress,
+                     [](const auto &l, RngState &r) { return l.sample_light(r); });
 
     photon_map.merge_thread_buffers();
     TimerScope timer_("building photon map kd-tree", true);
     photon_map.build();
     timer_.stop();
-}
-
-void Scene::run_thread_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
-                            const vec3 photon_power, const vec3 light_pos) {
-    for (u32 i = 0; i < photons; i++) {
-        const vec3 dir = random_unit_vector(rng);
-        trace_photon(rng, id, Ray(light_pos, dir), photon_power, 0, max_bounces, AIR_IOR);
-        img_progress.increase(1);
-    }
-}
-
-void Scene::run_thread_textured_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
-                                     f32 fraction, const TexturedLight &light) {
-    for (u32 i = 0; i < photons; i++) {
-        auto sample = light.sample_light(rng, this->objects, this->textures, fraction);
-        trace_photon(rng, id, sample.ray, sample.power, 0, max_bounces, AIR_IOR);
-        img_progress.increase(1);
-    }
 }
 
 vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const u32 n, Material &mat, vec2 &uv,
