@@ -141,7 +141,8 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
 
 void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_threads) {
     photon_map.init_thread_buffers(n_threads);
-    u32 total_photons = photons_per_light * (point_lights.size() + spot_lights.size() + textured_lights.size() + dir_lights.size());
+    u32 total_photons =
+        photons_per_light * (point_lights.size() + spot_lights.size() + textured_lights.size() + dir_lights.size());
     f32 total_light_power = 0.0f;
     for (const auto &light : point_lights) {
         total_light_power += glm::length(light.power);
@@ -158,7 +159,7 @@ void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_th
     ProgressScope progress("emitting photons", total_photons);
 
     for (const auto &light : point_lights) {
-        u32 local_photons = (glm::length(light.power) / total_light_power) * static_cast<f32>(photons_per_light);
+        u32 local_photons = (glm::length(light.power) / total_light_power) * static_cast<f32>(total_photons);
         vec3 photon_power = vec3(light.power / static_cast<f32>(local_photons));
         u32 photons_left = local_photons;
         u32 photons_per_thread = (local_photons + n_threads - 1) / n_threads;
@@ -180,7 +181,7 @@ void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_th
 
     // TODO: there's a ton of code duplication
     for (const auto &light : spot_lights) {
-        u32 local_photons = (glm::length(light.power) / total_light_power) * static_cast<f32>(photons_per_light);
+        u32 local_photons = (glm::length(light.power) / total_light_power) * static_cast<f32>(total_photons);
         vec3 photon_power = vec3(light.power / static_cast<f32>(local_photons));
         u32 photons_left = local_photons;
         u32 photons_per_thread = (local_photons + n_threads - 1) / n_threads;
@@ -202,7 +203,7 @@ void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_th
 
     for (const auto &light : textured_lights) {
         u32 local_photons =
-            (glm::length(light.total_power(this->textures)) / total_light_power) * static_cast<f32>(photons_per_light);
+            (glm::length(light.total_power(this->textures)) / total_light_power) * static_cast<f32>(total_photons);
         f32 fraction = 1.0f / static_cast<f32>(local_photons);
         u32 photons_left = local_photons;
         u32 photons_per_thread = (local_photons + n_threads - 1) / n_threads;
@@ -223,7 +224,7 @@ void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_th
     }
 
     for (const auto &light : dir_lights) {
-        u32 local_photons = (glm::length(light.power) / total_light_power) * static_cast<f32>(photons_per_light);
+        u32 local_photons = (glm::length(light.power) / total_light_power) * static_cast<f32>(total_photons);
         vec3 photon_power = vec3(light.power / static_cast<f32>(local_photons));
         u32 photons_left = local_photons;
         u32 photons_per_thread = (local_photons + n_threads - 1) / n_threads;
@@ -262,7 +263,7 @@ void Scene::run_thread_spot_emit(RngState rng, u32 id, u32 photons, ProgressScop
                                  vec3 photon_power, const SpotLight &light) {
     for (u32 i = 0; i < photons; i++) {
         auto sample = light.sample_light(rng);
-        vec3 power = photon_power * sample.power / light.power;
+        vec3 power = photon_power * sample.power;
         trace_photon(rng, id, sample.ray, power, 0, max_bounces, AIR_IOR);
         img_progress.increase(1);
     }

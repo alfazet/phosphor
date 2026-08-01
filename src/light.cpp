@@ -26,7 +26,7 @@ LightSample SpotLight::sample_light(RngState &rng) const {
 
 LightSample DirectionalLight::sample_light(RngState &rng, const BoundingBox &bbox) const {
     vec3 center((bbox.x.start + bbox.x.end) * 0.5f, (bbox.y.start + bbox.y.end) * 0.5f,
-               (bbox.z.start + bbox.z.end) * 0.5f);
+                (bbox.z.start + bbox.z.end) * 0.5f);
 
     vec3 tangent, bitangent;
     make_tbn(this->dir, tangent, bitangent);
@@ -46,12 +46,11 @@ LightSample DirectionalLight::sample_light(RngState &rng, const BoundingBox &bbo
     }
 
     // https://stackoverflow.com/questions/5837572/generate-a-random-point-within-a-circle-uniformly
-    f32 r1 = radius*glm::sqrt(random_float(rng));
-    f32 r2 = 2*PI*random_float(rng);
+    f32 r1 = radius * glm::sqrt(random_float(rng));
+    f32 r2 = 2 * PI * random_float(rng);
     vec3 disk_offset = r1 * (glm::cos(r2) * tangent + glm::sin(r2) * bitangent);
 
     vec3 origin = center - this->dir * bbox.longest_size() * 10.0f + disk_offset;
-
     vec3 total_power = vec3(1.0f) * PI * radius * radius;
 
     return {Ray(origin, this->dir), total_power};
