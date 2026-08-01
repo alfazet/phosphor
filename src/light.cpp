@@ -50,7 +50,8 @@ LightSample DirectionalLight::sample_light(RngState &rng) const {
     f32 r2 = 2 * PI * random_float(rng);
     vec3 disk_offset = r1 * (glm::cos(r2) * tangent + glm::sin(r2) * bitangent);
 
-    vec3 total_power = power * (PI * radius * radius) ;
+    // vec3 total_power = power * (PI * radius * radius) ;
+    vec3 total_power = power;
     return {Ray(origin + disk_offset, this->dir), total_power};
 }
 
