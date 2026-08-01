@@ -183,8 +183,9 @@ void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_th
     for (const auto &light : textured_lights) {
         total_light_power += glm::length(light.total_power(this->textures));
     }
-    for (const auto &light : dir_lights) {
+    for (auto &light : dir_lights) {
         total_light_power += glm::length(light.power);
+        light.prepare(get_bounding_box());
     }
     ProgressScope progress("emitting photons", total_photons);
 
@@ -197,8 +198,7 @@ void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_th
     emit_light_group(rng, textured_lights, total_light_power, total_photons, max_bounces, n_threads,
                       progress, [this](const auto &l, RngState &r) { return l.sample_light(r, objects, textures); });
 
-    BoundingBox bbox = get_bounding_box();
-    emit_light_group(rng, dir_lights, total_light_power, total_photons, max_bounces, n_threads, progress, [bbox](const auto &l, RngState &r) { return l.sample_light(r, bbox); });
+    emit_light_group(rng, dir_lights, total_light_power, total_photons, max_bounces, n_threads, progress, [](const auto &l, RngState &r) { return l.sample_light(r); });
 
 
     photon_map.merge_thread_buffers();

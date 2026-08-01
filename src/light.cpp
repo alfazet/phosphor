@@ -24,13 +24,10 @@ LightSample SpotLight::sample_light(RngState &rng) const {
     return {Ray(this->pos, world_dir), this->power * falloff};
 }
 
-LightSample DirectionalLight::sample_light(RngState &rng, const BoundingBox &bbox) const {
-    vec3 center((bbox.x.start + bbox.x.end) * 0.5f, (bbox.y.start + bbox.y.end) * 0.5f,
-                (bbox.z.start + bbox.z.end) * 0.5f);
-
-    vec3 tangent, bitangent;
+void DirectionalLight::prepare(const BoundingBox &bbox) {
     make_tbn(this->dir, tangent, bitangent);
-
+    auto center = vec3((bbox.x.start + bbox.x.end) * 0.5f, (bbox.y.start + bbox.y.end) * 0.5f,
+                    (bbox.z.start + bbox.z.end) * 0.5f);
     const vec3 corners[8] = {
         {bbox.x.start, bbox.y.start, bbox.z.start}, {bbox.x.end, bbox.y.start, bbox.z.start},
         {bbox.x.start, bbox.y.end, bbox.z.start},   {bbox.x.end, bbox.y.end, bbox.z.start},
@@ -38,22 +35,23 @@ LightSample DirectionalLight::sample_light(RngState &rng, const BoundingBox &bbo
         {bbox.x.start, bbox.y.end, bbox.z.end},     {bbox.x.end, bbox.y.end, bbox.z.end},
     };
 
-    f32 radius = 0.0f;
+    radius = 0.0f;
     for (const auto &corner : corners) {
         vec3 offset = corner - center;
         vec2 projected(glm::dot(offset, tangent), glm::dot(offset, bitangent));
         radius = glm::max(radius, glm::length(projected));
     }
+    origin = center - this->dir * bbox.longest_size() * 10.0f;
+}
 
+LightSample DirectionalLight::sample_light(RngState &rng) const {
     // https://stackoverflow.com/questions/5837572/generate-a-random-point-within-a-circle-uniformly
     f32 r1 = radius * glm::sqrt(random_float(rng));
     f32 r2 = 2 * PI * random_float(rng);
     vec3 disk_offset = r1 * (glm::cos(r2) * tangent + glm::sin(r2) * bitangent);
 
-    vec3 origin = center - this->dir * bbox.longest_size() * 10.0f + disk_offset;
     vec3 total_power = power * (PI * radius * radius) ;
-
-    return {Ray(origin, this->dir), total_power};
+    return {Ray(origin + disk_offset, this->dir), total_power};
 }
 
 // sample a random triangle from this mesh with importance sampling weighted by area

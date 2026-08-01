@@ -35,7 +35,12 @@ struct DirectionalLight {
     vec3 dir;
     vec3 power;
 
-    LightSample sample_light(RngState &rng, const BoundingBox &bbox) const;
+    vec3 tangent, bitangent;
+    vec3 origin;
+    f32 radius;
+
+    void prepare(const BoundingBox &bbox);
+    LightSample sample_light(RngState &rng) const;
 };
 
 struct TexturedLight {
