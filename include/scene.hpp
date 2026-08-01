@@ -29,7 +29,7 @@ struct Scene {
 
     void add_point_light(const PointLight &light);
     void add_textured_light(const TexturedLight &light);
-    void add_triangle(const Triangle &triangle);
+    void add_directional_light(const DirectionalLight &light);
     void add_camera(const Camera &camera);
     void add_texture(const Texture &texture);
 
@@ -40,6 +40,8 @@ struct Scene {
                               vec3 photon_power, const SpotLight& light);
     void run_thread_textured_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
                                   f32 fraction, const TexturedLight &light);
+    void run_thread_dir_emit(RngState rng, u32 id, u32 photons, ProgressScope &img_progress, u32 max_bounces,
+                        vec3 photon_power, const DirectionalLight &light);
 
     vec3 get_color(RngState &rng, const Ray &ray, const HitRecord &rec, u32 n, Material &mat, vec2 &uv, u32 depth_left,
                    f32 curr_ior);

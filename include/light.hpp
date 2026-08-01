@@ -33,8 +33,9 @@ struct SpotLight {
 
 struct DirectionalLight {
     vec3 dir;
+    vec3 power;
 
-    LightSample sample_light(RngState &rng) const;
+    LightSample sample_light(RngState &rng, const BoundingBox &bbox) const;
 };
 
 struct TexturedLight {
