@@ -25,9 +25,9 @@ LightSample SpotLight::sample_light(RngState &rng) const {
 }
 
 void DirectionalLight::prepare(const BoundingBox &bbox) {
-    make_tbn(this->dir, tangent, bitangent);
-    auto center = vec3((bbox.x.start + bbox.x.end) * 0.5f, (bbox.y.start + bbox.y.end) * 0.5f,
-                    (bbox.z.start + bbox.z.end) * 0.5f);
+    make_tbn(this->dir, this->tangent, this->bitangent);
+    vec3 center((bbox.x.start + bbox.x.end) * 0.5f, (bbox.y.start + bbox.y.end) * 0.5f,
+                (bbox.z.start + bbox.z.end) * 0.5f);
     const vec3 corners[8] = {
         {bbox.x.start, bbox.y.start, bbox.z.start}, {bbox.x.end, bbox.y.start, bbox.z.start},
         {bbox.x.start, bbox.y.end, bbox.z.start},   {bbox.x.end, bbox.y.end, bbox.z.start},
@@ -35,28 +35,27 @@ void DirectionalLight::prepare(const BoundingBox &bbox) {
         {bbox.x.start, bbox.y.end, bbox.z.end},     {bbox.x.end, bbox.y.end, bbox.z.end},
     };
 
-    radius = 0.0f;
+    this->radius = 0.0f;
     for (const auto &corner : corners) {
         vec3 offset = corner - center;
-        vec2 projected(glm::dot(offset, tangent), glm::dot(offset, bitangent));
-        radius = glm::max(radius, glm::length(projected));
+        vec2 projected(glm::dot(offset, this->tangent), glm::dot(offset, this->bitangent));
+        this->radius = glm::max(this->radius, glm::length(projected));
     }
-    origin = center - this->dir * bbox.longest_size() * 10.0f;
+    this->origin = center - this->dir * bbox.longest_size() * 10.0f;
 }
 
 LightSample DirectionalLight::sample_light(RngState &rng) const {
     // https://stackoverflow.com/questions/5837572/generate-a-random-point-within-a-circle-uniformly
-    f32 r1 = radius * glm::sqrt(random_float(rng));
+    f32 r1 = this->radius * glm::sqrt(random_float(rng));
     f32 r2 = 2 * PI * random_float(rng);
-    vec3 disk_offset = r1 * (glm::cos(r2) * tangent + glm::sin(r2) * bitangent);
+    vec3 disk_offset = r1 * (glm::cos(r2) * this->tangent + glm::sin(r2) * this->bitangent);
 
-    // vec3 total_power = power * (PI * radius * radius) ;
-    vec3 total_power = power;
-    return {Ray(origin + disk_offset, this->dir), total_power};
+    return {Ray(origin + disk_offset, this->dir), this->power};
 }
 
 // sample a random triangle from this mesh with importance sampling weighted by area
-LightSample TexturedLight::sample_light(RngState &rng, const Triangles &triangles, const std::vector<Texture> &textures) const {
+LightSample TexturedLight::sample_light(RngState &rng, const Triangles &triangles,
+                                        const std::vector<Texture> &textures) const {
     auto pref_sum = this->area_pref_sum;
     f32 total_area = pref_sum.back();
     usize sample_idx =

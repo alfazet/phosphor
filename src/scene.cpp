@@ -140,9 +140,8 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
 }
 
 template <typename LightList, typename SampleFn>
-void Scene::emit_light_group(RngState &rng, const LightList &lights, f32 total_light_power,
-                       u32 total_photons, u32 max_bounces, u32 n_threads,
-                       ProgressScope &progress, SampleFn &&sample) {
+void Scene::emit_light_group(RngState &rng, const LightList &lights, f32 total_light_power, u32 total_photons,
+                             u32 max_bounces, u32 n_threads, ProgressScope &progress, SampleFn &&sample) {
     for (const auto &light : lights) {
         f32 local_power = glm::length(light_power(light, textures));
         u32 local_photons = (local_power / total_light_power) * static_cast<f32>(total_photons);
@@ -155,17 +154,18 @@ void Scene::emit_light_group(RngState &rng, const LightList &lights, f32 total_l
         for (u32 i = 0; i < n_threads; i++) {
             u32 photons_to_cast = glm::min(photons_per_thread, photons_left);
             RngState thread_rng = make_thread_rng(rng, i);
-            threads.emplace_back([this, thread_rng, i, photons_to_cast, &progress, max_bounces,
-                                   fraction, &light, &sample]() mutable {
-                for (u32 p = 0; p < photons_to_cast; p++) {
-                    LightSample s = sample(light, thread_rng);
-                    trace_photon(thread_rng, i, s.ray, fraction * s.power, 0, max_bounces, AIR_IOR);
-                    progress.increase(1);
-                }
-            });
+            threads.emplace_back(
+                [this, thread_rng, i, photons_to_cast, &progress, max_bounces, fraction, &light, &sample]() mutable {
+                    for (u32 p = 0; p < photons_to_cast; p++) {
+                        LightSample s = sample(light, thread_rng);
+                        trace_photon(thread_rng, i, s.ray, fraction * s.power, 0, max_bounces, AIR_IOR);
+                        progress.increase(1);
+                    }
+                });
             photons_left -= photons_per_thread;
         }
-        for (auto &t : threads) t.join();
+        for (auto &t : threads)
+            t.join();
     }
 }
 
@@ -189,17 +189,17 @@ void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_th
     }
     ProgressScope progress("emitting photons", total_photons);
 
-    emit_light_group(rng, point_lights, total_light_power, total_photons, max_bounces, n_threads,
-                       progress, [](const auto &l, RngState &r) { return l.sample_light(r); });
+    emit_light_group(rng, point_lights, total_light_power, total_photons, max_bounces, n_threads, progress,
+                     [](const auto &l, RngState &r) { return l.sample_light(r); });
 
-    emit_light_group(rng, spot_lights, total_light_power, total_photons, max_bounces, n_threads,
-                      progress, [](const auto &l, RngState &r) { return l.sample_light(r); });
+    emit_light_group(rng, spot_lights, total_light_power, total_photons, max_bounces, n_threads, progress,
+                     [](const auto &l, RngState &r) { return l.sample_light(r); });
 
-    emit_light_group(rng, textured_lights, total_light_power, total_photons, max_bounces, n_threads,
-                      progress, [this](const auto &l, RngState &r) { return l.sample_light(r, objects, textures); });
+    emit_light_group(rng, textured_lights, total_light_power, total_photons, max_bounces, n_threads, progress,
+                     [this](const auto &l, RngState &r) { return l.sample_light(r, objects, textures); });
 
-    emit_light_group(rng, dir_lights, total_light_power, total_photons, max_bounces, n_threads, progress, [](const auto &l, RngState &r) { return l.sample_light(r); });
-
+    emit_light_group(rng, dir_lights, total_light_power, total_photons, max_bounces, n_threads, progress,
+                     [](const auto &l, RngState &r) { return l.sample_light(r); });
 
     photon_map.merge_thread_buffers();
     TimerScope timer_("building photon map kd-tree", true);

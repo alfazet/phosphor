@@ -35,7 +35,8 @@ struct DirectionalLight {
     vec3 dir;
     vec3 power;
 
-    vec3 tangent, bitangent;
+    vec3 tangent;
+    vec3 bitangent;
     vec3 origin;
     f32 radius;
 
@@ -53,8 +54,8 @@ struct TexturedLight {
     vec3 total_power(const std::vector<Texture> &textures) const;
 };
 
-inline vec3 light_power(const PointLight &l, const std::vector<Texture> &)       { return l.power; }
-inline vec3 light_power(const SpotLight &l, const std::vector<Texture> &)        { return l.power; }
+inline vec3 light_power(const PointLight &l, const std::vector<Texture> &) { return l.power; }
+inline vec3 light_power(const SpotLight &l, const std::vector<Texture> &) { return l.power; }
 inline vec3 light_power(const DirectionalLight &l, const std::vector<Texture> &) { return l.power; }
 inline vec3 light_power(const TexturedLight &l, const std::vector<Texture> &tex) { return l.total_power(tex); }
 

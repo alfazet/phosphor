@@ -59,7 +59,7 @@ static void parse_light(const aiScene *aiscene, const aiLight *ai_light, Scene &
     // so, for example, a 1000 W pure red light will be represented as approx. (54350, 0, 0)
 
     // mColorDiffuse is the same as mColorSpecular in gltf
-    vec3 power = vec3(ai_light->mColorDiffuse.r, ai_light->mColorDiffuse.g, ai_light->mColorDiffuse.b) / 683.0f;
+    vec3 power = vec3(ai_light->mColorDiffuse.r, ai_light->mColorDiffuse.g, ai_light->mColorDiffuse.b) / LUMINOUS_EFF;
 
     if (ai_light->mType == aiLightSource_POINT) {
         out_scene.point_lights.emplace_back(position, power);
@@ -72,7 +72,7 @@ static void parse_light(const aiScene *aiscene, const aiLight *ai_light, Scene &
     } else if (ai_light->mType == aiLightSource_DIRECTIONAL) {
         vec3 dir = glm::normalize(global_rotation *
                                   vec3(ai_light->mDirection.x, ai_light->mDirection.y, ai_light->mDirection.z));
-        out_scene.dir_lights.emplace_back(dir, power * 683.0f);
+        out_scene.dir_lights.emplace_back(dir, power * LUMINOUS_EFF);
     } else {
         LOG_WARN("scene contains an unsupported light type: {}", static_cast<i32>(ai_light->mType));
     }
