@@ -256,7 +256,9 @@ class ProgressScope {
     ProgressScope(std::string_view name, usize total,
                   std::chrono::milliseconds min_update_interval = std::chrono::milliseconds{250})
         : name_(name), total_(total), start_(std::chrono::steady_clock::now()), min_interval_(min_update_interval),
-          last_render_(start_) {}
+          last_render_(start_) {
+        render();
+    }
 
     void update(usize current) {
         current_.store(current, std::memory_order_relaxed);
@@ -275,9 +277,10 @@ class ProgressScope {
         auto now = std::chrono::steady_clock::now();
 
         bool final = current >= total_;
-        if (!final && now - last_render_ < min_interval_)
+        if (!first_render_ && !final && now - last_render_ < min_interval_)
             return;
 
+        first_render_ = false;
         last_render_ = now;
 
         auto elapsed = now - start_;
@@ -297,7 +300,9 @@ class ProgressScope {
         bar += ']';
 
         std::string eta_str;
-        if (current > 0 && current < total_) {
+        if (current == 0) {
+            eta_str = ", eta ?";
+        } else if (current < total_) {
             auto per_item = elapsed / current;
             auto remaining = per_item * (total_ - current);
             eta_str = std::format(", eta {}", logger::format_duration(remaining));
@@ -324,6 +329,7 @@ class ProgressScope {
 
     std::string name_;
     usize total_;
+    bool first_render_;
     std::chrono::steady_clock::time_point start_;
     std::chrono::milliseconds min_interval_;
     std::atomic<usize> current_{0};
