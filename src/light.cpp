@@ -71,7 +71,7 @@ LightSample TexturedLight::sample_light(RngState &rng, const Triangles &triangle
     }
     vec3 point = tri.point_at(u, v);
     vec2 uv = tri.uv_at(u, v);
-    vec3 emission = sample(&tex, uv);
+    vec3 emission = sample(&tex, uv) * this->strength;
     vec3 normal = tri.get_normal(vec2(u, v), textures);
     point += normal * 0.001f;
     vec3 dir = random_in_unit_hemisphere(rng, normal);
@@ -92,5 +92,5 @@ vec3 TexturedLight::total_power(const std::vector<Texture> &textures) const {
         total_power += emission * tri.area() * glm::pi<f32>();
     }
 
-    return total_power;
+    return total_power * this->strength;
 }
