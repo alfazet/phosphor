@@ -25,7 +25,7 @@ struct Camera {
     Camera(vec3 position, vec3 target, vec3 up, f32 hfov_degrees, f32 aspect_ratio);
     Camera(const vec3 &minp, const vec3 &maxp, f32 hfov_degrees, f32 aspect_ratio);
 
-    Ray get_ray(RngState& rng, f32 s, f32 t) const;
+    Ray get_ray(RngState& rng, f32 s, f32 t, f32 inv_w, f32 inv_h) const;
 
     void set_position(const vec3 &position);
 

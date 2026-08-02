@@ -49,13 +49,13 @@ void Triangles::split() {
 }
 
 bool Triangles::hit(const Ray &r, Interval t, HitRecord &rec, Material &mat_out, vec2 &uv,
-                    const std::vector<Texture> &textures) const {
+                    const std::vector<Texture> &textures, const Triangle *&tri_out) const {
     if (!boundingBox.hit(r, t) || t.start > t.end)
         return false;
     u32 span = end - start;
     if (span == 1) {
         const Triangle &tri = (*objects)[start];
-        if (tri.hit(r, t, rec, textures)) {
+        if (tri.hit(r, t, rec, textures, tri_out)) {
             mat_out = tri.mat;
             uv = compute_bary(rec.bary, tri.uv0, tri.uv1, tri.uv2);
             return true;
@@ -63,8 +63,8 @@ bool Triangles::hit(const Ray &r, Interval t, HitRecord &rec, Material &mat_out,
         return false;
     }
 
-    bool hit_left = left->hit(r, t, rec, mat_out, uv, textures);
-    bool hit_right = right->hit(r, Interval(t.start, hit_left ? rec.t : t.end), rec, mat_out, uv, textures);
+    bool hit_left = left->hit(r, t, rec, mat_out, uv, textures, tri_out);
+    bool hit_right = right->hit(r, Interval(t.start, hit_left ? rec.t : t.end), rec, mat_out, uv, textures, tri_out);
 
     return hit_left || hit_right;
 }

@@ -37,7 +37,8 @@ struct Triangle {
         : v0(v0), v1(v1), v2(v2), mat(mat), uv0(uv0), uv1(uv1), uv2(uv2), n0(n0), n1(n1), n2(n2), t0(t0), t1(t1),
           t2(t2) {}
 
-    bool hit(const Ray &r, Interval t, HitRecord &rec, const std::vector<Texture> &textures) const {
+    bool hit(const Ray &r, Interval t, HitRecord &rec, const std::vector<Texture> &textures,
+             const Triangle *&tri_out) const {
         vec2 bary;
         f32 t_found;
         if (!glm::intersectRayTriangle(r.origin, r.direction, v0, v1, v2, bary, t_found))
@@ -50,6 +51,7 @@ struct Triangle {
         rec.bary = bary;
         rec.point = r.at(t_found);
         rec.set_face_normal(r, normal_);
+        tri_out = this;
         return true;
     }
 

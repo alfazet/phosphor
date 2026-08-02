@@ -7,10 +7,18 @@
 #include <thread>
 
 void Scene::add_point_light(const PointLight &light) { point_lights.push_back(light); }
+
 void Scene::add_textured_light(const TexturedLight &light) { textured_lights.push_back(light); }
+
 void Scene::add_directional_light(const DirectionalLight &light) { dir_lights.push_back(light); }
+
 void Scene::add_camera(const Camera &camera) { cameras.push_back(camera); }
-void Scene::add_texture(const Texture &texture) { textures.push_back(texture); }
+
+void Scene::add_texture(const Texture &texture) {
+    Texture t = texture;
+    build_mipmaps(t);
+    textures.push_back(std::move(t));
+}
 
 void Scene::generate_image_row(RngState &rng, Image &img, u32 row_number, u32 image_height, u32 image_width,
                                u32 n_samples, u32 ray_bounces, u32 image_iters) {
@@ -18,15 +26,45 @@ void Scene::generate_image_row(RngState &rng, Image &img, u32 row_number, u32 im
     HitRecord rec;
     Material mat;
     vec2 uv;
+    f32 inv_w = 1.0f / static_cast<f32>(image_width);
+    f32 inv_h = 1.0f / static_cast<f32>(image_height);
     for (u32 x = 0; x < image_width; x++) {
         vec3 color = vec3(0.0f);
         for (i32 j = 0; j < image_iters; j++) {
             const f32 s = ((x + 0.5f + random_float(rng) - 0.5f) / static_cast<f32>(image_width));
             const f32 t = (1.0f - (y + 0.5f + random_float(rng) - 0.5f) / static_cast<f32>(image_height));
-            Ray r = get_camera().get_ray(rng, s, t);
+            Ray r = get_camera().get_ray(rng, s, t, inv_w, inv_h);
 
-            if (objects.hit(r, Interval(0.001f, INF), rec, mat, uv, textures))
-                color += get_color(rng, r, rec, n_samples, mat, uv, ray_bounces, AIR_IOR);
+            const Triangle *tri = nullptr;
+            if (objects.hit(r, Interval(0.001f, INF), rec, mat, uv, textures, tri)) {
+                f32 lod = 0.0f;
+                if (tri != nullptr && mat.diff_index.has_value()) {
+                    const Texture *tex = &textures[*mat.diff_index];
+                    vec3 e1 = tri->v1 - tri->v0;
+                    vec3 e2 = tri->v2 - tri->v0;
+                    vec2 duv1 = tri->uv1 - tri->uv0;
+                    vec2 duv2 = tri->uv2 - tri->uv0;
+
+                    // use the Gram matrix to solve an overdetermined system
+                    // Ax = b <=> (A^T)Ax = (A^T)b, where
+                    // (A^T)A is a matrix (the Gram matrix) of dot products of e_i
+                    // x = [grad_u; grad_v]
+                    // (A^T)b = [duv1; duv2]
+                    f32 g11 = glm::dot(e1, e1);
+                    f32 g12 = glm::dot(e1, e2);
+                    f32 g22 = glm::dot(e2, e2);
+                    f32 det_g = g11 * g22 - g12 * g12;
+                    if (glm::abs(det_g) > EPS) {
+                        f32 inv_det = 1.0f / det_g;
+                        vec3 grad_u =
+                            ((g22 * duv1.x - g12 * duv2.x) * e1 + (g11 * duv2.x - g12 * duv1.x) * e2) * inv_det;
+                        vec3 grad_v =
+                            ((g22 * duv1.y - g12 * duv2.y) * e1 + (g11 * duv2.y - g12 * duv1.y) * e2) * inv_det;
+                        lod = texture::compute_uv_lod(r, rec.t, rec.normal, grad_u, grad_v, tex->width, tex->height);
+                    }
+                }
+                color += get_color(rng, r, rec, n_samples, mat, uv, ray_bounces, AIR_IOR, lod);
+            }
         }
         img.set_pixel(x, y, color / static_cast<f32>(image_iters));
     }
@@ -78,12 +116,12 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
     HitRecord rec;
     Material mat;
     vec2 uv;
-    if (!objects.hit(r, Interval(0.001f, INF), rec, mat, uv, textures))
+    const Triangle *tri = nullptr;
+    if (!objects.hit(r, Interval(0.001f, INF), rec, mat, uv, textures, tri))
         return;
 
     f32 phi = glm::atan(r.direction.y, r.direction.x);
     f32 theta = glm::acos(glm::clamp(r.direction.z, -1.0f, 1.0f));
-
     Photon potential_photon = {rec.point, power, phi, theta};
     vec3 base_color = vec3(mat.base_color);
     if (mat.diff_index.has_value()) {
@@ -208,7 +246,7 @@ void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_th
 }
 
 vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const u32 n, Material &mat, vec2 &uv,
-                      u32 bounces_left, f32 curr_ior) {
+                      u32 bounces_left, f32 curr_ior, f32 lod) {
     if (bounces_left == 0)
         return BLACK;
     auto pos = rec.point;
@@ -217,18 +255,18 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
     // makes emissive surfaces visible even when the photons have nothing to bounce off of
     vec3 emissive = BLACK;
     if (mat.emis_index.has_value())
-        emissive = texture::sample(&textures[*mat.emis_index], uv);
+        emissive = texture::sample_trilinear(&textures[*mat.emis_index], uv, lod);
 
     vec3 base_color = mat.base_color;
     if (mat.diff_index.has_value())
-        base_color = texture::sample(&textures[*mat.diff_index], uv);
+        base_color = texture::sample_trilinear(&textures[*mat.diff_index], uv, lod);
 
     f32 metallic = mat.metallic;
     f32 roughness = mat.roughness;
     if (mat.metal_rough_index.has_value()) {
         const Texture *tex = &textures[*mat.metal_rough_index];
-        metallic *= texture::sample(tex, uv, CHANNEL_B);
-        roughness *= texture::sample(tex, uv, CHANNEL_G);
+        metallic *= texture::sample_trilinear(tex, uv, lod, CHANNEL_B);
+        roughness *= texture::sample_trilinear(tex, uv, lod, CHANNEL_G);
     }
 
     f32 mix_factor = glm::max(metallic, mat.transmission);
@@ -257,7 +295,7 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
         if (area > EPS) {
             f32 occlusion = 1.0f;
             if (mat.occlusion_index.has_value())
-                occlusion = texture::sample(&textures[*mat.occlusion_index], uv, CHANNEL_R);
+                occlusion = texture::sample_trilinear(&textures[*mat.occlusion_index], uv, lod, CHANNEL_R);
             // TODO: need a better brdf here?
             diffuse_color = flux * ((1.0f - metallic) * base_color / PI) * occlusion / area;
         }
@@ -284,9 +322,11 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
             vec3 offset = refracted ? -normal : normal;
             Ray reflected = Ray(pos + offset * 0.001f, new_dir_norm);
 
-            if (objects.hit(reflected, Interval(0.001f, INF), reflected_rec, reflected_mat, reflected_uv, textures))
+            const Triangle *tri = nullptr;
+            if (objects.hit(reflected, Interval(0.001f, INF), reflected_rec, reflected_mat, reflected_uv, textures,
+                            tri))
                 reflected_color = get_color(rng, reflected, reflected_rec, n, reflected_mat, reflected_uv,
-                                            bounces_left - 1, next_ior);
+                                            bounces_left - 1, next_ior, lod + 1.0f);
 
             if (refracted) {
                 // https://pbr-book.org/3ed-2018/Reflection_Models/Specular_Reflection_and_Transmission#SpecularTransmission

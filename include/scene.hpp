@@ -36,7 +36,7 @@ struct Scene {
     void emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_threads);
 
     vec3 get_color(RngState &rng, const Ray &ray, const HitRecord &rec, u32 n, Material &mat, vec2 &uv,
-                   u32 bounces_left, f32 curr_ior);
+                   u32 bounces_left, f32 curr_ior, f32 lod);
 
     Camera &get_camera();
 
