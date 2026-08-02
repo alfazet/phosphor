@@ -4,6 +4,7 @@
 - russian roulette instead of fixed number of bounces
 - mipmaps
 - KHR_materials_volume
+- two photon maps
 
 ## Possible optimizations
 - projection map (jensen p. 13)

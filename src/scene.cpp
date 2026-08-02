@@ -119,10 +119,9 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
     f32 rho_st = rho_r - rho_d;
 
     if (xi < rho_d) {
+        photon_map.store(id, {rec.point, power, phi, theta});
         const vec3 new_dir = random_in_unit_hemisphere(rng, rec.normal);
-        vec3 new_power = power * d / rho_d;
-        photon_map.store(id, {rec.point, new_power, phi, theta});
-        trace_photon(rng, id, Ray(rec.point, new_dir), new_power, depth + 1, max_bounces, curr_ior);
+        trace_photon(rng, id, Ray(rec.point, new_dir), power * d / rho_d, depth + 1, max_bounces, curr_ior);
     } else if (xi < rho_d + rho_st) {
         const vec3 new_dir = ggx_sample_direction(rng, r.direction, rec.normal, roughness, curr_ior, mat.ior,
                                                   mat.transmission, rec.front_face);
@@ -162,7 +161,7 @@ void Scene::emit_light_group(RngState &rng, const LightList &lights, f32 total_l
                         progress.increase(1);
                     }
                 });
-            photons_left -= photons_per_thread;
+            photons_left -= photons_to_cast;
         }
         for (auto &t : threads)
             t.join();

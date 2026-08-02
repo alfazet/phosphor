@@ -104,12 +104,14 @@ Material parse_material(const aiScene *scene, aiMesh *mesh, const std::vector<Te
     ai_mat->Get(AI_MATKEY_ROUGHNESS_FACTOR, mat.roughness);
     ai_mat->Get(AI_MATKEY_TRANSMISSION_FACTOR, mat.transmission);
     if (ai_mat->Get(AI_MATKEY_REFRACTI, mat.ior) == AI_SUCCESS)
-        ;
-    LOG_INFO("ior read as {}", mat.ior);
+        LOG_INFO("ior read as {}", mat.ior);
 
     aiColor3D emissive(0.0f, 0.0f, 0.0f);
     if (ai_mat->Get(AI_MATKEY_COLOR_EMISSIVE, emissive) == AI_SUCCESS)
         mat.emissive = vec3(emissive.r, emissive.g, emissive.b);
+    float emissiveIntensity = 1.0f;
+    ai_mat->Get(AI_MATKEY_EMISSIVE_INTENSITY, emissiveIntensity);
+    mat.emissive *= emissiveIntensity;
 
     aiString path;
     if (ai_mat->GetTexture(aiTextureType_DIFFUSE, 0, &path) == AI_SUCCESS) {
@@ -364,6 +366,7 @@ void process_node(aiNode *node, const aiScene *aiscene, Scene &out_scene, mat4 p
             light.tex_index = *emis_tex_index;
             light.triangles.reserve(triangles.size());
             light.area_pref_sum.reserve(triangles.size());
+            light.strength = mat.emissive;
             for (u32 k = triangle_start; k < triangles.size(); k++) {
                 light.triangles.push_back(triangles[k]);
                 light.area_pref_sum.push_back(triangles[k].area() +

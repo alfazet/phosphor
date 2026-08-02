@@ -48,6 +48,7 @@ struct TexturedLight {
     usize tex_index;
     std::vector<Triangle> triangles;
     std::vector<f32> area_pref_sum;
+    vec3 strength;
 
     LightSample sample_light(RngState &rng, const Triangles &triangles, const std::vector<Texture> &textures) const;
 
