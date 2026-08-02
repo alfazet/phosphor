@@ -57,7 +57,7 @@ struct Triangle {
     vec3 get_normal(const vec2 &bary, const std::vector<Texture> &textures) const {
         vec3 N = glm::normalize(compute_bary(bary, n0, n1, n2));
         if (mat.norm_index.has_value()) {
-            vec3 normal = normal_sample(&textures[*mat.norm_index], compute_bary(bary, uv0, uv1, uv2));
+            vec3 normal = texture::normal_sample(&textures[*mat.norm_index], compute_bary(bary, uv0, uv1, uv2));
             vec3 T = glm::normalize(compute_bary(bary, t0, t1, t2));
             T = glm::normalize(T - N * glm::dot(N, T));
             vec3 B = glm::cross(N, T);

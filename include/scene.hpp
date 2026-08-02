@@ -35,8 +35,8 @@ struct Scene {
 
     void emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_threads);
 
-    vec3 get_color(RngState &rng, const Ray &ray, const HitRecord &rec, u32 n, Material &mat, vec2 &uv, u32 depth_left,
-                   f32 curr_ior);
+    vec3 get_color(RngState &rng, const Ray &ray, const HitRecord &rec, u32 n, Material &mat, vec2 &uv,
+                   u32 bounces_left, f32 curr_ior);
 
     Camera &get_camera();
 
@@ -45,11 +45,11 @@ struct Scene {
     void add_default_camera();
 
     void run_thread_image_generation(RngState rng, u32 offset, u32 n_threads, ProgressScope &img_progress, Image &img,
-                                     u32 image_height, u32 image_width, u32 n, u32 image_iters);
-    void generate_image_row(RngState &rng, Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n,
-                            u32 image_iters);
-    void generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
-                        const char *output_path, u32 n_threads, u32 image_iters);
+                                     u32 image_height, u32 image_width, u32 n_samples, u32 ray_depth, u32 image_iters);
+    void generate_image_row(RngState &rng, Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n_samples,
+                            u32 ray_depth, u32 image_iters);
+    void generate_image(RngState rng, u32 image_height, u32 n_samples, u32 photons_per_light, u32 max_photon_bounces,
+                        u32 ray_bounces, const char *output_path, u32 n_threads, u32 image_iters);
     BoundingBox get_bounding_box() const;
 
     void trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces, f32 curr_ior);

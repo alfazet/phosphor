@@ -10,7 +10,8 @@
 constexpr u32 DEFAULT_RESOLUTION = 256;
 constexpr u32 DEFAULT_SAMPLES = 50;
 constexpr u32 DEFAULT_PHOTONS_PER_LIGHT = 10000;
-constexpr u32 DEFAULT_DEPTH = 3;
+constexpr u32 DEFAULT_PHOTON_DEPTH = 4;
+constexpr u32 DEFAULT_RAY_DEPTH = 4;
 constexpr const char *DEFAULT_MODEL = "./models/cornell/smooth_sphere.glb";
 constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
 constexpr u32 DEFAULT_SEED = 2137;
@@ -21,11 +22,12 @@ constexpr u32 DEFAULT_IMAGE_ITERS = 1;
     X("-r", resolution, u32, parse_u32, DEFAULT_RESOLUTION, "resolution")                                              \
     X("-s", samples, u32, parse_u32, DEFAULT_SAMPLES, "number of samples")                                             \
     X("-p", photons_per_light, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT, "average photons per light source")          \
-    X("-d", depth, u32, parse_u32, DEFAULT_DEPTH, "depth")                                                             \
     X("-m", model, std::string, parse_string, DEFAULT_MODEL, "model name")                                             \
     X("-o", output_path, std::string, parse_string, DEFAULT_OUTPUT_PATH, "output image path")                          \
     X("-t", n_threads, u32, parse_u32, DEFAULT_N_THREADS, "number of CPU threads")                                     \
     X("-i", image_iters, u32, parse_u32, DEFAULT_IMAGE_ITERS, "image iterations")                                      \
+    X("--photon-depth", photon_depth, u32, parse_u32, DEFAULT_PHOTON_DEPTH, "photon emission depth")                   \
+    X("--ray-depth", ray_depth, u32, parse_u32, DEFAULT_RAY_DEPTH, "raytracing depth")                                 \
     X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")
 
 struct ArgsList {

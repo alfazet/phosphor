@@ -1,3 +1,2 @@
-sample models taken from
-https://github.com/KhronosGroup/glTF-Sample-Models/tree/main/2.0
+The models are either work of the authors or taken from [glTF samples](https://github.com/KhronosGroup/glTF-Sample-Models).
 

@@ -12,8 +12,8 @@ void Scene::add_directional_light(const DirectionalLight &light) { dir_lights.pu
 void Scene::add_camera(const Camera &camera) { cameras.push_back(camera); }
 void Scene::add_texture(const Texture &texture) { textures.push_back(texture); }
 
-void Scene::generate_image_row(RngState &rng, Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n,
-                               u32 image_iters) {
+void Scene::generate_image_row(RngState &rng, Image &img, u32 row_number, u32 image_height, u32 image_width,
+                               u32 n_samples, u32 ray_bounces, u32 image_iters) {
     u32 y = row_number;
     HitRecord rec;
     Material mat;
@@ -26,22 +26,23 @@ void Scene::generate_image_row(RngState &rng, Image &img, u32 row_number, u32 im
             Ray r = get_camera().get_ray(rng, s, t);
 
             if (objects.hit(r, Interval(0.001f, INF), rec, mat, uv, textures))
-                color += get_color(rng, r, rec, n, mat, uv, 5, AIR_IOR);
+                color += get_color(rng, r, rec, n_samples, mat, uv, ray_bounces, AIR_IOR);
         }
         img.set_pixel(x, y, color / static_cast<f32>(image_iters));
     }
 }
 
 void Scene::run_thread_image_generation(RngState rng, u32 offset, u32 n_threads, ProgressScope &img_progress,
-                                        Image &img, u32 image_height, u32 image_width, u32 n, u32 image_iters) {
+                                        Image &img, u32 image_height, u32 image_width, u32 n_samples, u32 ray_bounces,
+                                        u32 image_iters) {
     for (u32 i = offset; i < image_height; i += n_threads) {
-        generate_image_row(rng, img, i, image_height, image_width, n, image_iters);
+        generate_image_row(rng, img, i, image_height, image_width, n_samples, ray_bounces, image_iters);
         img_progress.increase(1);
     }
 }
 
-void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_per_light, u32 max_bounces,
-                           const char *output_path, u32 n_threads, u32 image_iters) {
+void Scene::generate_image(RngState rng, u32 image_height, u32 n_samples, u32 photons_per_light, u32 max_photon_bounces,
+                           u32 ray_bounces, const char *output_path, u32 n_threads, u32 image_iters) {
     TimerScope timer_scope("generating image");
 
     if (point_lights.empty() && textured_lights.empty() && spot_lights.empty() && dir_lights.empty())
@@ -51,7 +52,7 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
 
     const u32 image_width = image_height * get_camera().aspect_ratio;
     Image img(image_width, image_height);
-    emit(rng, photons_per_light, max_bounces, n_threads);
+    emit(rng, photons_per_light, max_photon_bounces, n_threads);
 
     ProgressScope img_progress("generating image", image_height);
     std::vector<std::thread> threads;
@@ -59,8 +60,8 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n, u32 photons_pe
     for (u32 i = 0; i < n_threads; i++) {
         RngState thread_rng = make_thread_rng(rng, i);
         threads.emplace_back(std::thread(&Scene::run_thread_image_generation, this, std::move(thread_rng), i, n_threads,
-                                         std::ref(img_progress), std::ref(img), image_height, image_width, n,
-                                         image_iters));
+                                         std::ref(img_progress), std::ref(img), image_height, image_width, n_samples,
+                                         ray_bounces, image_iters));
     }
     for (auto &t : threads) {
         t.join();
@@ -86,15 +87,15 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
     Photon potential_photon = {rec.point, power, phi, theta};
     vec3 base_color = vec3(mat.base_color);
     if (mat.diff_index.has_value()) {
-        base_color *= sample(&textures[*mat.diff_index], uv);
+        base_color *= texture::sample(&textures[*mat.diff_index], uv);
     }
 
     f32 metallic = mat.metallic;
     f32 roughness = mat.roughness;
     if (mat.metal_rough_index.has_value()) {
         const Texture *tex = &textures[*mat.metal_rough_index];
-        metallic *= sample(tex, uv, CHANNEL_B);
-        roughness *= sample(tex, uv, CHANNEL_G);
+        metallic *= texture::sample(tex, uv, CHANNEL_B);
+        roughness *= texture::sample(tex, uv, CHANNEL_G);
     }
     const f32 xi = random_float(rng);
 
@@ -207,8 +208,8 @@ void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_th
 }
 
 vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const u32 n, Material &mat, vec2 &uv,
-                      u32 depth_left, f32 curr_ior) {
-    if (depth_left == 0)
+                      u32 bounces_left, f32 curr_ior) {
+    if (bounces_left == 0)
         return BLACK;
     auto pos = rec.point;
     auto normal = rec.normal;
@@ -216,18 +217,18 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
     // makes emissive surfaces visible even when the photons have nothing to bounce off of
     vec3 emissive = BLACK;
     if (mat.emis_index.has_value())
-        emissive = sample(&textures[*mat.emis_index], uv);
+        emissive = texture::sample(&textures[*mat.emis_index], uv);
 
     vec3 base_color = mat.base_color;
     if (mat.diff_index.has_value())
-        base_color = sample(&textures[*mat.diff_index], uv);
+        base_color = texture::sample(&textures[*mat.diff_index], uv);
 
     f32 metallic = mat.metallic;
     f32 roughness = mat.roughness;
     if (mat.metal_rough_index.has_value()) {
         const Texture *tex = &textures[*mat.metal_rough_index];
-        metallic *= sample(tex, uv, CHANNEL_B);
-        roughness *= sample(tex, uv, CHANNEL_G);
+        metallic *= texture::sample(tex, uv, CHANNEL_B);
+        roughness *= texture::sample(tex, uv, CHANNEL_G);
     }
 
     f32 mix_factor = glm::max(metallic, mat.transmission);
@@ -256,7 +257,7 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
         if (area > EPS) {
             f32 occlusion = 1.0f;
             if (mat.occlusion_index.has_value())
-                occlusion = sample(&textures[*mat.occlusion_index], uv, CHANNEL_R);
+                occlusion = texture::sample(&textures[*mat.occlusion_index], uv, CHANNEL_R);
             // TODO: need a better brdf here?
             diffuse_color = flux * ((1.0f - metallic) * base_color / PI) * occlusion / area;
         }
@@ -284,8 +285,8 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
             Ray reflected = Ray(pos + offset * 0.001f, new_dir_norm);
 
             if (objects.hit(reflected, Interval(0.001f, INF), reflected_rec, reflected_mat, reflected_uv, textures))
-                reflected_color =
-                    get_color(rng, reflected, reflected_rec, n, reflected_mat, reflected_uv, depth_left - 1, next_ior);
+                reflected_color = get_color(rng, reflected, reflected_rec, n, reflected_mat, reflected_uv,
+                                            bounces_left - 1, next_ior);
 
             if (refracted) {
                 // https://pbr-book.org/3ed-2018/Reflection_Models/Specular_Reflection_and_Transmission#SpecularTransmission
