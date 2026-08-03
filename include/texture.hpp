@@ -28,6 +28,7 @@ struct Texture {
 };
 
 inline void build_mipmaps(Texture &t) {
+    // return;
     const u8 *src_data = t.data.data();
     i32 w = t.width;
     i32 h = t.height;
