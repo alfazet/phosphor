@@ -47,7 +47,8 @@ void phosphor_main(const ArgsList &args) {
 
     RngState rng = pcg_seed(args.seed);
     scene.generate_image(std::move(rng), args.resolution, args.samples, args.photons_per_light, args.photon_depth,
-                         args.ray_depth, args.output_path.c_str(), args.n_threads, args.image_iters);
+                         args.ray_depth, args.output_path.c_str(), args.n_threads, args.image_iters,
+                         args.search_radius);
 
     write_image_metadata(args);
 }

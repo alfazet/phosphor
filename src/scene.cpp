@@ -79,7 +79,10 @@ void Scene::run_thread_image_generation(RngState rng, u32 offset, u32 n_threads,
 }
 
 void Scene::generate_image(RngState rng, u32 image_height, u32 n_samples, u32 photons_per_light, u32 max_photon_bounces,
-                           u32 ray_bounces, const char *output_path, u32 n_threads, u32 image_iters) {
+                           u32 ray_bounces, const char *output_path, u32 n_threads, u32 image_iters,
+                           f32 search_radius) {
+    this->search_radius_ = search_radius * this->get_bounding_box().diagonal_length();
+
     TimerScope timer_scope("generating image");
 
     if (point_lights.empty() && textured_lights.empty() && spot_lights.empty() && dir_lights.empty())
@@ -279,7 +282,7 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
     // we should do a photon lookup
     if (mix_factor < 1.0f - EPS) {
         std::vector<const Photon *> nearest;
-        photon_map.locate(pos, n, 1000.0f, nearest);
+        photon_map.locate(pos, n, this->search_radius_, nearest);
 
         vec3 flux(0.0f);
         f32 max_dist_sq = 0.0f;

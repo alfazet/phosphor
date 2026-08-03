@@ -17,6 +17,7 @@ constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
 constexpr u32 DEFAULT_SEED = 2137;
 constexpr u32 DEFAULT_N_THREADS = 6;
 constexpr u32 DEFAULT_IMAGE_ITERS = 1;
+constexpr f32 DEFAULT_SEARCH_RADIUS = 0.2f;
 
 #define ARG_TABLE(X)                                                                                                   \
     X("-r", resolution, u32, parse_u32, DEFAULT_RESOLUTION, "resolution")                                              \
@@ -28,7 +29,9 @@ constexpr u32 DEFAULT_IMAGE_ITERS = 1;
     X("-i", image_iters, u32, parse_u32, DEFAULT_IMAGE_ITERS, "image iterations")                                      \
     X("--photon-depth", photon_depth, u32, parse_u32, DEFAULT_PHOTON_DEPTH, "photon emission depth")                   \
     X("--ray-depth", ray_depth, u32, parse_u32, DEFAULT_RAY_DEPTH, "raytracing depth")                                 \
-    X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")
+    X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")                                                        \
+    X("--radius", search_radius, f32, parse_f32, DEFAULT_SEARCH_RADIUS,                                                \
+      "photon search radius as a fraction of scene diagonal")
 
 struct ArgsList {
     std::string dataset_path;
