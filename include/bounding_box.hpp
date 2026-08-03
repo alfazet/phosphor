@@ -63,6 +63,8 @@ struct BoundingBox {
         return y.size() > z.size() ? 1 : 2;
     }
 
+    f32 diagonal_length() const { return glm::length(glm::vec3(x.size(), y.size(), z.size())); }
+
     bool hit(const Ray &r, Interval t) const {
         for (u32 axis = 0; axis < 3; axis++) {
             const Interval &ax = index(axis);
