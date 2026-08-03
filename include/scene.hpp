@@ -49,7 +49,8 @@ struct Scene {
     void generate_image_row(RngState &rng, Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n_samples,
                             u32 ray_depth, u32 image_iters);
     void generate_image(RngState rng, u32 image_height, u32 n_samples, u32 photons_per_light, u32 max_photon_bounces,
-                        u32 ray_bounces, const char *output_path, u32 n_threads, u32 image_iters, f32 search_radius);
+                        u32 ray_bounces, f32 ray_step, const char *output_path, u32 n_threads, u32 image_iters,
+                        f32 search_radius);
     BoundingBox get_bounding_box() const;
 
     void trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces, f32 curr_ior);
@@ -59,6 +60,7 @@ struct Scene {
                           u32 max_bounces, u32 n_threads, ProgressScope &progress, SampleFn &&sample);
 
     f32 search_radius_;
+    f32 ray_step_;
 };
 
 #endif // PHOSPHOR_SCENE_HPP

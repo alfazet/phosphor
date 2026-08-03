@@ -12,6 +12,7 @@ constexpr u32 DEFAULT_SAMPLES = 50;
 constexpr u32 DEFAULT_PHOTONS_PER_LIGHT = 10000;
 constexpr u32 DEFAULT_PHOTON_DEPTH = 4;
 constexpr u32 DEFAULT_RAY_DEPTH = 4;
+constexpr f32 DEFAULT_RAY_STEP = 0.0001f;
 constexpr const char *DEFAULT_MODEL = "./models/cornell/smooth_sphere.glb";
 constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
 constexpr u32 DEFAULT_SEED = 2137;
@@ -28,9 +29,10 @@ constexpr f32 DEFAULT_SEARCH_RADIUS = 0.2f;
     X("-t", n_threads, u32, parse_u32, DEFAULT_N_THREADS, "number of CPU threads")                                     \
     X("-i", image_iters, u32, parse_u32, DEFAULT_IMAGE_ITERS, "image iterations")                                      \
     X("--photon-depth", photon_depth, u32, parse_u32, DEFAULT_PHOTON_DEPTH, "photon emission depth")                   \
+    X("--ray-step", ray_step, f32, parse_f32, DEFAULT_SEARCH_RADIUS, "ray step as a fraction of scene diagonal")       \
     X("--ray-depth", ray_depth, u32, parse_u32, DEFAULT_RAY_DEPTH, "raytracing depth")                                 \
     X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")                                                        \
-    X("--radius", search_radius, f32, parse_f32, DEFAULT_SEARCH_RADIUS,                                                \
+    X("--search-radius", search_radius, f32, parse_f32, DEFAULT_SEARCH_RADIUS,                                         \
       "photon search radius as a fraction of scene diagonal")
 
 struct ArgsList {
