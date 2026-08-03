@@ -16,7 +16,7 @@ void Scene::add_camera(const Camera &camera) { cameras.push_back(camera); }
 
 void Scene::add_texture(const Texture &texture) {
     Texture t = texture;
-    build_mipmaps(t);
+    t.build_mipmaps();
     textures.push_back(std::move(t));
 }
 
@@ -60,7 +60,7 @@ void Scene::generate_image_row(RngState &rng, Image &img, u32 row_number, u32 im
                             ((g22 * duv1.x - g12 * duv2.x) * e1 + (g11 * duv2.x - g12 * duv1.x) * e2) * inv_det;
                         vec3 grad_v =
                             ((g22 * duv1.y - g12 * duv2.y) * e1 + (g11 * duv2.y - g12 * duv1.y) * e2) * inv_det;
-                        lod = texture::compute_uv_lod(r, rec.t, rec.normal, grad_u, grad_v, tex->width, tex->height);
+                        lod = r.compute_uv_lod(rec.t, rec.normal, grad_u, grad_v, tex->width, tex->height);
                     }
                 }
                 color += get_color(rng, r, rec, n_samples, mat, uv, ray_bounces, AIR_IOR, lod);
@@ -125,15 +125,15 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
     Photon potential_photon = {rec.point, power, phi, theta};
     vec3 base_color = vec3(mat.base_color);
     if (mat.diff_index.has_value()) {
-        base_color *= texture::sample(&textures[*mat.diff_index], uv);
+        base_color *= textures[*mat.diff_index].sample(uv);
     }
 
     f32 metallic = mat.metallic;
     f32 roughness = mat.roughness;
     if (mat.metal_rough_index.has_value()) {
         const Texture *tex = &textures[*mat.metal_rough_index];
-        metallic *= texture::sample(tex, uv, CHANNEL_B);
-        roughness *= texture::sample(tex, uv, CHANNEL_G);
+        metallic *= tex->sample(uv, CHANNEL_B);
+        roughness *= tex->sample(uv, CHANNEL_G);
     }
     const f32 xi = random_float(rng);
 
@@ -255,18 +255,18 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
     // makes emissive surfaces visible even when the photons have nothing to bounce off of
     vec3 emissive = BLACK;
     if (mat.emis_index.has_value())
-        emissive = texture::sample_trilinear(&textures[*mat.emis_index], uv, lod);
+        emissive = textures[*mat.emis_index].sample_trilinear(uv, lod);
 
     vec3 base_color = mat.base_color;
     if (mat.diff_index.has_value())
-        base_color = texture::sample_trilinear(&textures[*mat.diff_index], uv, lod);
+        base_color = textures[*mat.diff_index].sample_trilinear(uv, lod);
 
     f32 metallic = mat.metallic;
     f32 roughness = mat.roughness;
     if (mat.metal_rough_index.has_value()) {
         const Texture *tex = &textures[*mat.metal_rough_index];
-        metallic *= texture::sample_trilinear(tex, uv, lod, CHANNEL_B);
-        roughness *= texture::sample_trilinear(tex, uv, lod, CHANNEL_G);
+        metallic *= tex->sample_trilinear(uv, lod, CHANNEL_B);
+        roughness *= tex->sample_trilinear(uv, lod, CHANNEL_G);
     }
 
     f32 mix_factor = glm::max(metallic, mat.transmission);
@@ -295,7 +295,7 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
         if (area > EPS) {
             f32 occlusion = 1.0f;
             if (mat.occlusion_index.has_value())
-                occlusion = texture::sample_trilinear(&textures[*mat.occlusion_index], uv, lod, CHANNEL_R);
+                occlusion = textures[*mat.occlusion_index].sample_trilinear(uv, lod, CHANNEL_R);
             // TODO: need a better brdf here?
             diffuse_color = flux * ((1.0f - metallic) * base_color / PI) * occlusion / area;
         }
