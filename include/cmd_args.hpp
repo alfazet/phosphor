@@ -29,7 +29,7 @@ constexpr f32 DEFAULT_SEARCH_RADIUS = 0.2f;
     X("-t", n_threads, u32, parse_u32, DEFAULT_N_THREADS, "number of CPU threads")                                     \
     X("-i", image_iters, u32, parse_u32, DEFAULT_IMAGE_ITERS, "image iterations")                                      \
     X("--photon-depth", photon_depth, u32, parse_u32, DEFAULT_PHOTON_DEPTH, "photon emission depth")                   \
-    X("--ray-step", ray_step, f32, parse_f32, DEFAULT_SEARCH_RADIUS, "ray step as a fraction of scene diagonal")       \
+    X("--ray-step", ray_step, f32, parse_f32, DEFAULT_RAY_STEP, "ray step as a fraction of scene diagonal")            \
     X("--ray-depth", ray_depth, u32, parse_u32, DEFAULT_RAY_DEPTH, "raytracing depth")                                 \
     X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")                                                        \
     X("--search-radius", search_radius, f32, parse_f32, DEFAULT_SEARCH_RADIUS,                                         \
