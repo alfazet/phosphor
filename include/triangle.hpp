@@ -11,12 +11,15 @@
 
 #include <optional>
 
+struct Triangle;
+
 struct HitRecord {
     vec3 point;
     vec3 normal;
     f32 t;
     vec2 bary;
     bool front_face;
+    const Triangle *tri = nullptr;
 
     void set_face_normal(const Ray &r, const vec3 &outward_normal) {
         front_face = glm::dot(r.direction, outward_normal) < 0.0f;
@@ -50,6 +53,7 @@ struct Triangle {
         rec.bary = bary;
         rec.point = r.at(t_found);
         rec.set_face_normal(r, normal_);
+        rec.tri = this;
         return true;
     }
 
@@ -57,7 +61,7 @@ struct Triangle {
     vec3 get_normal(const vec2 &bary, const std::vector<Texture> &textures) const {
         vec3 N = glm::normalize(compute_bary(bary, n0, n1, n2));
         if (mat.norm_index.has_value()) {
-            vec3 normal = texture::normal_sample(&textures[*mat.norm_index], compute_bary(bary, uv0, uv1, uv2));
+            vec3 normal = textures[*mat.norm_index].sample_normal_vec(compute_bary(bary, uv0, uv1, uv2));
             vec3 T = glm::normalize(compute_bary(bary, t0, t1, t2));
             T = glm::normalize(T - N * glm::dot(N, T));
             vec3 B = glm::cross(N, T);

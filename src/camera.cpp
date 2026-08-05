@@ -42,7 +42,16 @@ void Camera::update() {
     lower_left_corner = position - horizontal / 2.0f - vertical / 2.0f - w;
 }
 
-Ray Camera::get_ray(RngState &rng, f32 s, f32 t) const {
-    const vec3 direction = lower_left_corner + s * horizontal + t * vertical - position;
-    return Ray(position, glm::normalize(direction));
+Ray Camera::get_ray(RngState &rng, f32 s, f32 t, f32 inv_w, f32 inv_h) const {
+    vec3 direction = lower_left_corner + s * horizontal + t * vertical - position;
+    Ray r;
+    r.origin = position;
+    r.direction = glm::normalize(direction);
+
+    vec3 dir_dx = lower_left_corner + (s + inv_w) * horizontal + t * vertical - position;
+    vec3 dir_dy = lower_left_corner + s * horizontal + (t + inv_h) * vertical - position;
+    r.dd_dx = glm::normalize(dir_dx) - r.direction;
+    r.dd_dy = glm::normalize(dir_dy) - r.direction;
+
+    return r;
 }
