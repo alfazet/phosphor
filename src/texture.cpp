@@ -17,7 +17,7 @@ void Texture::build_mipmaps() {
     while (w > 1 || h > 1) {
         i32 dest_w = glm::max(w / 2, 1);
         i32 dest_h = glm::max(h / 2, 1);
-        std::vector<u8> dest(dest_w * dest_h * 3);
+        std::vector<u8> dest(dest_w * dest_h * this->channels);
 
         for (i32 y = 0; y < dest_h; y++) {
             for (i32 x = 0; x < dest_w; x++) {
@@ -26,12 +26,12 @@ void Texture::build_mipmaps() {
                 i32 sy0 = glm::min(y * 2, h - 1);
                 i32 sy1 = glm::min(y * 2 + 1, h - 1);
 
-                for (i32 chan = 0; chan < 3; chan++) {
-                    u32 s = static_cast<u32>(src_data[(sy0 * w + sx0) * 3 + chan]) +
-                            static_cast<u32>(src_data[(sy0 * w + sx1) * 3 + chan]) +
-                            static_cast<u32>(src_data[(sy1 * w + sx0) * 3 + chan]) +
-                            static_cast<u32>(src_data[(sy1 * w + sx1) * 3 + chan]);
-                    dest[(y * dest_w + x) * 3 + chan] = static_cast<u8>(s / 4);
+                for (i32 chan = 0; chan < this->channels; chan++) {
+                    u32 s = static_cast<u32>(src_data[(sy0 * w + sx0) * this->channels + chan]) +
+                            static_cast<u32>(src_data[(sy0 * w + sx1) * this->channels + chan]) +
+                            static_cast<u32>(src_data[(sy1 * w + sx0) * this->channels + chan]) +
+                            static_cast<u32>(src_data[(sy1 * w + sx1) * this->channels + chan]);
+                    dest[(y * dest_w + x) * this->channels + chan] = static_cast<u8>(s / 4);
                 }
             }
         }

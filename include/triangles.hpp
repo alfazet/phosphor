@@ -23,7 +23,7 @@ struct Triangles {
     void split();
 
     bool hit(const Ray &r, Interval t, HitRecord &rec, Material &mat_out, vec2 &uv,
-             const std::vector<Texture> &textures, const Triangle *&tri_out) const;
+             const std::vector<Texture> &textures) const;
 };
 
 #endif // PHOSPHOR_TRIANGLES_H
