@@ -62,7 +62,7 @@ void Scene::generate_image_row(RngState &rng, Image &img, u32 row_number, u32 im
             const f32 t = (1.0f - (y + 0.5f + random_float(rng) - 0.5f) / static_cast<f32>(image_height));
             Ray r = get_camera().get_ray(rng, s, t, inv_w, inv_h);
 
-            if (objects.hit(r, Interval(0.001f, INF), rec, mat, uv, textures))
+            if (objects.hit(r, Interval(this->ray_step_, INF), rec, mat, uv, textures))
                 color += get_color(rng, r, rec, n_samples, mat, uv, ray_bounces, AIR_IOR);
         }
         img.set_pixel(x, y, color / static_cast<f32>(image_iters));
@@ -79,7 +79,11 @@ void Scene::run_thread_image_generation(RngState rng, u32 offset, u32 n_threads,
 }
 
 void Scene::generate_image(RngState rng, u32 image_height, u32 n_samples, u32 photons_per_light, u32 max_photon_bounces,
-                           u32 ray_bounces, const char *output_path, u32 n_threads, u32 image_iters) {
+                           u32 ray_bounces, f32 ray_step, const char *output_path, u32 n_threads, u32 image_iters,
+                           f32 search_radius) {
+    this->search_radius_ = search_radius * this->get_bounding_box().diagonal_length();
+    this->ray_step_ = ray_step * this->get_bounding_box().diagonal_length();
+
     TimerScope timer_scope("generating image");
 
     if (point_lights.empty() && textured_lights.empty() && spot_lights.empty() && dir_lights.empty())
@@ -115,7 +119,7 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
     HitRecord rec;
     Material mat;
     vec2 uv;
-    if (!objects.hit(r, Interval(0.001f, INF), rec, mat, uv, textures))
+    if (!objects.hit(r, Interval(this->ray_step_, INF), rec, mat, uv, textures))
         return;
 
     f32 phi = glm::atan(r.direction.y, r.direction.x);
@@ -279,7 +283,7 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
     // we should do a photon lookup
     if (mix_factor < 1.0f - EPS) {
         std::vector<const Photon *> nearest;
-        photon_map.locate(pos, n, 1000.0f, nearest);
+        photon_map.locate(pos, n, this->search_radius_, nearest);
 
         vec3 flux(0.0f);
         f32 max_dist_sq = 0.0f;
@@ -329,7 +333,8 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
             vec3 new_dd_dy = refracted ? ray.refract_dd_dy(normal, ray.direction, eta) : ray.reflect_dd_dy(normal);
             Ray reflected(pos + offset * 0.001f, new_dir_norm, dpx, new_dd_dx, dpy, new_dd_dy);
 
-            if (objects.hit(reflected, Interval(0.001f, INF), reflected_rec, reflected_mat, reflected_uv, textures))
+            if (objects.hit(reflected, Interval(this->ray_step_, INF), reflected_rec, reflected_mat, reflected_uv,
+                            textures))
                 reflected_color = get_color(rng, reflected, reflected_rec, n, reflected_mat, reflected_uv,
                                             bounces_left - 1, next_ior);
 
