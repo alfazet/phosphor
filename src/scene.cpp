@@ -331,7 +331,7 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
             vec3 dpy = ray.dpy_at(rec.t, normal);
             vec3 new_dd_dx = refracted ? ray.refract_dd_dx(normal, ray.direction, eta) : ray.reflect_dd_dx(normal);
             vec3 new_dd_dy = refracted ? ray.refract_dd_dy(normal, ray.direction, eta) : ray.reflect_dd_dy(normal);
-            Ray reflected = Ray(pos + offset * this->ray_step_, new_dir_norm);
+            Ray reflected(pos + offset * 0.001f, new_dir_norm, dpx, new_dd_dx, dpy, new_dd_dy);
 
             if (objects.hit(reflected, Interval(this->ray_step_, INF), reflected_rec, reflected_mat, reflected_uv,
                             textures))
