@@ -36,6 +36,9 @@ constexpr vec3 WHITE = vec3(1.0f);
 constexpr f32 AIR_IOR = 1.0f;
 constexpr f32 DEFAULT_IOR = 1.5f;
 constexpr f32 DEFAULT_TRANSMISSION = 0.0f;
+constexpr u32 MAX_PHOTON_BOUNCES = 50;
+constexpr u32 MAX_RAY_BOUNCES = 50;
+constexpr u32 MIN_RAY_BOUNCES = 4;
 
 inline vec2 compute_bary(vec2 bary, vec2 v0, vec2 v1, vec2 v2) {
     return (1.0f - bary.x - bary.y) * v0 + bary.x * v1 + bary.y * v2;

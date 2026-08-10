@@ -22,8 +22,9 @@ void init_logger() {
 void write_image_metadata(const ArgsList &args) {
     std::ostringstream comment;
     comment << "resolution=" << args.resolution << " samples=" << args.samples
-            << " photons_per_light=" << args.photons_per_light << "photon_depth=" << args.photon_depth
-            << "ray_depth=" << args.ray_depth << " n_threads=" << args.n_threads << " image_iters=" << args.image_iters;
+            << " photons_per_light=" << args.photons_per_light << " n_threads=" << args.n_threads
+            << " image_iters=" << args.image_iters << "ray_step=" << args.ray_step
+            << "search_radius=" << args.search_radius << "seed=" << args.seed;
     std::ostringstream cmd;
     cmd << "exiftool -q -overwrite_original "
         << "-Comment=\"" << comment.str() << "\" "
@@ -46,9 +47,8 @@ void phosphor_main(const ArgsList &args) {
     print_camera(scene.get_camera());
 
     RngState rng = pcg_seed(args.seed);
-    scene.generate_image(std::move(rng), args.resolution, args.samples, args.photons_per_light, args.photon_depth,
-                         args.ray_depth, args.ray_step, args.output_path.c_str(), args.n_threads, args.image_iters,
-                         args.search_radius);
+    scene.generate_image(std::move(rng), args.resolution, args.samples, args.photons_per_light, args.ray_step,
+                         args.output_path.c_str(), args.n_threads, args.image_iters, args.search_radius);
 
     write_image_metadata(args);
 }

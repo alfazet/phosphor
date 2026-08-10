@@ -33,7 +33,7 @@ struct Scene {
     void add_camera(const Camera &camera);
     void add_texture(const Texture &texture);
 
-    void emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_threads);
+    void emit(RngState &rng, u32 photons_per_light, u32 n_threads);
 
     vec3 get_color(RngState &rng, const Ray &ray, const HitRecord &rec, u32 n, Material &mat, vec2 &uv,
                    u32 bounces_left, f32 curr_ior);
@@ -45,19 +45,18 @@ struct Scene {
     void add_default_camera();
 
     void run_thread_image_generation(RngState rng, u32 offset, u32 n_threads, ProgressScope &img_progress, Image &img,
-                                     u32 image_height, u32 image_width, u32 n_samples, u32 ray_depth, u32 image_iters);
+                                     u32 image_height, u32 image_width, u32 n_samples, u32 image_iters);
     void generate_image_row(RngState &rng, Image &img, u32 row_number, u32 image_height, u32 image_width, u32 n_samples,
-                            u32 ray_depth, u32 image_iters);
-    void generate_image(RngState rng, u32 image_height, u32 n_samples, u32 photons_per_light, u32 max_photon_bounces,
-                        u32 ray_bounces, f32 ray_step, const char *output_path, u32 n_threads, u32 image_iters,
-                        f32 search_radius);
+                            u32 image_iters);
+    void generate_image(RngState rng, u32 image_height, u32 n_samples, u32 photons_per_light, f32 ray_step,
+                        const char *output_path, u32 n_threads, u32 image_iters, f32 search_radius);
     BoundingBox get_bounding_box() const;
 
-    void trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces, f32 curr_ior);
+    void trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 depth, f32 curr_ior);
 
     template <class LightList, class SampleFn>
     void emit_light_group(RngState &rng, const LightList &lights, f32 total_light_power, u32 total_photons,
-                          u32 max_bounces, u32 n_threads, ProgressScope &progress, SampleFn &&sample);
+                          u32 n_threads, ProgressScope &progress, SampleFn &&sample);
 
     f32 search_radius_;
     f32 ray_step_;
