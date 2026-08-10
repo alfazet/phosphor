@@ -48,7 +48,7 @@ void Scene::add_texture(const Texture &texture) {
 }
 
 void Scene::generate_image_row(RngState &rng, Image &img, u32 row_number, u32 image_height, u32 image_width,
-                               u32 n_samples, u32 ray_bounces, u32 image_iters) {
+                               u32 n_samples, u32 image_iters) {
     u32 y = row_number;
     HitRecord rec;
     Material mat;
@@ -63,24 +63,22 @@ void Scene::generate_image_row(RngState &rng, Image &img, u32 row_number, u32 im
             Ray r = get_camera().get_ray(rng, s, t, inv_w, inv_h);
 
             if (objects.hit(r, Interval(this->ray_step_, INF), rec, mat, uv, textures))
-                color += get_color(rng, r, rec, n_samples, mat, uv, ray_bounces, AIR_IOR);
+                color += get_color(rng, r, rec, n_samples, mat, uv, MAX_RAY_BOUNCES, AIR_IOR);
         }
         img.set_pixel(x, y, color / static_cast<f32>(image_iters));
     }
 }
 
 void Scene::run_thread_image_generation(RngState rng, u32 offset, u32 n_threads, ProgressScope &img_progress,
-                                        Image &img, u32 image_height, u32 image_width, u32 n_samples, u32 ray_bounces,
-                                        u32 image_iters) {
+                                        Image &img, u32 image_height, u32 image_width, u32 n_samples, u32 image_iters) {
     for (u32 i = offset; i < image_height; i += n_threads) {
-        generate_image_row(rng, img, i, image_height, image_width, n_samples, ray_bounces, image_iters);
+        generate_image_row(rng, img, i, image_height, image_width, n_samples, image_iters);
         img_progress.increase(1);
     }
 }
 
-void Scene::generate_image(RngState rng, u32 image_height, u32 n_samples, u32 photons_per_light, u32 max_photon_bounces,
-                           u32 ray_bounces, f32 ray_step, const char *output_path, u32 n_threads, u32 image_iters,
-                           f32 search_radius) {
+void Scene::generate_image(RngState rng, u32 image_height, u32 n_samples, u32 photons_per_light, f32 ray_step,
+                           const char *output_path, u32 n_threads, u32 image_iters, f32 search_radius) {
     this->search_radius_ = search_radius * this->get_bounding_box().diagonal_length();
     this->ray_step_ = ray_step * this->get_bounding_box().diagonal_length();
 
@@ -93,7 +91,7 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n_samples, u32 ph
 
     const u32 image_width = image_height * get_camera().aspect_ratio;
     Image img(image_width, image_height);
-    emit(rng, photons_per_light, max_photon_bounces, n_threads);
+    emit(rng, photons_per_light, n_threads);
 
     ProgressScope img_progress("generating image", image_height);
     std::vector<std::thread> threads;
@@ -102,7 +100,7 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n_samples, u32 ph
         RngState thread_rng = make_thread_rng(rng, i);
         threads.emplace_back(std::thread(&Scene::run_thread_image_generation, this, std::move(thread_rng), i, n_threads,
                                          std::ref(img_progress), std::ref(img), image_height, image_width, n_samples,
-                                         ray_bounces, image_iters));
+                                         image_iters));
     }
     for (auto &t : threads) {
         t.join();
@@ -112,8 +110,8 @@ void Scene::generate_image(RngState rng, u32 image_height, u32 n_samples, u32 ph
     LOG_INFO("saved image to {}", output_path);
 }
 
-void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 depth, u32 max_bounces, f32 curr_ior) {
-    if (depth >= max_bounces)
+void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 depth, f32 curr_ior) {
+    if (depth >= MAX_PHOTON_BOUNCES)
         return;
 
     HitRecord rec;
@@ -162,14 +160,14 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
     if (xi < rho_d) {
         photon_map.store(id, {rec.point, power, phi, theta});
         const vec3 new_dir = random_in_unit_hemisphere(rng, rec.normal);
-        trace_photon(rng, id, Ray(rec.point, new_dir), power * d / rho_d, depth + 1, max_bounces, curr_ior);
+        trace_photon(rng, id, Ray(rec.point, new_dir), power * d / rho_d, depth + 1, curr_ior);
     } else if (xi < rho_d + rho_st) {
         const vec3 new_dir = ggx_sample_direction(rng, r.direction, rec.normal, roughness, curr_ior, mat.ior,
                                                   mat.transmission, rec.front_face);
         if (new_dir != ZERO_VEC) {
             bool refracted = glm::dot(new_dir, rec.normal) < 0.0f;
             f32 next_ior = refracted ? (rec.front_face ? mat.ior : AIR_IOR) : curr_ior;
-            trace_photon(rng, id, Ray(rec.point, new_dir), power * st / rho_st, depth + 1, max_bounces, next_ior);
+            trace_photon(rng, id, Ray(rec.point, new_dir), power * st / rho_st, depth + 1, next_ior);
             if (refracted)
                 return;
         }
@@ -181,7 +179,7 @@ void Scene::trace_photon(RngState &rng, u32 id, const Ray &r, vec3 power, u32 de
 
 template <typename LightList, typename SampleFn>
 void Scene::emit_light_group(RngState &rng, const LightList &lights, f32 total_light_power, u32 total_photons,
-                             u32 max_bounces, u32 n_threads, ProgressScope &progress, SampleFn &&sample) {
+                             u32 n_threads, ProgressScope &progress, SampleFn &&sample) {
     for (const auto &light : lights) {
         f32 local_power = glm::length(light_power(light, textures));
         u32 local_photons = (local_power / total_light_power) * static_cast<f32>(total_photons);
@@ -195,10 +193,10 @@ void Scene::emit_light_group(RngState &rng, const LightList &lights, f32 total_l
             u32 photons_to_cast = glm::min(photons_per_thread, photons_left);
             RngState thread_rng = make_thread_rng(rng, i);
             threads.emplace_back(
-                [this, thread_rng, i, photons_to_cast, &progress, max_bounces, fraction, &light, &sample]() mutable {
+                [this, thread_rng, i, photons_to_cast, &progress, fraction, &light, &sample]() mutable {
                     for (u32 p = 0; p < photons_to_cast; p++) {
                         LightSample s = sample(light, thread_rng);
-                        trace_photon(thread_rng, i, s.ray, fraction * s.power, 0, max_bounces, AIR_IOR);
+                        trace_photon(thread_rng, i, s.ray, fraction * s.power, 0, AIR_IOR);
                         progress.increase(1);
                     }
                 });
@@ -209,7 +207,7 @@ void Scene::emit_light_group(RngState &rng, const LightList &lights, f32 total_l
     }
 }
 
-void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_threads) {
+void Scene::emit(RngState &rng, u32 photons_per_light, u32 n_threads) {
     photon_map.init_thread_buffers(n_threads);
     u32 total_photons =
         photons_per_light * (point_lights.size() + spot_lights.size() + textured_lights.size() + dir_lights.size());
@@ -229,16 +227,16 @@ void Scene::emit(RngState &rng, u32 photons_per_light, u32 max_bounces, u32 n_th
     }
     ProgressScope progress("emitting photons", total_photons);
 
-    emit_light_group(rng, point_lights, total_light_power, total_photons, max_bounces, n_threads, progress,
+    emit_light_group(rng, point_lights, total_light_power, total_photons, n_threads, progress,
                      [](const auto &l, RngState &r) { return l.sample_light(r); });
 
-    emit_light_group(rng, spot_lights, total_light_power, total_photons, max_bounces, n_threads, progress,
+    emit_light_group(rng, spot_lights, total_light_power, total_photons, n_threads, progress,
                      [](const auto &l, RngState &r) { return l.sample_light(r); });
 
-    emit_light_group(rng, textured_lights, total_light_power, total_photons, max_bounces, n_threads, progress,
+    emit_light_group(rng, textured_lights, total_light_power, total_photons, n_threads, progress,
                      [this](const auto &l, RngState &r) { return l.sample_light(r, objects, textures); });
 
-    emit_light_group(rng, dir_lights, total_light_power, total_photons, max_bounces, n_threads, progress,
+    emit_light_group(rng, dir_lights, total_light_power, total_photons, n_threads, progress,
                      [](const auto &l, RngState &r) { return l.sample_light(r); });
 
     photon_map.merge_thread_buffers();
@@ -333,17 +331,14 @@ vec3 Scene::get_color(RngState &rng, const Ray &ray, const HitRecord &rec, const
             vec3 new_dd_dy = refracted ? ray.refract_dd_dy(normal, ray.direction, eta) : ray.reflect_dd_dy(normal);
             Ray reflected(pos + offset * 0.001f, new_dir_norm, dpx, new_dd_dx, dpy, new_dd_dy);
 
-            if (objects.hit(reflected, Interval(this->ray_step_, INF), reflected_rec, reflected_mat, reflected_uv,
-                            textures))
+            // https://pbr-book.org/3ed-2018/Reflection_Models/Specular_Reflection_and_Transmission#SpecularTransmission
+            f32 weight = refracted ? (1.0f - F) * eta * eta : F;
+            f32 p = MAX_RAY_BOUNCES - bounces_left < MIN_RAY_BOUNCES ? 1.0f : weight;
+            if (random_float(rng) < p && objects.hit(reflected, Interval(this->ray_step_, INF), reflected_rec,
+                                                     reflected_mat, reflected_uv, textures))
                 reflected_color = get_color(rng, reflected, reflected_rec, n, reflected_mat, reflected_uv,
-                                            bounces_left - 1, next_ior);
-
-            if (refracted) {
-                // https://pbr-book.org/3ed-2018/Reflection_Models/Specular_Reflection_and_Transmission#SpecularTransmission
-                reflected_color *= (1.0f - F) * eta * eta;
-            } else {
-                reflected_color *= F;
-            }
+                                            bounces_left - 1, next_ior) *
+                                  (weight / p);
         }
     }
 
