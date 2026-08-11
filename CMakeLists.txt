@@ -7,9 +7,24 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include_directories(include)
 file(GLOB SOURCES CONFIGURE_DEPENDS src/*.cpp)
-add_executable(phosphor ${SOURCES}
-        src/stb_impl.cpp
+add_executable(phosphor ${SOURCES})
+
+find_package(OpenCL REQUIRED)
+target_link_libraries(phosphor OpenCL::OpenCL)
+
+FetchContent_Declare(
+    opencl_headers
+    GIT_REPOSITORY https://github.com/KhronosGroup/OpenCL-Headers
+    GIT_TAG v2026.05.29
 )
+FetchContent_MakeAvailable(opencl_headers)
+FetchContent_Declare(
+    opencl_hpp
+    GIT_REPOSITORY https://github.com/KhronosGroup/OpenCL-CLHPP
+    GIT_TAG v2026.05.29
+)
+FetchContent_MakeAvailable(opencl_hpp)
+target_include_directories(phosphor PRIVATE ${opencl_headers_SOURCE_DIR} ${opencl_hpp_SOURCE_DIR}/include)
 
 FetchContent_Declare(
         glm
@@ -21,7 +36,7 @@ target_link_libraries(phosphor glm)
 
 FetchContent_Declare(
         stb
-        GIT_REPOSITORY https://github.com/nothings/stb.git
+        GIT_REPOSITORY https://github.com/nothings/stb
 )
 FetchContent_MakeAvailable(stb)
 target_include_directories(phosphor PRIVATE ${stb_SOURCE_DIR})
@@ -32,7 +47,6 @@ set(ASSIMP_BUILD_ASSIMP_TOOLS OFF CACHE INTERNAL "Turn off Assimp viewer/tools")
 set(ASSIMP_INSTALL OFF CACHE INTERNAL "Turn off Assimp installation rules")
 set(ASSIMP_BUILD_ZLIB ON CACHE BOOL "" FORCE "Turn off Assimp compressed asset support")
 set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE INTERNAL "Make warnings non-fatal")
-
 FetchContent_Declare(
         assimp
         GIT_REPOSITORY https://github.com/assimp/assimp.git
@@ -42,7 +56,7 @@ FetchContent_MakeAvailable(assimp)
 target_link_libraries(phosphor assimp::assimp)
 
 target_compile_definitions(phosphor PRIVATE PROJECT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
-if ("${CMAKE_BUILD_TYPE}" STREQUAL "debug")
+if (${CMAKE_BUILD_TYPE} STREQUAL "debug")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 else ()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")

@@ -2,11 +2,10 @@
 #define PHOSPHOR_COMMON_HPP
 
 #include <cstdint>
-#include <cstdio>
-#include <stdexcept>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/ext/scalar_constants.hpp"
+#include "glm/gtx/vector_angle.hpp"
 #include "glm/glm.hpp"
 
 using glm::vec2, glm::vec3, glm::vec4, glm::mat3, glm::mat4, glm::quat;
@@ -37,14 +36,7 @@ constexpr f32 AIR_IOR = 1.0f;
 constexpr f32 DEFAULT_IOR = 1.5f;
 constexpr f32 DEFAULT_TRANSMISSION = 0.0f;
 constexpr u32 MAX_PHOTON_BOUNCES = 50;
-constexpr u32 MAX_RAY_BOUNCES = 50;
 constexpr u32 MIN_RAY_BOUNCES = 4;
-
-inline vec2 compute_bary(vec2 bary, vec2 v0, vec2 v1, vec2 v2) {
-    return (1.0f - bary.x - bary.y) * v0 + bary.x * v1 + bary.y * v2;
-}
-inline vec3 compute_bary(vec2 bary, vec3 v0, vec3 v1, vec3 v2) {
-    return (1.0f - bary.x - bary.y) * v0 + bary.x * v1 + bary.y * v2;
-}
+constexpr u32 MAX_RAY_BOUNCES = 50;
 
 #endif // PHOSPHOR_COMMON_HPP

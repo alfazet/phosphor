@@ -1,5 +1,4 @@
 #include "logger.hpp"
-#include "common.hpp"
 
 const char *logger::level_to_string(logger::Level lvl) {
     switch (lvl) {

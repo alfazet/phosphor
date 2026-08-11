@@ -1,5 +1,4 @@
 #include "cmd_args.hpp"
-#include "logger.hpp"
 
 #include <cstring>
 #include <iomanip>
@@ -55,7 +54,7 @@ ARG_TABLE(X)
 void ArgParser::print_help() const {
     this->out << "usage: " << this->prog_name << " [flags]\nwhere:\n";
 #define X(flag, field, type, parser, default_val, help)                                                                \
-    this->out << "  " << std::left << std::setw(16) << flag << std::setw(48) << help << "(default: " << default_val    \
+    this->out << "  " << std::left << std::setw(32) << flag << std::setw(64) << help << "(default: " << default_val    \
               << ")\n";
     ARG_TABLE(X)
 #undef X
