@@ -2,6 +2,7 @@
 #define PHOSPHOR_PRINTERS_HPP
 
 #include "common.hpp"
+#include "opencl.hpp"
 
 #include <format>
 
@@ -22,5 +23,10 @@ template <glm::length_t L, typename T, glm::qualifier Q> struct std::formatter<g
         return out;
     }
 };
+
+inline void print_opencl_data(const ClContext &ctx) {
+    LOG_INFO("using OpenCL platform: {}", ctx.platform_name());
+    LOG_INFO("using OpenCL device: {}", ctx.device_name());
+}
 
 #endif // PHOSPHOR_PRINTERS_HPP

@@ -1,6 +1,7 @@
 #include "cmd_args.hpp"
 #include "logger.hpp"
 #include "opencl.hpp"
+#include "printers.hpp"
 #include "random.hpp"
 
 #include <iostream>
@@ -18,6 +19,8 @@ void init_logger() {
 
 void phosphor_main(const ArgsList &args) {
     ClContext ctx;
+    print_opencl_data(ctx);
+
     cl::Program program = ctx.build_program(std::string(PROJECT_DIR) + "/kernels/hello_world.cl", "");
     cl::Kernel kernel(program, "hello_world");
 

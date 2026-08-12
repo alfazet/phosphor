@@ -9,15 +9,14 @@ include_directories(include)
 file(GLOB SOURCES CONFIGURE_DEPENDS src/*.cpp)
 add_executable(phosphor ${SOURCES})
 
-find_package(OpenCL REQUIRED)
-target_link_libraries(phosphor OpenCL::OpenCL)
-
 FetchContent_Declare(
     opencl_headers
     GIT_REPOSITORY https://github.com/KhronosGroup/OpenCL-Headers
     GIT_TAG v2026.05.29
 )
 FetchContent_MakeAvailable(opencl_headers)
+set(OpenCL_INCLUDE_DIR ${opencl_headers_SOURCE_DIR} CACHE PATH "" FORCE)
+
 FetchContent_Declare(
     opencl_hpp
     GIT_REPOSITORY https://github.com/KhronosGroup/OpenCL-CLHPP
@@ -25,6 +24,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(opencl_hpp)
 target_include_directories(phosphor PRIVATE ${opencl_headers_SOURCE_DIR} ${opencl_hpp_SOURCE_DIR}/include)
+
+find_package(OpenCL REQUIRED)
+target_link_libraries(phosphor OpenCL::OpenCL)
 
 FetchContent_Declare(
         glm
