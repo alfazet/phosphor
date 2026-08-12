@@ -15,7 +15,7 @@
 #include <thread>
 #include <vector>
 
-#include "common.hpp"
+#include "types.h"
 
 namespace logger {
 
@@ -284,12 +284,12 @@ class ProgressScope {
         last_render_ = now;
 
         auto elapsed = now - start_;
-        f64 fraction = total_ > 0 ? static_cast<f64>(current) / static_cast<f64>(total_) : 0.0;
-        fraction = std::clamp(fraction, 0.0, 1.0);
+        f32 fraction = total_ > 0 ? static_cast<f32>(current) / static_cast<f32>(total_) : 0.0f;
+        fraction = std::clamp(fraction, 0.0f, 1.0f);
 
-        i32 percent = static_cast<i32>(fraction * 100.0);
+        i32 percent = static_cast<i32>(fraction * 100.0f);
         constexpr i32 width = 40;
-        i32 filled = static_cast<i32>(fraction * static_cast<f64>(width));
+        i32 filled = static_cast<i32>(fraction * static_cast<f32>(width));
         filled = std::clamp(filled, 0, width);
 
         std::string bar;

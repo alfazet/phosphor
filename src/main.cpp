@@ -1,8 +1,9 @@
 #include "cmd_args.hpp"
+#include "constants.h"
 #include "logger.hpp"
-#include "opencl.hpp"
+#include "opencl_ctx.hpp"
 #include "printers.hpp"
-#include "random.hpp"
+#include "random.h"
 
 #include <iostream>
 
@@ -30,7 +31,7 @@ void phosphor_main(const ArgsList &args) {
     // h_... = in host memory, d_... = in device memory
     usize n = (1 << 20);
     std::vector<f32> h_a(n), h_b(n);
-    for (usize i = 0; i < n; ++i) {
+    for (usize i = 0; i < n; i++) {
         h_a[i] = random_float(rng);
         h_b[i] = random_float(rng);
     }
@@ -64,7 +65,7 @@ void phosphor_main(const ArgsList &args) {
     ctx.queue.enqueueReadBuffer(d_c, CL_TRUE, 0, n * sizeof(f32), h_c.data());
 
     for (usize i = 0; i < n; i++) {
-        assert(glm::abs(h_c[i] - (h_a[i] + h_b[i])) < EPS);
+        ASSERT(std::abs(h_c[i] - (h_a[i] + h_b[i])) < EPS, "addition failed");
     }
 }
 

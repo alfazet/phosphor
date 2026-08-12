@@ -1,4 +1,5 @@
-#include "opencl.hpp"
+#include "opencl_ctx.hpp"
+#include "logger.hpp"
 
 #include <fstream>
 

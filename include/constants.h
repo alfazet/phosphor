@@ -1,0 +1,8 @@
+#ifndef PHOSPHOR_CONSTANTS_H
+#define PHOSPHOR_CONSTANTS_H
+
+#define EPS 1e-9
+#define INF 1e9
+#define PI 3.141592654
+
+#endif // PHOSPHOR_CONSTANTS_H

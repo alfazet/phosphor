@@ -1,8 +1,7 @@
 #ifndef PHOSPHOR_CMD_ARGS_HPP
 #define PHOSPHOR_CMD_ARGS_HPP
 
-#include "common.hpp"
-#include "logger.hpp"
+#include "types.h"
 
 #include <ostream>
 #include <string>

@@ -1,14 +1,11 @@
-#ifndef PHOSPHOR_OPENCL_HPP
-#define PHOSPHOR_OPENCL_HPP
+#ifndef PHOSPHOR_OPENCL_CTX_HPP
+#define PHOSPHOR_OPENCL_CTX_HPP
 
 #define CL_HPP_TARGET_OPENCL_VERSION 300
 #define CL_HPP_ENABLE_EXCEPTIONS
 
 #include <CL/opencl.hpp>
 #include <string>
-
-#include "common.hpp"
-#include "logger.hpp"
 
 struct ClContext {
     explicit ClContext();
@@ -29,4 +26,4 @@ struct ClContext {
     cl::CommandQueue queue;
 };
 
-#endif // PHOSPHOR_OPENCL_HPP
+#endif // PHOSPHOR_OPENCL_CTX_HPP

@@ -29,14 +29,6 @@ find_package(OpenCL REQUIRED)
 target_link_libraries(phosphor OpenCL::OpenCL)
 
 FetchContent_Declare(
-        glm
-        GIT_REPOSITORY https://github.com/g-truc/glm
-        GIT_TAG 1.0.3
-)
-FetchContent_MakeAvailable(glm)
-target_link_libraries(phosphor glm)
-
-FetchContent_Declare(
         stb
         GIT_REPOSITORY https://github.com/nothings/stb
 )
