@@ -1,7 +1,7 @@
 #ifndef PHOSPHOR_CMD_ARGS_HPP
 #define PHOSPHOR_CMD_ARGS_HPP
 
-#include "types.h"
+#include "typedefs.h"
 
 #include <ostream>
 #include <string>

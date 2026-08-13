@@ -15,7 +15,7 @@
 #include <thread>
 #include <vector>
 
-#include "types.h"
+#include "typedefs.h"
 
 namespace logger {
 

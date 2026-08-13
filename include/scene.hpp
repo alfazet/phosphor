@@ -2,7 +2,8 @@
 #define PHOSPHOR_SCENE_HPP
 
 #include "camera.h"
-#include "types.h"
+#include "triangle.hpp"
+#include "typedefs.h"
 
 #include <vector>
 
