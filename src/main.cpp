@@ -22,7 +22,7 @@ void phosphor_main(const ArgsList &args) {
     ClContext ctx;
     print_opencl_data(ctx);
 
-    cl::Program program = ctx.build_program(std::string(PROJECT_DIR) + "/kernels/hello_world.cl", "");
+    cl::Program program = ctx.build_program(std::string(PROJECT_DIR) + "/kernels/hello_world.cl", "-I./include");
     cl::Kernel kernel(program, "hello_world");
 
     RngState rng = pcg_seed(args.seed);

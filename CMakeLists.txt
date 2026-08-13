@@ -49,7 +49,8 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(assimp)
 target_link_libraries(phosphor assimp::assimp)
 
-target_compile_definitions(phosphor PRIVATE PROJECT_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_definitions(phosphor PRIVATE PROJECT_DIR="${CMAKE_CURRENT_SOURCE_DIR}" CL_TARGET_OPENCL_VERSION=300)
+target_compile_options(phosphor PRIVATE -Wno-deprecated-declarations)
 if (${CMAKE_BUILD_TYPE} STREQUAL "debug")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 else ()
