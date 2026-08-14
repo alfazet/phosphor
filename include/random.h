@@ -7,6 +7,7 @@ typedef struct RngState {
     u32 state;
     // 1 * 4 = 4
 
+    // total: 4
     u8 _padding[12];
 } RngState __attribute__((aligned(16)));
 

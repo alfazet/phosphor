@@ -10,18 +10,18 @@ typedef struct Camera {
     float4 position;
     float4 target;
     float4 up;
-    // 3 * 4 * 4 = 48
 
     float4 lower_left_corner;
     float4 horizontal;
     float4 vertical;
     float4 u, v, w;
-    // 4 * 4 * 4 = 64
+    // 9 * 4 * 4 = 144
 
     f32 hfov;
     f32 aspect_ratio;
     // 2 * 4 = 8
 
+    // total: 152
     u8 _padding[8];
 } Camera __attribute__((aligned(16)));
 

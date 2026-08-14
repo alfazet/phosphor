@@ -2,23 +2,23 @@
 #define PHOSPHOR_SCENE_HPP
 
 #include "camera.h"
-#include "triangle.hpp"
+#include "host_triangle.hpp"
+#include "light.h"
+#include "material.h"
+#include "texture.hpp"
 #include "typedefs.h"
 
+#include <optional>
 #include <vector>
 
 struct SceneData {
+    std::vector<HostTriangle> triangles;
+    std::vector<Material> materials;
+    std::vector<Light> lights;
+    std::vector<f32> light_area_pref_sum;
     std::vector<Camera> cameras;
-
-    std::vector<Triangle> triangles;
-    std::vector<u8> tex_atlas; // all mipmap levels one after another
-    std::vector<usize> tex_offsets;
-    std::vector<usize> tex_widths;
-    std::vector<usize> tex_heights;
-
-    // TODO: port remaining fields
-
-    // TODO: port scene loading
+    std::vector<Texture> textures;
+    std::optional<Camera> chosen_camera{};
 };
 
 #endif // PHOSPHOR_SCENE_HPP

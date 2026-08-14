@@ -8,19 +8,20 @@ typedef struct Material {
     float4 emissive;
     // 2 * 4 * 4 = 32
 
-    usize diff_index;
-    usize emis_index;
-    usize norm_index;
-    usize occlusion_index;
-    usize metal_rough_index;
-    // 5 * 4 = 20
-
     f32 metallic;
     f32 roughness;
     f32 transmission;
     f32 ior;
     // 4 * 4 = 16
 
+    u32 diff_index;
+    u32 emis_index;
+    u32 norm_index;
+    u32 occlusion_index;
+    u32 metal_rough_index;
+    // 5 * 4 = 20
+
+    // total: 68
     u8 _padding[12];
 } Material __attribute__((aligned(16)));
 
