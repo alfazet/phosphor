@@ -10,18 +10,27 @@ file(GLOB SOURCES CONFIGURE_DEPENDS src/*.cpp)
 add_executable(phosphor ${SOURCES})
 
 FetchContent_Declare(
-    opencl_headers
-    GIT_REPOSITORY https://github.com/KhronosGroup/OpenCL-Headers
-    GIT_TAG v2026.05.29
+        opencl_headers
+        GIT_REPOSITORY https://github.com/KhronosGroup/OpenCL-Headers
+        GIT_TAG v2026.05.29
 )
 FetchContent_MakeAvailable(opencl_headers)
 set(OpenCL_INCLUDE_DIR ${opencl_headers_SOURCE_DIR} CACHE PATH "" FORCE)
 
 FetchContent_Declare(
-    opencl_hpp
-    GIT_REPOSITORY https://github.com/KhronosGroup/OpenCL-CLHPP
-    GIT_TAG v2026.05.29
+        glm
+        GIT_REPOSITORY https://github.com/g-truc/glm
+        GIT_TAG 1.0.3
 )
+FetchContent_MakeAvailable(glm)
+target_link_libraries(phosphor glm)
+
+FetchContent_Declare(
+        opencl_hpp
+        GIT_REPOSITORY https://github.com/KhronosGroup/OpenCL-CLHPP
+        GIT_TAG v2026.05.29
+)
+
 FetchContent_MakeAvailable(opencl_hpp)
 target_include_directories(phosphor PRIVATE ${opencl_headers_SOURCE_DIR} ${opencl_hpp_SOURCE_DIR}/include)
 
