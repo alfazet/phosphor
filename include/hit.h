@@ -1,6 +1,7 @@
 #ifndef PHOSPHOR_HIT_H
 #define PHOSPHOR_HIT_H
 
+#include "constants.h"
 #include "typedefs.h"
 
 typedef struct HitRecord {

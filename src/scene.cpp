@@ -81,7 +81,7 @@ void parse_camera(const aiCamera *ai_camera, SceneData &out_scene, mat4 global_t
     ASSERT(ai_camera->mHorizontalFOV > 0 && ai_camera->mHorizontalFOV < 180,
            "hfov must be between 0 and 180 degrees exclusive");
     ASSERT(ai_camera->mAspect > 0, "aspect_ratio must be positive");
-    f32 fov_h_deg = ai_camera->mHorizontalFOV * (180.0f / static_cast<f32>(M_PI));
+    f32 fov_h_deg = ai_camera->mHorizontalFOV * (180.0f / static_cast<f32>(PI));
     f32 aspect = ai_camera->mAspect > 0.0f ? ai_camera->mAspect : (16.0f / 9.0f);
 
     out_scene.cameras.push_back(build_camera(position, look_at_world, up, fov_h_deg, aspect));

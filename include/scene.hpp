@@ -10,6 +10,7 @@
 
 #include <optional>
 #include <vector>
+#include <glm/glm.hpp>
 
 struct SceneData {
     std::vector<HostTriangle> triangles;
@@ -22,5 +23,7 @@ struct SceneData {
 };
 
 SceneData read_file(const char *file_name);
+
+Light make_point_light(glm::vec3 position, glm::vec3 power);
 
 #endif // PHOSPHOR_SCENE_HPP
