@@ -5,4 +5,9 @@
 #define INF 1e9
 #define PI 3.141592654
 
+#define NO_TEXTURE 0xFFFFFFFFu
+#define LUMINOUS_EFFICACY 683.0f // cd * sr / W
+#define DEFAULT_TRANSMISSION 0.0f
+#define DEFAULT_IOR 1.5f
+
 #endif // PHOSPHOR_CONSTANTS_H

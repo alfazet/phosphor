@@ -11,7 +11,6 @@ constexpr u32 DEFAULT_RESOLUTION = 1024;
 constexpr u32 DEFAULT_SAMPLES = 64;
 constexpr u32 DEFAULT_PHOTONS_PER_LIGHT = 65536;
 constexpr f32 DEFAULT_RAY_STEP = 0.0001f;
-constexpr u32 DEFAULT_N_THREADS = 8;
 constexpr u32 DEFAULT_IMAGE_ITERS = 8;
 constexpr f32 DEFAULT_SEARCH_RADIUS = 0.2f;
 constexpr u32 DEFAULT_SEED = 2137;
@@ -24,7 +23,6 @@ constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
     X("-p", photons_per_light, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT, "average photons per light source")          \
     X("-m", model, std::string, parse_string, DEFAULT_MODEL_PATH, "gltf model path")                                   \
     X("-o", output_path, std::string, parse_string, DEFAULT_OUTPUT_PATH, "output image path")                          \
-    X("-t", n_threads, u32, parse_u32, DEFAULT_N_THREADS, "number of CPU threads")                                     \
     X("-i", image_iters, u32, parse_u32, DEFAULT_IMAGE_ITERS, "image iterations")                                      \
     X("--ray-step", ray_step, f32, parse_f32, DEFAULT_RAY_STEP, "ray step as a fraction of scene diagonal")            \
     X("--search-radius", search_radius, f32, parse_f32, DEFAULT_SEARCH_RADIUS,                                         \
