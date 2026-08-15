@@ -1,4 +1,5 @@
 #include "constants.h"
+#include "hit.h"
 #include "material.h"
 #include "texture_meta.h"
 #include "typedefs.h"
@@ -25,54 +26,18 @@ __kernel void naive_hit_test(__global const float4 *ray_origin, __global const f
     float4 origin = ray_origin[i];
     float4 dir = ray_dir[i];
 
-    f32 closest_t = INFINITY;
-    i32 hit_tri = -1;
-    f32 hit_u = 0.0f, hit_v = 0.0f;
-
-    // brute-force O(n_tris) scan, no acceleration structure
-    for (usize t = 0; t < n_tris; t++) {
-        float4 v0 = tri_v0[t], v1 = tri_v1[t], v2 = tri_v2[t];
-        float4 edge1 = v1 - v0;
-        float4 edge2 = v2 - v0;
-
-        // moller-trumbore; w components of all vectors involved are 0, so
-        // dot()/cross() behave as their 3D counterparts
-        float4 h = cross(dir, edge2);
-        f32 a = dot(edge1, h);
-        if (fabs(a) < EPS)
-            continue;
-
-        f32 f = 1.0f / a;
-        float4 s = origin - v0;
-        f32 u = f * dot(s, h);
-        if (u < 0.0f || u > 1.0f)
-            continue;
-
-        float4 q = cross(s, edge1);
-        f32 v = f * dot(dir, q);
-        if (v < 0.0f || u + v > 1.0f)
-            continue;
-
-        f32 tt = f * dot(edge2, q);
-        if (tt > EPS && tt < closest_t) {
-            closest_t = tt;
-            hit_tri = (i32)t;
-            hit_u = u;
-            hit_v = v;
-        }
-    }
-
-    if (hit_tri < 0) {
+    HitRecord hit;
+    if (!intersect_scene(origin, dir, tri_v0, tri_v1, tri_v2, tri_mat_index, n_tris, &hit)) {
         out_color[i] = (float4)(0.0f, 0.0f, 0.0f, 1.0f); // miss -> black background
         return;
     }
 
     // interpolate UV with the barycentric coords from the winning triangle
-    float2 uv0 = tri_uv0[hit_tri], uv1 = tri_uv1[hit_tri], uv2 = tri_uv2[hit_tri];
-    f32 w = 1.0f - hit_u - hit_v;
-    float2 uv = (float2)(w * uv0.x + hit_u * uv1.x + hit_v * uv2.x, w * uv0.y + hit_u * uv1.y + hit_v * uv2.y);
+    float2 uv0 = tri_uv0[hit.tri_index], uv1 = tri_uv1[hit.tri_index], uv2 = tri_uv2[hit.tri_index];
+    f32 w = 1.0f - hit.u - hit.v;
+    float2 uv = (float2)(w * uv0.x + hit.u * uv1.x + hit.v * uv2.x, w * uv0.y + hit.u * uv1.y + hit.v * uv2.y);
 
-    Material mat = materials[tri_mat_index[hit_tri]];
+    Material mat = materials[tri_mat_index[hit.tri_index]];
     if (mat.diff_index == NO_TEXTURE) {
         out_color[i] = mat.base_color;
         return;
