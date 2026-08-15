@@ -33,4 +33,25 @@ inline RngState make_thread_rng(RngState base, u32 thread_index) { return pcg_se
 
 inline f32 random_float(RngState *rng) { return (f32)pcg_random(rng) / 65535.0f; }
 
+#ifdef __OPENCL_C_VERSION__
+
+inline float4 random_unit_vector(RngState *rng) {
+    float4 p;
+    do {
+        p.x = 2.0f * random_float(rng) - 1.0f;
+        p.y = 2.0f * random_float(rng) - 1.0f;
+        p.z = 2.0f * random_float(rng) - 1.0f;
+        p.w = 0.0f;
+    } while (dot(p.xyz, p.xyz) >= 1.0f);
+
+    float len = sqrt(dot(p.xyz, p.xyz));
+    p.x /= len;
+    p.y /= len;
+    p.z /= len;
+
+    return p;
+}
+
+#endif // __OPENCL_C_VERSION__
+
 #endif // PHOSPHOR_RANDOM_H
