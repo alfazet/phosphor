@@ -2,28 +2,21 @@
 #include "constants.h"
 #include "logger.hpp"
 #include "stb_image.h"
+
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
-#include <cstring>
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_inverse.hpp>
 
-using glm::mat3;
-using glm::mat4;
-using glm::vec2;
-using glm::vec3;
-using glm::vec4;
+using glm::mat3, glm::mat4, glm::vec2, glm::vec3, glm::vec4;
 
 inline float4 to_float4(const vec3 &v, f32 w = 0.0f) { return float4{{v.x, v.y, v.z, w}}; }
+
 inline float2 to_float2(const vec2 &v) { return float2{{v.x, v.y}}; }
 
-inline f32 bits_as_float(u32 x) {
-    f32 f;
-    std::memcpy(&f, &x, sizeof(f));
-    return f;
-}
+inline f32 bits_as_float(u32 x) { return *reinterpret_cast<f32 *>(&x); }
 
 mat4 ai_matrix4x4_to_glm(const aiMatrix4x4 &from) {
     mat4 to;
@@ -166,7 +159,6 @@ std::optional<u32> find_texture(const std::string &name, const std::vector<Textu
     return std::nullopt;
 }
 
-// TODO look at this
 void build_mip_chain(Texture &tex, std::vector<u8> pixels, u32 w, u32 h) {
     tex.width = w;
     tex.height = h;
@@ -179,13 +171,12 @@ void build_mip_chain(Texture &tex, std::vector<u8> pixels, u32 w, u32 h) {
         tex.tex_widths.push_back(lw);
         tex.tex_heights.push_back(lh);
         tex.tex_atlas.insert(tex.tex_atlas.end(), level.begin(), level.end());
-
         if (lw == 1 && lh == 1)
             break;
 
         u32 nw = std::max(1u, lw / 2);
         u32 nh = std::max(1u, lh / 2);
-        std::vector<u8> next(static_cast<usize>(nw) * nh * 3);
+        std::vector<u8> next(nw * nh * 3);
         for (u32 y = 0; y < nh; y++) {
             for (u32 x = 0; x < nw; x++) {
                 u32 sx0 = std::min(x * 2, lw - 1);

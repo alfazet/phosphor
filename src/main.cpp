@@ -1,5 +1,4 @@
 #include "cmd_args.hpp"
-#include "constants.h"
 #include "logger.hpp"
 #include "opencl_ctx.hpp"
 #include "printers.hpp"
@@ -8,6 +7,7 @@
 #include "scene.hpp"
 #include "stb_image_write.h"
 #include "texture_meta.h"
+
 #include <glm/glm.hpp>
 #include <iostream>
 #include <vector>
@@ -50,7 +50,6 @@ void generate_primary_rays(RngState &rng, const Camera &cam, u32 image_width, u3
 
 void init_logger() {
     auto &l = logger::Logger::instance();
-
     l.set_level(logger::Level::Debug);
 
     auto multi = std::make_unique<logger::MultiSink>();

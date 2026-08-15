@@ -1,3 +1,4 @@
+#include "constants.h"
 #include "material.h"
 #include "texture_meta.h"
 #include "typedefs.h"
@@ -10,16 +11,13 @@
 // nearest-neighbor). if the material has no diffuse texture, just use its
 // base_color. rays that miss everything get a flat background color.
 
-#define TEST_EPS 1e-6f
-#define TEST_NO_TEXTURE 0xFFFFFFFFu
-
 __kernel void naive_hit_test(__global const float4 *ray_origin, __global const float4 *ray_dir, const usize n_rays,
                              __global const float4 *tri_v0, __global const float4 *tri_v1,
                              __global const float4 *tri_v2, __global const float2 *tri_uv0,
                              __global const float2 *tri_uv1, __global const float2 *tri_uv2,
-                             __global const u32 *tri_mat_index, const usize n_tris,
-                             __global const Material *materials, __global const TextureMeta *tex_meta,
-                             __global const u8 *tex_atlas, __global float4 *out_color) {
+                             __global const u32 *tri_mat_index, const usize n_tris, __global const Material *materials,
+                             __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
+                             __global float4 *out_color) {
     usize i = get_global_id(0);
     if (i >= n_rays)
         return;
@@ -41,7 +39,7 @@ __kernel void naive_hit_test(__global const float4 *ray_origin, __global const f
         // dot()/cross() behave as their 3D counterparts
         float4 h = cross(dir, edge2);
         f32 a = dot(edge1, h);
-        if (fabs(a) < TEST_EPS)
+        if (fabs(a) < EPS)
             continue;
 
         f32 f = 1.0f / a;
@@ -56,7 +54,7 @@ __kernel void naive_hit_test(__global const float4 *ray_origin, __global const f
             continue;
 
         f32 tt = f * dot(edge2, q);
-        if (tt > TEST_EPS && tt < closest_t) {
+        if (tt > EPS && tt < closest_t) {
             closest_t = tt;
             hit_tri = (i32)t;
             hit_u = u;
@@ -75,8 +73,7 @@ __kernel void naive_hit_test(__global const float4 *ray_origin, __global const f
     float2 uv = (float2)(w * uv0.x + hit_u * uv1.x + hit_v * uv2.x, w * uv0.y + hit_u * uv1.y + hit_v * uv2.y);
 
     Material mat = materials[tri_mat_index[hit_tri]];
-
-    if (mat.diff_index == TEST_NO_TEXTURE) {
+    if (mat.diff_index == NO_TEXTURE) {
         out_color[i] = mat.base_color;
         return;
     }
