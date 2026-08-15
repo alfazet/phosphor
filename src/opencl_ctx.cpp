@@ -53,7 +53,7 @@ cl::Program ClContext::build_program(const std::string &path, const std::string 
 
     cl::Program program(this->context, ss.str());
     try {
-        program.build(this->device);
+        program.build(this->device, build_opts.c_str());
     } catch (const cl::Error &) {
         const std::string log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(this->device);
         throw std::runtime_error("kernel build failed (" + log + ")");

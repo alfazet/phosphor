@@ -21,8 +21,13 @@ typedef struct Material {
     u32 metal_rough_index;
     // 5 * 4 = 20
 
-    // total: 68
-    u8 _padding[12];
+    float2 uv_offset;
+    float2 uv_scale;
+    f32 uv_rotation;
+    // 2 * 4 + 2 * 4 + 4 = 20
+
+    // total: 88
+    u8 _padding[8];
 } Material __attribute__((aligned(16)));
 
 #endif // PHOSPHOR_MATERIAL_H

@@ -18,7 +18,9 @@ struct SceneData {
     std::vector<f32> light_area_pref_sum;
     std::vector<Camera> cameras;
     std::vector<Texture> textures;
-    std::optional<Camera> chosen_camera{};
+    std::optional<u32> chosen_camera{};
 };
+
+SceneData read_file(const char *file_name);
 
 #endif // PHOSPHOR_SCENE_HPP
