@@ -1,3 +1,4 @@
+#include "bvh.hpp"
 #include "cmd_args.hpp"
 #include "constants.h"
 #include "light.h"
@@ -72,12 +73,15 @@ void phosphor_main(const ArgsList &args) {
     }
     const Camera &cam = scene.cameras[*scene.chosen_camera];
     // temporary light
-    scene.lights.insert(scene.lights.begin(), make_point_light(glm::vec3(0.0f), glm::vec3(0.5f)));
-    DBG(scene.lights.size());
+    scene.lights.insert(scene.lights.begin(), make_point_light(glm::vec3(0.0f), glm::vec3(0.3f)));
 
     u32 max_photons = 1 << 10;
     u32 h_photon_count = 0;
     std::vector<Photon> h_photons(max_photons);
+
+    TimerScope timer_scope_bvh("building BVH");
+    std::vector<BvhNode> tree = create_tree(scene.triangles);
+    timer_scope_bvh.stop();
 
     usize n_tris = scene.triangles.size();
     std::vector<float4> tv0(n_tris), tv1(n_tris), tv2(n_tris);
@@ -124,6 +128,7 @@ void phosphor_main(const ArgsList &args) {
     cl::Buffer d_tuv0(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float2), tuv0.data());
     cl::Buffer d_tuv1(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float2), tuv1.data());
     cl::Buffer d_tuv2(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float2), tuv2.data());
+    cl::Buffer d_tree(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, tree.size() * sizeof(BvhNode), tree.data());
     cl::Buffer d_tmat(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(u32), tmat.data());
     cl::Buffer d_lights(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, scene.lights.size() * sizeof(Light),
                         scene.lights.data());
@@ -157,42 +162,34 @@ void phosphor_main(const ArgsList &args) {
     ctx.queue.enqueueNDRangeKernel(trace_kernel, cl::NullRange, cl::NDRange(max_photons), cl::NDRange(256));
     ctx.queue.finish();
 
-    ctx.queue.enqueueReadBuffer(d_photon_count, CL_TRUE, 0, sizeof(u32), &h_photon_count);
-    ctx.queue.enqueueReadBuffer(d_photons, CL_TRUE, 0, sizeof(Photon) * max_photons, h_photons.data());
-    ctx.queue.finish();
-    LOG_INFO("stored {} photons", h_photon_count);
-    for (u32 i = 0; i < std::min<u32>(h_photon_count, 16); i++) {
-        const Photon &p = h_photons[i];
-        LOG_INFO("photon {}: pos=({},{},{}), power=({},{},{}), dir=({},{},{})", i, p.pos.x, p.pos.y, p.pos.z, p.power.x,
-                 p.power.y, p.power.z, p.dir.x, p.dir.y, p.dir.z);
-    }
-
-    cl::Program gather_program =
-        ctx.build_program(std::string(PROJECT_DIR) + "/kernels/gather_photons.cl", "-I./include");
-    cl::Kernel gather_kernel(gather_program, "gather_photons");
+    cl::Program program = ctx.build_program(std::string(PROJECT_DIR) + "/kernels/get_color.cl", "-I./include");
+    cl::Kernel kernel(program, "get_color");
 
     f32 search_radius = 100.0f;
 
-    gather_kernel.setArg(0, d_origin);
-    gather_kernel.setArg(1, d_dir);
-    gather_kernel.setArg(2, n_rays);
-    gather_kernel.setArg(3, d_tv0);
-    gather_kernel.setArg(4, d_tv1);
-    gather_kernel.setArg(5, d_tv2);
-    gather_kernel.setArg(6, d_tuv0);
-    gather_kernel.setArg(7, d_tuv1);
-    gather_kernel.setArg(8, d_tuv2);
-    gather_kernel.setArg(9, d_tmat);
-    gather_kernel.setArg(10, n_tris);
-    gather_kernel.setArg(11, d_materials);
-    gather_kernel.setArg(12, d_tex_meta);
-    gather_kernel.setArg(13, d_tex_atlas);
-    gather_kernel.setArg(14, d_photons);
-    gather_kernel.setArg(15, d_photon_count);
-    gather_kernel.setArg(16, search_radius);
-    gather_kernel.setArg(17, d_out);
+    kernel.setArg(0, d_origin);
+    kernel.setArg(1, d_dir);
+    kernel.setArg(2, n_rays);
+    kernel.setArg(3, d_tv0);
+    kernel.setArg(4, d_tv1);
+    kernel.setArg(5, d_tv2);
+    kernel.setArg(6, d_tuv0);
+    kernel.setArg(7, d_tuv1);
+    kernel.setArg(8, d_tuv2);
+    kernel.setArg(9, d_tree);
+    kernel.setArg(10, d_tmat);
+    kernel.setArg(11, n_tris);
+    kernel.setArg(12, d_materials);
+    kernel.setArg(13, d_tex_meta);
+    kernel.setArg(14, d_tex_atlas);
+    kernel.setArg(15, d_photons);
+    kernel.setArg(16, d_photon_count);
+    kernel.setArg(17, search_radius);
+    kernel.setArg(18, d_out);
 
-    ctx.queue.enqueueNDRangeKernel(gather_kernel, cl::NullRange, cl::NDRange(n_rays), cl::NullRange);
+    TimerScope timer_scope_image("rendering image");
+    ctx.queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(n_rays), cl::NullRange);
+    ctx.queue.finish();
 
     std::vector<float4> h_out(n_rays);
     ctx.queue.enqueueReadBuffer(d_out, CL_TRUE, 0, n_rays * sizeof(float4), h_out.data());
@@ -211,6 +208,7 @@ void phosphor_main(const ArgsList &args) {
         ldr[p * 3 + 1] = static_cast<u8>(std::clamp(accum.y, 0.0f, 1.0f) * 255.0f);
         ldr[p * 3 + 2] = static_cast<u8>(std::clamp(accum.z, 0.0f, 1.0f) * 255.0f);
     }
+    timer_scope_image.stop();
     stbi_write_png(args.output_path.c_str(), static_cast<i32>(args.resolution), static_cast<i32>(args.resolution), 3,
                    ldr.data(), static_cast<i32>(args.resolution) * 3);
 
