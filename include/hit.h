@@ -13,6 +13,7 @@ typedef struct HitRecord {
     float4 normal;
     u32 tri_index;
     u32 mat_index;
+    bool front_face;
 } HitRecord;
 
 inline bool triangle_hit_single(u32 t, float4 origin, float4 dir, __global const float4 *tri_v0,
@@ -44,12 +45,17 @@ inline bool triangle_hit_single(u32 t, float4 origin, float4 dir, __global const
     if (tt < t_min || tt > t_max)
         return false;
 
+    float4 outward_normal = normalize(cross(edge1, edge2));
+    bool front_face = dot(dir, outward_normal) < 0.0f;
+    float4 normal = front_face ? outward_normal : -outward_normal;
+
     out->t = tt;
     out->u = u;
     out->v = v;
     out->tri_index = t;
     out->mat_index = tri_mat_index[t];
     out->normal = normalize(cross(edge1, edge2));
+    out->front_face = front_face;
 
     return true;
 }

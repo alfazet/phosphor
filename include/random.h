@@ -52,6 +52,34 @@ inline float4 random_unit_vector(RngState *rng) {
     return p;
 }
 
+inline void make_tbn(float4 normal, float4 *tangent, float4 *bitangent) {
+    float4 tmp = (fabs(normal.x) > 0.1f) ? (float4)(0.0f, 1.0f, 0.0f, 0.0f) : (float4)(1.0f, 0.0f, 0.0f, 0.0f);
+
+    *tangent = cross(normal, tmp);
+    if (length(*tangent) < EPS) {
+        tmp = (float4)(0.0f, 0.0f, 1.0f, 0.0f);
+        *tangent = cross(normal, tmp);
+    }
+
+    *tangent = normalize(*tangent);
+    *bitangent = cross(normal, *tangent);
+}
+
+inline float4 random_in_unit_hemisphere(RngState *rng, float4 normal) {
+    f32 r1 = random_float(rng);
+    f32 r2 = random_float(rng);
+    f32 phi = 2.0f * PI * r1;
+    f32 sin_theta = sqrt(r2);
+    f32 cos_theta = sqrt(1.0f - r2);
+
+    float4 hemi_local = (float4)(sin_theta * cos(phi), sin_theta * sin(phi), cos_theta, 0.0f);
+
+    float4 tangent, bitangent;
+    make_tbn(normal, &tangent, &bitangent);
+
+    return normalize(hemi_local.x * tangent + hemi_local.y * bitangent + hemi_local.z * normal);
+}
+
 #endif // __OPENCL_C_VERSION__
 
 #endif // PHOSPHOR_RANDOM_H

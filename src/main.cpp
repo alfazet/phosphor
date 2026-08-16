@@ -147,10 +147,15 @@ void phosphor_main(const ArgsList &args) {
     cl::Kernel trace_kernel(trace_program, "trace_photons");
 
     set_kernel_args(trace_kernel, d_photons, d_photon_count, d_lights, (u32)scene.lights.size(), max_photons, args.seed,
-                    d_tree, d_tv0, d_tv1, d_tv2, d_tmat, n_tris, d_materials);
+                    d_tree, d_tv0, d_tv1, d_tv2, d_tuv0, d_tuv1, d_tuv2, d_tmat, n_tris, d_materials, d_tex_meta,
+                    d_tex_atlas);
 
     ctx.queue.enqueueNDRangeKernel(trace_kernel, cl::NullRange, cl::NDRange(max_photons), cl::NDRange(256));
     ctx.queue.finish();
+
+    // ctx.queue.enqueueReadBuffer(d_photons, CL_TRUE, 0, max_photons * sizeof(Photon), h_photons.data());
+    // DBG(h_photons.size());
+    // DBG(h_photons[0].power.x);
 
     cl::Program program = ctx.build_program(std::string(PROJECT_DIR) + "/kernels/get_color.cl", "-I./include");
     cl::Kernel kernel(program, "get_color");

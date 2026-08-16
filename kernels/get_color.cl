@@ -36,19 +36,7 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
     Material mat = materials[rec.mat_index];
     float4 base_color = mat.base_color;
     if (mat.diff_index != NO_TEXTURE) {
-        TextureMeta meta = tex_meta[mat.diff_index];
-
-        f32 u_wrapped = uv.x - floor(uv.x);
-        f32 v_wrapped = uv.y - floor(uv.y);
-        u32 px = min((u32)(u_wrapped * (f32)meta.width), meta.width - 1);
-        u32 py = min((u32)(v_wrapped * (f32)meta.height), meta.height - 1);
-
-        u32 texel = meta.atlas_offset + (py * meta.width + px) * 3u;
-        f32 r = (f32)tex_atlas[texel + 0] / 255.0f;
-        f32 g = (f32)tex_atlas[texel + 1] / 255.0f;
-        f32 b = (f32)tex_atlas[texel + 2] / 255.0f;
-
-        base_color = (float4)(r, g, b, 1.0f);
+        base_color = sample_texture(tex_meta, tex_atlas, mat.diff_index, uv);
     }
 
     // photon gather
