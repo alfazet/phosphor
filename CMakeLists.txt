@@ -7,7 +7,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include_directories(include)
 file(GLOB SOURCES CONFIGURE_DEPENDS src/*.cpp)
-add_executable(phosphor ${SOURCES})
+add_executable(phosphor ${SOURCES}
+        src/bvh.cpp
+        include/bounding_box.h
+        include/hit.h
+        include/bvh.hpp
+)
 
 FetchContent_Declare(
         opencl_headers
