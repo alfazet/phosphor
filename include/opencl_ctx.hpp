@@ -4,6 +4,7 @@
 #define CL_HPP_TARGET_OPENCL_VERSION 300
 #define CL_HPP_ENABLE_EXCEPTIONS
 
+#include "typedefs.h"
 #include <CL/opencl.hpp>
 #include <string>
 
@@ -25,5 +26,10 @@ struct ClContext {
     cl::Context context;
     cl::CommandQueue queue;
 };
+
+template <typename... Args> void set_kernel_args(cl::Kernel &kernel, Args &&...args) {
+    u32 index = 0;
+    (kernel.setArg(index++, std::forward<Args>(args)), ...);
+}
 
 #endif // PHOSPHOR_OPENCL_CTX_HPP

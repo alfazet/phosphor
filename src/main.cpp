@@ -73,9 +73,9 @@ void phosphor_main(const ArgsList &args) {
     }
     const Camera &cam = scene.cameras[*scene.chosen_camera];
     // temporary light
-    scene.lights.insert(scene.lights.begin(), make_point_light(glm::vec3(0.0f), glm::vec3(0.3f)));
+    scene.lights.insert(scene.lights.begin(), make_point_light(glm::vec3(0.0f), glm::vec3(300.0f)));
 
-    u32 max_photons = 1 << 10;
+    u32 max_photons = 1 << 12;
     u32 h_photon_count = 0;
     std::vector<Photon> h_photons(max_photons);
 
@@ -146,18 +146,8 @@ void phosphor_main(const ArgsList &args) {
         ctx.build_program(std::string(PROJECT_DIR) + "/kernels/trace_photons.cl", "-I./include");
     cl::Kernel trace_kernel(trace_program, "trace_photons");
 
-    trace_kernel.setArg(0, d_photons);
-    trace_kernel.setArg(1, d_photon_count);
-    trace_kernel.setArg(2, d_lights);
-    trace_kernel.setArg(3, (u32)scene.lights.size());
-    trace_kernel.setArg(4, max_photons);
-    trace_kernel.setArg(5, args.seed);
-    trace_kernel.setArg(6, d_tv0);
-    trace_kernel.setArg(7, d_tv1);
-    trace_kernel.setArg(8, d_tv2);
-    trace_kernel.setArg(9, d_tmat);
-    trace_kernel.setArg(10, n_tris);
-    trace_kernel.setArg(11, d_materials);
+    set_kernel_args(trace_kernel, d_photons, d_photon_count, d_lights, (u32)scene.lights.size(), max_photons, args.seed,
+                    d_tree, d_tv0, d_tv1, d_tv2, d_tmat, n_tris, d_materials);
 
     ctx.queue.enqueueNDRangeKernel(trace_kernel, cl::NullRange, cl::NDRange(max_photons), cl::NDRange(256));
     ctx.queue.finish();
@@ -166,26 +156,8 @@ void phosphor_main(const ArgsList &args) {
     cl::Kernel kernel(program, "get_color");
 
     f32 search_radius = 100.0f;
-
-    kernel.setArg(0, d_origin);
-    kernel.setArg(1, d_dir);
-    kernel.setArg(2, n_rays);
-    kernel.setArg(3, d_tv0);
-    kernel.setArg(4, d_tv1);
-    kernel.setArg(5, d_tv2);
-    kernel.setArg(6, d_tuv0);
-    kernel.setArg(7, d_tuv1);
-    kernel.setArg(8, d_tuv2);
-    kernel.setArg(9, d_tree);
-    kernel.setArg(10, d_tmat);
-    kernel.setArg(11, n_tris);
-    kernel.setArg(12, d_materials);
-    kernel.setArg(13, d_tex_meta);
-    kernel.setArg(14, d_tex_atlas);
-    kernel.setArg(15, d_photons);
-    kernel.setArg(16, d_photon_count);
-    kernel.setArg(17, search_radius);
-    kernel.setArg(18, d_out);
+    set_kernel_args(kernel, d_origin, d_dir, n_rays, d_tv0, d_tv1, d_tv2, d_tuv0, d_tuv1, d_tuv2, d_tree, d_tmat,
+                    n_tris, d_materials, d_tex_meta, d_tex_atlas, d_photons, d_photon_count, search_radius, d_out);
 
     TimerScope timer_scope_image("rendering image");
     ctx.queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(n_rays), cl::NullRange);
