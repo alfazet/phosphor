@@ -1,3 +1,4 @@
+#include "bvh.hpp"
 #include "cmd_args.hpp"
 #include "logger.hpp"
 #include "opencl_ctx.hpp"
@@ -69,6 +70,10 @@ void phosphor_main(const ArgsList &args) {
     }
     const Camera &cam = scene.cameras[*scene.chosen_camera];
 
+    TimerScope timer_scope_bvh("building BVH");
+    std::vector<BvhNode> tree = create_tree(scene.triangles);
+    timer_scope_bvh.stop();
+
     usize n_tris = scene.triangles.size();
     std::vector<float4> tv0(n_tris), tv1(n_tris), tv2(n_tris);
     std::vector<float2> tuv0(n_tris), tuv1(n_tris), tuv2(n_tris);
@@ -114,6 +119,7 @@ void phosphor_main(const ArgsList &args) {
     cl::Buffer d_tuv0(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float2), tuv0.data());
     cl::Buffer d_tuv1(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float2), tuv1.data());
     cl::Buffer d_tuv2(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float2), tuv2.data());
+    cl::Buffer d_tree(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, tree.size() * sizeof(BvhNode), tree.data());
     cl::Buffer d_tmat(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(u32), tmat.data());
     cl::Buffer d_materials(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
                            scene.materials.size() * sizeof(Material), scene.materials.data());
@@ -122,8 +128,8 @@ void phosphor_main(const ArgsList &args) {
     cl::Buffer d_tex_atlas(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, tex_atlas.size(), tex_atlas.data());
     cl::Buffer d_out(ctx.context, CL_MEM_WRITE_ONLY, n_rays * sizeof(float4));
 
-    cl::Program program = ctx.build_program(std::string(PROJECT_DIR) + "/kernels/naive_hit_test.cl", "-I./include");
-    cl::Kernel kernel(program, "naive_hit_test");
+    cl::Program program = ctx.build_program(std::string(PROJECT_DIR) + "/kernels/get_color.cl", "-I./include");
+    cl::Kernel kernel(program, "get_color");
 
     kernel.setArg(0, d_origin);
     kernel.setArg(1, d_dir);
@@ -134,17 +140,23 @@ void phosphor_main(const ArgsList &args) {
     kernel.setArg(6, d_tuv0);
     kernel.setArg(7, d_tuv1);
     kernel.setArg(8, d_tuv2);
-    kernel.setArg(9, d_tmat);
-    kernel.setArg(10, n_tris);
-    kernel.setArg(11, d_materials);
-    kernel.setArg(12, d_tex_meta);
-    kernel.setArg(13, d_tex_atlas);
-    kernel.setArg(14, d_out);
+    kernel.setArg(9, d_tree);
+    kernel.setArg(10, d_tmat);
+    kernel.setArg(11, n_tris);
+    kernel.setArg(12, d_materials);
+    kernel.setArg(13, d_tex_meta);
+    kernel.setArg(14, d_tex_atlas);
+    kernel.setArg(15, d_out);
 
     ctx.queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(n_rays), cl::NullRange);
 
     std::vector<float4> h_out(n_rays);
     ctx.queue.enqueueReadBuffer(d_out, CL_TRUE, 0, n_rays * sizeof(float4), h_out.data());
+
+    TimerScope timer_scope_image("rendering image");
+    ctx.queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(n_rays), cl::NullRange);
+    ctx.queue.enqueueReadBuffer(d_out, CL_TRUE, 0, n_rays * sizeof(float4), h_out.data());
+    timer_scope_image.stop();
 
     usize n_pixels = static_cast<usize>(args.resolution) * args.resolution;
     std::vector<u8> ldr(n_pixels * 3);
