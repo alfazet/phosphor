@@ -20,7 +20,7 @@ constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
 #define ARG_TABLE(X)                                                                                                   \
     X("-r", resolution, u32, parse_u32, DEFAULT_RESOLUTION, "resolution")                                              \
     X("-s", samples, u32, parse_u32, DEFAULT_SAMPLES, "number of samples for photon gathering")                        \
-    X("-p", photons_per_light, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT, "average photons per light source")          \
+    X("-p", photons, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT, "number of photons to emit")                           \
     X("-m", model, std::string, parse_string, DEFAULT_MODEL_PATH, "gltf model path")                                   \
     X("-o", output_path, std::string, parse_string, DEFAULT_OUTPUT_PATH, "output image path")                          \
     X("-i", image_iters, u32, parse_u32, DEFAULT_IMAGE_ITERS, "image iterations")                                      \

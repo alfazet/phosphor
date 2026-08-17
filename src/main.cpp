@@ -76,10 +76,10 @@ void phosphor_main(const ArgsList &args) {
     // temporary light
     scene.lights.insert(scene.lights.begin(), make_point_light(glm::vec3(0.0f), glm::vec3(300.0f)));
 
-    u32 photons_to_emit = pow2roundup(args.photons_per_light * scene.lights.size());
+    u32 photons_to_emit = pow2roundup(args.photons);
     // TODO: think if it makes sense, also consider an alternative where each thread can
     // store some max number (ex. 4) of photons
-    u32 max_photons = photons_to_emit * 2;
+    u32 max_photons = photons_to_emit * MAX_PHOTON_BOUNCES;
     u32 h_photon_count = 0;
     DBG(photons_to_emit);
     std::vector<Photon> h_photons(max_photons);
