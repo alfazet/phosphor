@@ -1,27 +1,13 @@
 #include "bounding_box.h"
 #include "bvh_node.h"
 #include "constants.h"
+#include "helpers.h"
 #include "host_triangle.hpp"
 
 #include <algorithm>
 #include <vector>
 
 void split(std::vector<HostTriangle> &triangles, u32 start, u32 end, std::vector<BvhNode> &tree, u32 p = 1);
-
-// https://stackoverflow.com/questions/364985/algorithm-for-finding-the-smallest-power-of-two-thats-greater-or-equal-to-a-giv
-/// Round up to next higher power of 2 (return x if it's already a power
-/// of 2).
-inline int pow2roundup(int x) {
-    if (x < 0)
-        return 0;
-    --x;
-    x |= x >> 1;
-    x |= x >> 2;
-    x |= x >> 4;
-    x |= x >> 8;
-    x |= x >> 16;
-    return x + 1;
-}
 
 bool box_compare(HostTriangle &a, HostTriangle &b, u32 index) {
     return get_bounding_box(a).bbox_min.s[index] < get_bounding_box(b).bbox_min.s[index];

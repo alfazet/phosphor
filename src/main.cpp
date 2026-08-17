@@ -1,6 +1,7 @@
 #include "bvh.hpp"
 #include "cmd_args.hpp"
 #include "constants.h"
+#include "helpers.h"
 #include "light.h"
 #include "logger.hpp"
 #include "opencl_ctx.hpp"
@@ -75,8 +76,12 @@ void phosphor_main(const ArgsList &args) {
     // temporary light
     scene.lights.insert(scene.lights.begin(), make_point_light(glm::vec3(0.0f), glm::vec3(300.0f)));
 
-    u32 max_photons = 1 << 12;
+    u32 photons_to_emit = pow2roundup(args.photons_per_light * scene.lights.size());
+    // TODO: think if it makes sense, also consider an alternative where each thread can
+    // store some max number (ex. 4) of photons
+    u32 max_photons = photons_to_emit * 2;
     u32 h_photon_count = 0;
+    DBG(photons_to_emit);
     std::vector<Photon> h_photons(max_photons);
 
     TimerScope timer_scope_bvh("building BVH");
@@ -150,8 +155,10 @@ void phosphor_main(const ArgsList &args) {
                     d_tree, d_tv0, d_tv1, d_tv2, d_tuv0, d_tuv1, d_tuv2, d_tmat, n_tris, d_materials, d_tex_meta,
                     d_tex_atlas);
 
-    ctx.queue.enqueueNDRangeKernel(trace_kernel, cl::NullRange, cl::NDRange(max_photons), cl::NDRange(256));
+    TimerScope timer_scope_photons("emitting photons");
+    ctx.queue.enqueueNDRangeKernel(trace_kernel, cl::NullRange, cl::NDRange(photons_to_emit), cl::NullRange);
     ctx.queue.finish();
+    timer_scope_photons.stop();
 
     // ctx.queue.enqueueReadBuffer(d_photons, CL_TRUE, 0, max_photons * sizeof(Photon), h_photons.data());
     // DBG(h_photons.size());
