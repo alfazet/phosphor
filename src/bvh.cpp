@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <vector>
 
-void split(std::vector<HostTriangle> &triangles, u32 start, u32 end, std::vector<BvhNode> &tree, u32 p = 1);
+void split(std::vector<HostTriangle> &triangles, u32 start, u32 end, std::vector<BvhNode> &tree, u32 p);
 
 bool box_compare(HostTriangle &a, HostTriangle &b, u32 index) {
     return get_bounding_box(a).bbox_min.s[index] < get_bounding_box(b).bbox_min.s[index];
@@ -24,7 +24,7 @@ std::vector<BvhNode> create_tree(std::vector<HostTriangle> &triangles) {
     res.emplace_back(BvhNode()); // 0 intentionally left blank so binary tree aligns well
     res.resize(2 * pow2roundup(triangles.size()) + 1);
 
-    split(triangles, 0, triangles.size(), res);
+    split(triangles, 0, triangles.size(), res, 1);
     return res;
 }
 

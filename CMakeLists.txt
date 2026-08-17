@@ -7,7 +7,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include_directories(include)
 file(GLOB SOURCES CONFIGURE_DEPENDS src/*.cpp)
-add_executable(phosphor ${SOURCES})
+add_executable(phosphor ${SOURCES}
+        include/photon_hash.h)
 
 FetchContent_Declare(
         opencl_headers
@@ -30,7 +31,9 @@ FetchContent_Declare(
         GIT_REPOSITORY https://github.com/KhronosGroup/OpenCL-CLHPP
         GIT_TAG v2026.05.29
 )
-
+set(BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(opencl_hpp)
 target_include_directories(phosphor PRIVATE ${opencl_headers_SOURCE_DIR} ${opencl_hpp_SOURCE_DIR}/include)
 

@@ -1,3 +1,4 @@
+#include "../include/photon_hash.h"
 #include "bvh.hpp"
 #include "cmd_args.hpp"
 #include "constants.h"
@@ -6,6 +7,7 @@
 #include "logger.hpp"
 #include "opencl_ctx.hpp"
 #include "photon.h"
+#include "photon_hash.h"
 #include "printers.hpp"
 #include "random.h"
 #include "ray.h"
@@ -160,16 +162,29 @@ void phosphor_main(const ArgsList &args) {
     ctx.queue.finish();
     timer_scope_photons.stop();
 
-    // ctx.queue.enqueueReadBuffer(d_photons, CL_TRUE, 0, max_photons * sizeof(Photon), h_photons.data());
-    // DBG(h_photons.size());
-    // DBG(h_photons[0].power.x);
+    ctx.queue.enqueueReadBuffer(d_photons, CL_TRUE, 0, max_photons * sizeof(Photon), h_photons.data());
+    DBG(h_photons.size());
+
+    TimerScope timer_scope_hash("building struct_hash");
+    const u32 k = 100;
+    PhotonHashInfo info = build_hash_info(tree[1].bbox, k);
+    PhotonHash struct_hash = build_hash(h_photons, info);
+    timer_scope_hash.stop();
+
+    cl::Buffer d_photons_sorted(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, h_photons.size() * sizeof(Photon),
+                                h_photons.data());
+    cl::Buffer d_cell_start(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                            struct_hash.bucket_count * sizeof(u32), struct_hash.cell_start.data());
+    cl::Buffer d_cell_end(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, struct_hash.bucket_count * sizeof(u32),
+                          struct_hash.cell_end.data());
 
     cl::Program program = ctx.build_program(std::string(PROJECT_DIR) + "/kernels/get_color.cl", "-I./include");
     cl::Kernel kernel(program, "get_color");
 
     f32 search_radius = 100.0f;
     set_kernel_args(kernel, d_origin, d_dir, n_rays, d_tv0, d_tv1, d_tv2, d_tuv0, d_tuv1, d_tuv2, d_tree, d_tmat,
-                    n_tris, d_materials, d_tex_meta, d_tex_atlas, d_photons, d_photon_count, search_radius, d_out);
+                    n_tris, d_materials, d_tex_meta, d_tex_atlas, d_photons_sorted, d_photon_count, search_radius,
+                    d_out, d_cell_start, d_cell_end, info);
 
     TimerScope timer_scope_image("rendering image");
     ctx.queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(n_rays), cl::NullRange);

@@ -3,6 +3,7 @@
 #include "hit.h"
 #include "material.h"
 #include "photon.h"
+#include "photon_hash.h"
 #include "texture_meta.h"
 #include "typedefs.h"
 
@@ -12,7 +13,8 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
                         __global const BvhNode *tree, __global const u32 *tri_mat_index, const usize n_tris,
                         __global const Material *materials, __global const TextureMeta *tex_meta,
                         __global const u8 *tex_atlas, __global const Photon *photons, __global const u32 *photon_count,
-                        const f32 search_radius, __global float4 *out_color) {
+                        const f32 search_radius, __global float4 *out_color, __global const u32 *cell_start,
+                        __global const u32 *cell_end, const PhotonHashInfo info) {
     usize i = get_global_id(0);
     if (i >= n_rays)
         return;
@@ -44,6 +46,21 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
     float4 normal = rec.normal;
 
     float4 flux = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+
+    u32 hash = photon_hash(hit_pos, info);
+    u32 start = cell_start[hash];
+    u32 end = cell_end[hash];
+
+    f32 max_dist_sq = 0.0f;
+    for (u32 p = start; p < end; p++) {
+        Photon ph = photons[p];
+        flux += ph.power;
+        float4 diff = ph.pos - hit_pos;
+        f32 dist_sq = dot(diff, diff);
+        max_dist_sq = fmax(max_dist_sq, dist_sq);
+    }
+
+    /*
     f32 max_dist_sq = 0.0f;
     f32 radius_sq = search_radius * search_radius;
     u32 count = photon_count[0];
@@ -58,6 +75,7 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
             flux += ph.power;
         }
     }
+    */
 
     f32 area = PI * max_dist_sq;
     float4 gathered = (area > EPS) ? flux / area : (float4)(0.0f);
