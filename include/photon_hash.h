@@ -21,7 +21,8 @@ inline u32 photon_hash(const float4 pos, const PhotonHashInfo info) {
     u32 x = (u32)((pos.x - info.origin.x) / info.cell_sizes.x);
     u32 y = (u32)((pos.y - info.origin.y) / info.cell_sizes.y);
     u32 z = (u32)((pos.z - info.origin.z) / info.cell_sizes.z);
-    return k * k * (u32)(x + k) + k * (u32)(y + k) + (u32)(z + k);
+    // return k * k * (u32)(x + k) + k * (u32)(y + k) + (u32)(z + k); // remember to change bucket_count if reverted
+    return k * k * (u32)(x) + k * (u32)(y) + (u32)(z);
 }
 
 #ifndef __OPENCL_C_VERSION__
@@ -47,7 +48,7 @@ inline PhotonHashInfo build_hash_info(BoundingBox bbox, u32 k) {
 inline PhotonHash build_hash(std::vector<Photon> &photons, PhotonHashInfo info) {
     u32 n_photons = photons.size();
     PhotonHash grid;
-    grid.bucket_count = 6 * info.k * info.k * info.k;
+    grid.bucket_count = (info.k * (info.k * (info.k + 1) + 1)); // Horner for efficiency
 
     std::vector<u32> hashes(n_photons);
     std::vector<u32> hashes_count(grid.bucket_count);

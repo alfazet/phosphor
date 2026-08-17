@@ -8,7 +8,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include_directories(include)
 file(GLOB SOURCES CONFIGURE_DEPENDS src/*.cpp)
 add_executable(phosphor ${SOURCES}
-        include/photon_hash.h)
+        include/photon_hash.h
+)
 
 FetchContent_Declare(
         opencl_headers
