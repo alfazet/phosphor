@@ -11,7 +11,7 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
                         __global const float2 *tri_uv0, __global const float2 *tri_uv1, __global const float2 *tri_uv2,
                         __global const BvhNode *tree, __global const u32 *tri_mat_index, const usize n_tris,
                         __global const Material *materials, __global const TextureMeta *tex_meta,
-                        __global const u8 *tex_atlas, __global const Photon *photons, __global const u32 *photon_count,
+                        __global const u8 *tex_atlas, __global const Photon *photons, const u32 photon_count,
                         const f32 search_radius, __global float4 *out_color) {
     usize i = get_global_id(0);
     if (i >= n_rays)
@@ -46,9 +46,8 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
     float4 flux = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
     f32 max_dist_sq = 0.0f;
     f32 radius_sq = search_radius * search_radius;
-    u32 count = photon_count[0];
 
-    for (u32 p = 0; p < count; p++) {
+    for (u32 p = 0; p < photon_count; p++) {
         Photon ph = photons[p];
         float4 diff = ph.pos - hit_pos;
         f32 dist_sq = dot(diff, diff);

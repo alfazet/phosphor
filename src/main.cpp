@@ -74,11 +74,11 @@ void phosphor_main(const ArgsList &args) {
     }
     const Camera &cam = scene.cameras[*scene.chosen_camera];
     // temporary light
-    scene.lights.insert(scene.lights.begin(), make_point_light(glm::vec3(0.0f), glm::vec3(300.0f)));
+    scene.lights.insert(scene.lights.begin(), make_point_light(glm::vec3(0.0f), glm::vec3(5000.0f)));
 
     u32 photons_to_emit = pow2roundup(args.photons);
     // TODO: think if it makes sense, also consider an alternative where each thread can
-    // store some max number (ex. 4) of photons
+    // store some max number (ex. MAX_PHOTON_BOUNCES) of photons
     u32 max_photons = photons_to_emit * MAX_PHOTON_BOUNCES;
     u32 h_photon_count = 0;
     DBG(photons_to_emit);
@@ -160,16 +160,18 @@ void phosphor_main(const ArgsList &args) {
     ctx.queue.finish();
     timer_scope_photons.stop();
 
-    // ctx.queue.enqueueReadBuffer(d_photons, CL_TRUE, 0, max_photons * sizeof(Photon), h_photons.data());
-    // DBG(h_photons.size());
-    // DBG(h_photons[0].power.x);
+    ctx.queue.enqueueReadBuffer(d_photons, CL_TRUE, 0, max_photons * sizeof(Photon), h_photons.data());
+    ctx.queue.enqueueReadBuffer(d_photon_count, CL_TRUE, 0, sizeof(u32), &h_photon_count);
+    const u32 photon_count = std::min(h_photon_count, max_photons);
+    h_photons.resize(photon_count);
+    DBG(h_photons.size());
 
     cl::Program program = ctx.build_program(std::string(PROJECT_DIR) + "/kernels/get_color.cl", "-I./include");
     cl::Kernel kernel(program, "get_color");
 
     f32 search_radius = 100.0f;
     set_kernel_args(kernel, d_origin, d_dir, n_rays, d_tv0, d_tv1, d_tv2, d_tuv0, d_tuv1, d_tuv2, d_tree, d_tmat,
-                    n_tris, d_materials, d_tex_meta, d_tex_atlas, d_photons, d_photon_count, search_radius, d_out);
+                    n_tris, d_materials, d_tex_meta, d_tex_atlas, d_photons, photon_count, search_radius, d_out);
 
     TimerScope timer_scope_image("rendering image");
     ctx.queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(n_rays), cl::NullRange);
