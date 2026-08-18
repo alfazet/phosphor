@@ -68,7 +68,7 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
            for (u32 p = starts[i]; p < ends[i]; p++) {
                 Photon ph = photons[p];
                 float4 diff = ph.pos - hit_pos;
-                f32 dist_sq = dot(diff, diff);
+                f32 dist_sq = dot(diff.xyz, diff.xyz);
 
                 if (dist_sq < radius_sq) {
                     max_dist_sq = fmax(max_dist_sq, dist_sq);
@@ -81,7 +81,7 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
     for (u32 p = 0; p < photon_count; p++) {
         Photon ph = photons[p];
         float4 diff = ph.pos - hit_pos;
-        f32 dist_sq = dot(diff, diff);
+        f32 dist_sq = dot(diff.xyz, diff.xyz);
 
         if (dist_sq < radius_sq) {
             max_dist_sq = fmax(max_dist_sq, dist_sq);

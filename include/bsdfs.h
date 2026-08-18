@@ -51,8 +51,8 @@ inline f32 smith_g1_ggx(f32 theta, f32 alpha) {
 }
 
 inline f32 fresnel(f32 R_0, float4 incoming, float4 normal) {
-    f32 theta = fabs(acos(dot(incoming, normal)));
-    return R_0 + (1.0f - R_0) * pow(1.0f - cos(theta), 5);
+    f32 cos_theta = fabs(dot(incoming, normal));
+    return R_0 + (1.0f - R_0) * pow(1.0f - cos_theta, 5);
 }
 
 // https://en.wikipedia.org/wiki/Schlick's_approximation
@@ -104,6 +104,8 @@ inline float4 ggx_sample_direction(RngState *rng, float4 incoming, float4 normal
     float4 h = ggx_sample_vndf(rng, normal, -incoming, roughness);
     float4 outcome = reflect_or_refract(rng, incoming, h, curr_ior, mat_ior, mat_transmission, front_face);
 
+    if (length(outcome) < EPS)
+        return -incoming;
     return normalize(outcome);
 }
 

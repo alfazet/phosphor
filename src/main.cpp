@@ -76,7 +76,7 @@ void phosphor_main(const ArgsList &args) {
     }
     const Camera &cam = scene.cameras[*scene.chosen_camera];
     // temporary light
-    scene.lights.insert(scene.lights.begin(), make_point_light(glm::vec3(0.0f), glm::vec3(5000.0f)));
+    scene.lights.insert(scene.lights.begin(), make_point_light(glm::vec3(0.0f), glm::vec3(100.0f)));
 
     u32 photons_to_emit = pow2roundup(args.photons);
     // TODO: think if it makes sense, also consider an alternative where each thread can
@@ -160,9 +160,9 @@ void phosphor_main(const ArgsList &args) {
         ctx.build_program(std::string(PROJECT_DIR) + "/kernels/trace_photons.cl", "-I./include");
     cl::Kernel trace_kernel(trace_program, "trace_photons");
 
-    set_kernel_args(trace_kernel, d_photons, d_photon_count, d_lights, (u32)scene.lights.size(), max_photons, args.seed,
-                    d_tree, d_tv0, d_tv1, d_tv2, d_tuv0, d_tuv1, d_tuv2, d_tn0, d_tn1, d_tn2, d_tmat, n_tris,
-                    d_materials, d_tex_meta, d_tex_atlas);
+    set_kernel_args(trace_kernel, d_photons, d_photon_count, d_lights, (u32)scene.lights.size(), max_photons,
+                    photons_to_emit, args.seed, d_tree, d_tv0, d_tv1, d_tv2, d_tuv0, d_tuv1, d_tuv2, d_tn0, d_tn1,
+                    d_tn2, d_tmat, n_tris, d_materials, d_tex_meta, d_tex_atlas);
 
     TimerScope timer_scope_photons("emitting photons");
     ctx.queue.enqueueNDRangeKernel(trace_kernel, cl::NullRange, cl::NDRange(photons_to_emit), cl::NullRange);

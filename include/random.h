@@ -54,6 +54,7 @@ inline float4 random_unit_vector(RngState *rng) {
 }
 
 inline void make_tbn(float4 normal, float4 *tangent, float4 *bitangent) {
+    normal.w = 0.0f;
     float4 tmp = (fabs(normal.x) > 0.1f) ? (float4)(0.0f, 1.0f, 0.0f, 0.0f) : (float4)(1.0f, 0.0f, 0.0f, 0.0f);
 
     *tangent = cross(normal, tmp);
@@ -67,6 +68,7 @@ inline void make_tbn(float4 normal, float4 *tangent, float4 *bitangent) {
 }
 
 inline float4 random_in_unit_hemisphere(RngState *rng, float4 normal) {
+    normal.w = 0.0f;
     f32 r1 = random_float(rng);
     f32 r2 = random_float(rng);
     f32 phi = 2.0f * PI * r1;
