@@ -83,8 +83,9 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
             f32 dist_sq = dot(diff.xyz, diff.xyz);
             f32 dist_v = fabs(dot(diff.xyz, normal.xyz));
             f32 dist_h = dot(diff.xyz, b.xyz) * dot(diff.xyz, b.xyz) + dot(diff.xyz, t.xyz) * dot(diff.xyz, t.xyz);
+            if (dist_sq < radius_sq && dot(-ph.dir.xyz, normal.xyz) < 0.0f) {
             // if (dist_sq < radius_sq && dot(-ph.dir.xyz, normal.xyz) < 0.0f && dot(ph.normal.xyz, normal.xyz) > 0.9f) {
-            if (dist_v < DELTA && dist_h < radius_sq && dot(-ph.dir.xyz, normal.xyz) < 0.0f) {
+            //if (dist_v < DELTA && dist_h < radius_sq && dot(-ph.dir.xyz, normal.xyz) < 0.0f) {
                 max_dist_sq = fmax(max_dist_sq, dist_sq);
                 flux += ph.power;
             }
