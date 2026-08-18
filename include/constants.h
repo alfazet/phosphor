@@ -11,7 +11,7 @@
 #define DEFAULT_IOR 1.5f
 #define AIR_IOR 1.5f
 #define MAX_PHOTON_BOUNCES 50
-#define MAX_RAY_BOUNCES 50
+#define MAX_RAY_BOUNCES 20
 #define MIN_RAY_BOUNCES 4
 
 #define BVH_STACK_SIZE 128

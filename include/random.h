@@ -12,6 +12,7 @@ typedef struct RngState {
 } RngState __attribute__((aligned(16)));
 
 // values from https://github.com/imneme/pcg-c/blob/master/include/pcg_variants.h
+
 inline u32 pcg_random(RngState *rng) {
     u32 oldstate = rng->state;
     rng->state = rng->state * 747796405u + 2891336453u;

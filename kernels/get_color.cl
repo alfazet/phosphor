@@ -62,6 +62,7 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
     f32 max_dist_sq = 0.0f;
     f32 radius_sq = search_radius * search_radius;
 
+/*
     for(u32 i = 0; i < nei_count; i++) {
        for (u32 p = starts[i]; p < ends[i]; p++) {
             Photon ph = photons[p];
@@ -74,8 +75,8 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
             }
        }
     }
+*/
 
-/*
     for (u32 p = 0; p < photon_count[0]; p++) {
         Photon ph = photons[p];
         float4 diff = ph.pos - hit_pos;
@@ -86,7 +87,6 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
             flux += ph.power;
         }
     }
-*/
 
 
     f32 area = PI * max_dist_sq;
