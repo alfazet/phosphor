@@ -81,8 +81,8 @@ void phosphor_main(const ArgsList &args) {
     u32 photons_to_emit = pow2roundup(args.photons);
     // TODO: think if it makes sense, also consider an alternative where each thread can
     // store some max number (ex. 4) of photons
-    // u32 max_photons = photons_to_emit * MAX_PHOTON_BOUNCES;
-    u32 max_photons = photons_to_emit * 1;
+    u32 max_photons = photons_to_emit * MAX_PHOTON_BOUNCES;
+    // u32 max_photons = photons_to_emit * 1;
     u32 h_photon_count = 0;
     DBG(photons_to_emit);
     std::vector<Photon> h_photons(max_photons);
@@ -176,7 +176,7 @@ void phosphor_main(const ArgsList &args) {
     DBG(h_photons.size());
 
     TimerScope timer_scope_hash("building hash struct for photons");
-    const u32 k = 32;
+    const u32 k = 128;
     PhotonHashInfo info = build_hash_info(tree[1].bbox, k);
     PhotonHash struct_hash = build_hash(h_photons, info);
     timer_scope_hash.stop();

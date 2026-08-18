@@ -13,8 +13,8 @@ __kernel void trace_photons(__global Photon *photons, __global u32 *photon_count
                             const u32 n_lights, const u32 max_photons, const u32 seed, __global const BvhNode *tree,
                             __global const float4 *tri_v0, __global const float4 *tri_v1, __global const float4 *tri_v2,
                             __global const float2 *tri_uv0, __global const float2 *tri_uv1,
-                            __global const float2 *tri_uv2, __global const float2 *tri_n0, __global const float2 *tri_n1,
-                            __global const float2 *tri_n2, __global const u32 *tri_mat_index, const usize n_tris,
+                            __global const float2 *tri_uv2, __global const float4 *tri_n0, __global const float4 *tri_n1,
+                            __global const float4 *tri_n2, __global const u32 *tri_mat_index, const usize n_tris,
                             __global const Material *materials, __global const TextureMeta *tex_meta,
                             __global const u8 *tex_atlas) {
     usize gid = get_global_id(0);

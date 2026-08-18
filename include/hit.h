@@ -19,12 +19,12 @@ typedef struct HitRecord {
 
 inline bool triangle_hit_single(u32 t, float4 origin, float4 dir, __global const float4 *tri_v0,
                                 __global const float4 *tri_v1, __global const float4 *tri_v2,
-                                __global const float4 *tri_uv0, __global const float4 *tri_uv1,
-                                __global const float4 *tri_uv2, __global const float4 *tri_n0,
+                                __global const float2 *tri_uv0, __global const float2 *tri_uv1,
+                                __global const float2 *tri_uv2, __global const float4 *tri_n0,
                                 __global const float4 *tri_n1, __global const float4 *tri_n2,
                                 __global const u32 *tri_mat_index, f32 t_min, f32 t_max, HitRecord *out) {
     float4 v0 = tri_v0[t], v1 = tri_v1[t], v2 = tri_v2[t];
-    float4 uv0 = tri_uv0[t], uv1 = tri_uv1[t], uv2 = tri_uv2[t];
+    float2 uv0 = tri_uv0[t], uv1 = tri_uv1[t], uv2 = tri_uv2[t];
     float4 n0 = tri_n0[t], n1 = tri_n1[t], n2 = tri_n2[t];
     float4 edge1 = v1 - v0;
     float4 edge2 = v2 - v0;
@@ -122,8 +122,8 @@ inline bool bbox_hit(BoundingBox bbox, float4 origin, float4 dir, f32 t_min, f32
 }
 
 inline bool scene_intersect(__global const BvhNode *tree, __global const float4 *tri_v0, __global const float4 *tri_v1,
-                            __global const float4 *tri_v2, __global const float4 *tri_uv0,
-                            __global const float4 *tri_uv1, __global const float4 *tri_uv2,
+                            __global const float4 *tri_v2, __global const float2 *tri_uv0,
+                            __global const float2 *tri_uv1, __global const float2 *tri_uv2,
                             __global const float4 *tri_n0, __global const float4 *tri_n1, __global const float4 *tri_n2,
                             __global const u32 *tri_mat_index, u32 n_tris, float4 origin, float4 dir, f32 t_min,
                             f32 t_max, HitRecord *rec) {

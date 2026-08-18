@@ -9,8 +9,8 @@
 
 __kernel void get_color(__global const float4 *ray_origin, __global const float4 *ray_dir, const usize n_rays,
                         __global const float4 *tri_v0, __global const float4 *tri_v1, __global const float4 *tri_v2,
-                        __global const float2 *tri_uv0, __global const float2 *tri_uv1, __global const float2 *tri_uv2, __global const float2 *tri_n0, __global const float2 *tri_n1,
-                            __global const float2 *tri_n2,
+                        __global const float2 *tri_uv0, __global const float2 *tri_uv1, __global const float2 *tri_uv2, __global const float4 *tri_n0, __global const float4 *tri_n1,
+                            __global const float4 *tri_n2,
                         __global const BvhNode *tree, __global const u32 *tri_mat_index, const usize n_tris,
                         __global const Material *materials, __global const TextureMeta *tex_meta,
                         __global const u8 *tex_atlas, __global const Photon *photons, __global const u32 *photon_count,
@@ -58,27 +58,12 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
 
     u32 starts[27];
     u32 ends[27];
-    for(u32 i=0; i<27; i++) {
-        i32 x = i%3-1;
-        i32 y = (i/3)%3-1;
-        i32 z = (i/9)%3-1;
-        float4 hit_pos2 = hit_pos;
-        hit_pos2.x += (f32)x*info.cell_sizes.x;
-        hit_pos2.y += (f32)y*info.cell_sizes.y;
-        hit_pos2.z += (f32)z*info.cell_sizes.z;
-
-        u32 h = photon_hash(hit_pos2, info);
-        starts[i] = cell_start[h];
-        ends[i] = cell_end[h];
-    }
-
+    u32 nei_count = get_photon_nei(hit_pos, info, cell_start, cell_end, starts, ends);
     f32 max_dist_sq = 0.0f;
     f32 radius_sq = search_radius * search_radius;
 
-    for (u32 i = 0; i < 27; i++) {
-        u32 start = starts[i];
-        u32 end = ends[i];
-        for (u32 p = start; p < end; p++) {
+    for(u32 i = 0; i < nei_count; i++) {
+       for (u32 p = starts[i]; p < ends[i]; p++) {
             Photon ph = photons[p];
             float4 diff = ph.pos - hit_pos;
             f32 dist_sq = dot(diff, diff);
@@ -87,8 +72,22 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
                 max_dist_sq = fmax(max_dist_sq, dist_sq);
                 flux += ph.power;
             }
+       }
+    }
+
+/*
+    for (u32 p = 0; p < photon_count[0]; p++) {
+        Photon ph = photons[p];
+        float4 diff = ph.pos - hit_pos;
+        f32 dist_sq = dot(diff, diff);
+
+        if (dist_sq < radius_sq) {
+            max_dist_sq = fmax(max_dist_sq, dist_sq);
+            flux += ph.power;
         }
     }
+*/
+
 
     f32 area = PI * max_dist_sq;
     float4 gathered = (area > EPS) ? flux / area : (float4)(0.0f);

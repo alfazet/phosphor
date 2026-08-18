@@ -18,12 +18,47 @@ typedef struct PhotonHashInfo {
 
 inline u32 photon_hash(const float4 pos, const PhotonHashInfo info) {
     u32 k = info.k;
-    u32 x = (u32)((pos.x - info.origin.x) / info.cell_sizes.x);
-    u32 y = (u32)((pos.y - info.origin.y) / info.cell_sizes.y);
-    u32 z = (u32)((pos.z - info.origin.z) / info.cell_sizes.z);
+    f32 fx = (pos.x - info.origin.x) / info.cell_sizes.x;
+    f32 fy = (pos.y - info.origin.y) / info.cell_sizes.y;
+    f32 fz = (pos.z - info.origin.z) / info.cell_sizes.z;
+
+    if (fx < 0.0f || fy < 0.0f || fz < 0.0f || fx >= (f32)k || fy >= (f32)k || fz >= (f32)k) {
+        return 0;
+    }
+
+    u32 x = (u32)fx;
+    u32 y = (u32)fy;
+    u32 z = (u32)fz;
+
     // return k * k * (u32)(x + k) + k * (u32)(y + k) + (u32)(z + k); // remember to change bucket_count if reverted
-    return k * k * (u32)(x) + k * (u32)(y) + (u32)(z);
+    return k * k * (u32)(x) + k * (u32)(y) + (u32)(z + 1);
+    // +1 leaves as 0 as special, empty value
 }
+
+#ifdef __OPENCL_C_VERSION__
+inline u32 get_photon_nei(const float4 pos, const PhotonHashInfo info, __global const u32 *cell_start,
+                          __global const u32 *cell_end, u32 starts[27], u32 ends[27]) {
+    u32 p = 0;
+    for (u32 i = 0; i < 27; i++) {
+        i32 dx = (i32)(i % 3) - 1;
+        i32 dy = (i32)((i / 3) % 3) - 1;
+        i32 dz = (i32)((i / 9) % 3) - 1;
+
+        float4 pos2 = pos;
+        pos2.x += (f32)dx * info.cell_sizes.x;
+        pos2.y += (f32)dy * info.cell_sizes.y;
+        pos2.z += (f32)dz * info.cell_sizes.z;
+
+        u32 h = photon_hash(pos2, info);
+        if (h != 0) {
+            starts[p] = cell_start[h];
+            ends[p] = cell_end[h];
+            p++;
+        }
+    }
+    return p;
+}
+#endif // __OPENCL_C_VERSION__
 
 #ifndef __OPENCL_C_VERSION__
 #include <algorithm>
@@ -48,7 +83,7 @@ inline PhotonHashInfo build_hash_info(BoundingBox bbox, u32 k) {
 inline PhotonHash build_hash(std::vector<Photon> &photons, PhotonHashInfo info) {
     u32 n_photons = photons.size();
     PhotonHash grid;
-    grid.bucket_count = (info.k * (info.k * (info.k + 1) + 1)); // Horner for efficiency
+    grid.bucket_count = (info.k * (info.k * (info.k + 1) + 1)) + 1; // Horner for efficiency
 
     std::vector<u32> hashes(n_photons);
     std::vector<u32> hashes_count(grid.bucket_count);
