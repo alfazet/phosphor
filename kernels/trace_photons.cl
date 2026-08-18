@@ -26,7 +26,8 @@ __kernel void trace_photons(__global Photon *photons, __global u32 *photon_count
     // TODO: proper light sampling
     Light light = lights[0];
 
-    float4 power = light.power / (f32)max_photons;
+    // float4 power = light.power / (f32)max_photons;
+    float4 power = light.power / 2;
     float4 origin = light.position;
     float4 dir = random_unit_vector(&rng);
 
