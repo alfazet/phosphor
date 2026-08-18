@@ -14,7 +14,7 @@ typedef struct BoundingBox {
 inline f32 min_f32(f32 a, f32 b) { return a < b ? a : b; }
 inline f32 max_f32(f32 a, f32 b) { return a > b ? a : b; }
 
-inline void expand(BoundingBox &bbox, f32 delta = 0.01) {
+inline void expand(BoundingBox &bbox, f32 delta = DELTA) {
     bbox.bbox_min.x -= delta;
     bbox.bbox_min.y -= delta;
     bbox.bbox_min.z -= delta;

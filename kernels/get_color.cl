@@ -6,11 +6,12 @@
 #include "photon_hash.h"
 #include "texture_meta.h"
 #include "typedefs.h"
+#include "random.h"
 
 __kernel void get_color(__global const float4 *ray_origin, __global const float4 *ray_dir, const usize n_rays,
-                        __global const float4 *tri_v0, __global const float4 *tri_v1, __global const float4 *tri_v2,
+                        __global const float4 *tri_v0, __global const float4 *tri_v1, __global const float4 *tri_v2, __global const float4 *tri_n0, __global const float4 *tri_n1, __global const float4 *tri_n2,
                         __global const float2 *tri_uv0, __global const float2 *tri_uv1, __global const float2 *tri_uv2,
-                        __global const float4 *tri_n0, __global const float4 *tri_n1, __global const float4 *tri_n2,
+                         __global const float4 *tri_t0, __global const float4 *tri_t1, __global const float4 *tri_t2,
                         __global const BvhNode *tree, __global const u32 *tri_mat_index, const usize n_tris,
                         __global const Material *materials, __global const TextureMeta *tex_meta,
                         __global const u8 *tex_atlas, __global const Photon *photons, const u32 photon_count,
@@ -72,13 +73,18 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
     f32 max_dist_sq = 0.0f;
     u32 collected = 0;
 
+    float4 t, b;
+    make_tbn(normal, &t, &b);
+
     for (u32 i = 0; i < nei_count; i++) {
         for (u32 p = starts[i]; p < ends[i]; p++) {
             Photon ph = photons[p];
-            float4 diff = ph.pos - hit_pos;
+            float4 diff = hit_pos - ph.pos;
             f32 dist_sq = dot(diff.xyz, diff.xyz);
-
-            if (dist_sq < radius_sq && dot(-ph.dir.xyz, normal.xyz) < 0.0f) {
+            f32 dist_v = fabs(dot(diff.xyz, normal.xyz));
+            f32 dist_h = dot(diff.xyz, b.xyz) * dot(diff.xyz, b.xyz) + dot(diff.xyz, t.xyz) * dot(diff.xyz, t.xyz);
+            // if (dist_sq < radius_sq && dot(-ph.dir.xyz, normal.xyz) < 0.0f && dot(ph.normal.xyz, normal.xyz) > 0.9f) {
+            if (dist_v < DELTA && dist_h < radius_sq && dot(-ph.dir.xyz, normal.xyz) < 0.0f) {
                 max_dist_sq = fmax(max_dist_sq, dist_sq);
                 flux += ph.power;
             }

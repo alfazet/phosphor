@@ -1,9 +1,9 @@
 #ifndef PHOSPHOR_MATERIAL_H
 #define PHOSPHOR_MATERIAL_H
 
-#include "typedefs.h"
-#include "texture_meta.h"
 #include "constants.h"
+#include "texture_meta.h"
+#include "typedefs.h"
 
 typedef struct Material {
     float4 base_color;
@@ -33,7 +33,7 @@ typedef struct Material {
 } Material __attribute__((aligned(16)));
 
 #ifdef __OPENCL_C_VERSION__
-
+// TODO: doesnt use transforms
 inline float4 sample_texture(__global const TextureMeta *tex_meta, __global const u8 *tex_atlas, u32 index, float2 uv) {
     if (index == NO_TEXTURE)
         return (float4)(1.0f, 1.0f, 1.0f, 1.0f);

@@ -2,6 +2,7 @@
 #define PHOSPHOR_CONSTANTS_H
 
 #define EPS 1e-9f
+#define DELTA 1e-2f
 #define INF 1e9f
 #define PI 3.141592654f
 

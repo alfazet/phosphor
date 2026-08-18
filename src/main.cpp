@@ -95,6 +95,7 @@ void phosphor_main(const ArgsList &args) {
     std::vector<float4> tv0(n_tris), tv1(n_tris), tv2(n_tris);
     std::vector<float2> tuv0(n_tris), tuv1(n_tris), tuv2(n_tris);
     std::vector<float4> tn0(n_tris), tn1(n_tris), tn2(n_tris);
+    std::vector<float4> tt0(n_tris), tt1(n_tris), tt2(n_tris);
     std::vector<u32> tmat(n_tris);
     for (usize i = 0; i < n_tris; i++) {
         const auto &t = scene.triangles[i];
@@ -107,6 +108,9 @@ void phosphor_main(const ArgsList &args) {
         tn0[i] = t.n0;
         tn1[i] = t.n1;
         tn2[i] = t.n2;
+        tt0[i] = t.t0;
+        tt1[i] = t.t1;
+        tt2[i] = t.t2;
         tmat[i] = t.mat_index;
     }
 
@@ -143,6 +147,9 @@ void phosphor_main(const ArgsList &args) {
     cl::Buffer d_tn0(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float4), tn0.data());
     cl::Buffer d_tn1(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float4), tn1.data());
     cl::Buffer d_tn2(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float4), tn2.data());
+    cl::Buffer d_tt0(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float4), tt0.data());
+    cl::Buffer d_tt1(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float4), tt1.data());
+    cl::Buffer d_tt2(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float4), tt2.data());
     cl::Buffer d_tree(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, tree.size() * sizeof(BvhNode), tree.data());
     cl::Buffer d_tmat(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(u32), tmat.data());
     cl::Buffer d_lights(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, scene.lights.size() * sizeof(Light),
@@ -163,8 +170,8 @@ void phosphor_main(const ArgsList &args) {
     cl::Kernel trace_kernel(trace_program, "trace_photons");
 
     set_kernel_args(trace_kernel, d_photons, d_photon_count, d_lights, (u32)scene.lights.size(), max_photons,
-                    photons_to_emit, args.seed, d_tree, d_tv0, d_tv1, d_tv2, d_tuv0, d_tuv1, d_tuv2, d_tn0, d_tn1,
-                    d_tn2, d_tmat, n_tris, d_materials, d_tex_meta, d_tex_atlas);
+                    photons_to_emit, args.seed, d_tree, d_tv0, d_tv1, d_tv2, d_tn0, d_tn1, d_tn2, d_tuv0, d_tuv1,
+                    d_tuv2, d_tt0, d_tt1, d_tt2, d_tmat, n_tris, d_materials, d_tex_meta, d_tex_atlas);
 
     TimerScope timer_scope_photons("emitting photons");
     ctx.queue.enqueueNDRangeKernel(trace_kernel, cl::NullRange, cl::NDRange(photons_to_emit), cl::NullRange);
@@ -197,8 +204,8 @@ void phosphor_main(const ArgsList &args) {
     // f32 search_radius = 10.0f;
     f32 search_radius = std::min(std::min(info.cell_sizes.x, info.cell_sizes.y), info.cell_sizes.z) / 2.0f;
     set_kernel_args(kernel, d_origin, d_dir, n_rays, d_tv0, d_tv1, d_tv2, d_tn0, d_tn1, d_tn2, d_tuv0, d_tuv1, d_tuv2,
-                    d_tree, d_tmat, n_tris, d_materials, d_tex_meta, d_tex_atlas, d_photons_sorted, photon_count,
-                    search_radius, args.samples, d_out, d_cell_start, d_cell_end, info);
+                    d_tt0, d_tt1, d_tt2, d_tree, d_tmat, n_tris, d_materials, d_tex_meta, d_tex_atlas, d_photons_sorted,
+                    photon_count, search_radius, args.samples, d_out, d_cell_start, d_cell_end, info);
 
     TimerScope timer_scope_image("rendering image");
     ctx.queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(n_rays), cl::NullRange);

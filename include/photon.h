@@ -4,9 +4,10 @@
 typedef struct Photon {
     float4 pos;
     float4 power;
-    float4 dir; // incoming direction normalized
+    float4 dir;    // incoming direction normalized
+    float4 normal; // normal of the surface hit
 
-    // total: 48
+    // total: 64
     // u8 _padding[0];
 } Photon __attribute__((aligned(16)));
 
