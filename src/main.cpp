@@ -180,8 +180,7 @@ void phosphor_main(const ArgsList &args) {
     DBG(h_photons[0].power.x);
 
     TimerScope timer_scope_hash("building hash struct for photons");
-    const u32 k = 30;
-    PhotonHashInfo info = build_hash_info(tree[1].bbox, k);
+    PhotonHashInfo info = build_hash_info(tree[1].bbox, args.k);
     PhotonHash struct_hash = build_hash(h_photons, info);
     timer_scope_hash.stop();
 

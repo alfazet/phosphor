@@ -14,6 +14,7 @@ constexpr f32 DEFAULT_RAY_STEP = 0.0001f;
 constexpr u32 DEFAULT_IMAGE_ITERS = 8;
 constexpr f32 DEFAULT_SEARCH_RADIUS = 0.2f;
 constexpr u32 DEFAULT_SEED = 2137;
+constexpr u32 DEFAULT_K = 128;
 constexpr const char *DEFAULT_MODEL_PATH = "./models/sample.glb";
 constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
 
@@ -23,6 +24,7 @@ constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
     X("-p", photons, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT, "number of photons to emit")                           \
     X("-m", model, std::string, parse_string, DEFAULT_MODEL_PATH, "gltf model path")                                   \
     X("-o", output_path, std::string, parse_string, DEFAULT_OUTPUT_PATH, "output image path")                          \
+    X("-k", k, u32, parse_u32, DEFAULT_K, "spatial hash resolution")                                                   \
     X("-i", image_iters, u32, parse_u32, DEFAULT_IMAGE_ITERS, "image iterations")                                      \
     X("--ray-step", ray_step, f32, parse_f32, DEFAULT_RAY_STEP, "ray step as a fraction of scene diagonal")            \
     X("--search-radius", search_radius, f32, parse_f32, DEFAULT_SEARCH_RADIUS,                                         \

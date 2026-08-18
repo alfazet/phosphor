@@ -63,6 +63,7 @@ inline u32 get_photon_nei(const float4 pos, const PhotonHashInfo info, __global 
 #ifndef __OPENCL_C_VERSION__
 #include <algorithm>
 #include <numeric>
+#include <unordered_map>
 #include <vector>
 
 typedef struct PhotonHash {
@@ -86,7 +87,8 @@ inline PhotonHash build_hash(std::vector<Photon> &photons, PhotonHashInfo info) 
     grid.bucket_count = (info.k * (info.k * (info.k + 1) + 1)) + 1; // Horner for efficiency
 
     std::vector<u32> hashes(n_photons);
-    std::vector<u32> hashes_count(grid.bucket_count);
+    std::unordered_map<u32, u32> hashes_count;
+    hashes_count.reserve(n_photons);
 
     for (u32 i = 0; i < n_photons; i++) {
         u32 hash = photon_hash(photons[i].pos, info);
@@ -111,8 +113,10 @@ inline PhotonHash build_hash(std::vector<Photon> &photons, PhotonHashInfo info) 
     u32 accum = 0;
     for (u32 i = 0; i < grid.bucket_count; i++) {
         grid.cell_start[i] = accum;
-        grid.cell_end[i] = accum + hashes_count[i];
-        accum += hashes_count[i];
+        auto it = hashes_count.find(i);
+        u32 count = (it != hashes_count.end()) ? it->second : 0;
+        grid.cell_end[i] = accum + count;
+        accum += count;
     }
 
     return grid;
