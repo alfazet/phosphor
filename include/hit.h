@@ -4,6 +4,7 @@
 #include "bounding_box.h"
 #include "bvh_node.h"
 #include "constants.h"
+#include "helpers.h"
 #include "typedefs.h"
 
 typedef struct HitRecord {
@@ -18,8 +19,13 @@ typedef struct HitRecord {
 
 inline bool triangle_hit_single(u32 t, float4 origin, float4 dir, __global const float4 *tri_v0,
                                 __global const float4 *tri_v1, __global const float4 *tri_v2,
+                                __global const float2 *tri_uv0, __global const float2 *tri_uv1,
+                                __global const float2 *tri_uv2, __global const float4 *tri_n0,
+                                __global const float4 *tri_n1, __global const float4 *tri_n2,
                                 __global const u32 *tri_mat_index, f32 t_min, f32 t_max, HitRecord *out) {
     float4 v0 = tri_v0[t], v1 = tri_v1[t], v2 = tri_v2[t];
+    float2 uv0 = tri_uv0[t], uv1 = tri_uv1[t], uv2 = tri_uv2[t];
+    float4 n0 = tri_n0[t], n1 = tri_n1[t], n2 = tri_n2[t];
     float4 edge1 = v1 - v0;
     float4 edge2 = v2 - v0;
 
@@ -45,7 +51,7 @@ inline bool triangle_hit_single(u32 t, float4 origin, float4 dir, __global const
     if (tt < t_min || tt > t_max)
         return false;
 
-    float4 outward_normal = normalize(cross(edge1, edge2));
+    float4 outward_normal = normalize(compute_bary(u, v, n0, n1, n2));
     bool front_face = dot(dir, outward_normal) < 0.0f;
     float4 normal = front_face ? outward_normal : -outward_normal;
 
@@ -116,8 +122,11 @@ inline bool bbox_hit(BoundingBox bbox, float4 origin, float4 dir, f32 t_min, f32
 }
 
 inline bool scene_intersect(__global const BvhNode *tree, __global const float4 *tri_v0, __global const float4 *tri_v1,
-                            __global const float4 *tri_v2, __global const u32 *tri_mat_index, u32 n_tris, float4 origin,
-                            float4 dir, f32 t_min, f32 t_max, HitRecord *rec) {
+                            __global const float4 *tri_v2, __global const float2 *tri_uv0,
+                            __global const float2 *tri_uv1, __global const float2 *tri_uv2,
+                            __global const float4 *tri_n0, __global const float4 *tri_n1, __global const float4 *tri_n2,
+                            __global const u32 *tri_mat_index, u32 n_tris, float4 origin, float4 dir, f32 t_min,
+                            f32 t_max, HitRecord *rec) {
     i32 p = 0;
     u32 stack[BVH_STACK_SIZE];
 
@@ -135,8 +144,8 @@ inline bool scene_intersect(__global const BvhNode *tree, __global const float4 
 
         if (node.triangle_index != -1) {
             HitRecord candidate;
-            if (triangle_hit_single(node.triangle_index, origin, dir, tri_v0, tri_v1, tri_v2, tri_mat_index, t_min,
-                                    closest, &candidate)) {
+            if (triangle_hit_single(node.triangle_index, origin, dir, tri_v0, tri_v1, tri_v2, tri_uv0, tri_uv1, tri_uv2,
+                                    tri_n0, tri_n1, tri_n2, tri_mat_index, t_min, closest, &candidate)) {
                 closest = candidate.t;
                 *rec = candidate;
                 found = true;

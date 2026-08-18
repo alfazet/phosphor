@@ -13,7 +13,8 @@ __kernel void trace_photons(__global Photon *photons, __global u32 *photon_count
                             const u32 n_lights, const u32 max_photons, const u32 seed, __global const BvhNode *tree,
                             __global const float4 *tri_v0, __global const float4 *tri_v1, __global const float4 *tri_v2,
                             __global const float2 *tri_uv0, __global const float2 *tri_uv1,
-                            __global const float2 *tri_uv2, __global const u32 *tri_mat_index, const usize n_tris,
+                            __global const float2 *tri_uv2, __global const float4 *tri_n0, __global const float4 *tri_n1,
+                            __global const float4 *tri_n2, __global const u32 *tri_mat_index, const usize n_tris,
                             __global const Material *materials, __global const TextureMeta *tex_meta,
                             __global const u8 *tex_atlas) {
     usize gid = get_global_id(0);
@@ -26,6 +27,7 @@ __kernel void trace_photons(__global Photon *photons, __global u32 *photon_count
     Light light = lights[0];
 
     float4 power = light.power / (f32)max_photons;
+    // float4 power = light.power / 1000000;
     float4 origin = light.position;
     float4 dir = random_unit_vector(&rng);
 
@@ -33,7 +35,7 @@ __kernel void trace_photons(__global Photon *photons, __global u32 *photon_count
     for (u32 depth = 0; depth < MAX_PHOTON_BOUNCES; depth++) {
         HitRecord rec;
         bool hit =
-            scene_intersect(tree, tri_v0, tri_v1, tri_v2, tri_mat_index, (u32)n_tris, origin, dir, EPS, INF, &rec);
+            scene_intersect(tree, tri_v0, tri_v1, tri_v2, tri_uv0, tri_uv1, tri_uv2, tri_n0, tri_n1, tri_n2, tri_mat_index, (u32)n_tris, origin, dir, EPS, INF, &rec);
 
         if (!hit)
             return;
@@ -97,8 +99,8 @@ __kernel void trace_photons(__global Photon *photons, __global u32 *photon_count
                 return;
             }
 
-            // float4 new_dir = random_in_unit_hemisphere(&rng, normal);
-            float4 new_dir = (float4)(0.0f, 1.0f, 0.0f, 0.0f);
+            float4 new_dir = random_in_unit_hemisphere(&rng, normal);
+            // float4 new_dir = (float4)(0.0f, 1.0f, 0.0f, 0.0f);
             origin = hit_pos;
             dir = new_dir;
             power *= d / rho_d;
