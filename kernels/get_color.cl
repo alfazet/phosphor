@@ -14,8 +14,8 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
                         __global const BvhNode *tree, __global const u32 *tri_mat_index, const usize n_tris,
                         __global const Material *materials, __global const TextureMeta *tex_meta,
                         __global const u8 *tex_atlas, __global const Photon *photons, const u32 photon_count,
-                        const f32 search_radius, __global float4 *out_color, __global const u32 *cell_start,
-                        __global const u32 *cell_end, const PhotonHashInfo info) {
+                        const f32 search_radius, const u32 samples, __global float4 *out_color,
+                        __global const u32 *cell_start, __global const u32 *cell_end, const PhotonHashInfo info) {
     usize i = get_global_id(0);
     if (i >= n_rays)
         return;
@@ -42,6 +42,13 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
     if (mat.diff_index != NO_TEXTURE) {
         base_color = sample_texture(tex_meta, tex_atlas, mat.diff_index, uv);
     }
+    f32 metallic = mat.metallic;
+    f32 roughness = mat.roughness;
+    if (mat.metal_rough_index != NO_TEXTURE) {
+        float4 mr = sample_texture(tex_meta, tex_atlas, mat.metal_rough_index, uv);
+        metallic *= mr.z;  // channel B
+        roughness *= mr.y; // channel G
+    }
 
     // photon gather
     float4 hit_pos = origin + dir * rec.t;
@@ -60,38 +67,71 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
     u32 starts[27];
     u32 ends[27];
     u32 nei_count = get_photon_nei(hit_pos, info, cell_start, cell_end, starts, ends);
-    f32 max_dist_sq = 0.0f;
+
     f32 radius_sq = search_radius * search_radius;
+    f32 max_dist_sq = 0.0f;
+    u32 collected = 0;
 
-    /*
-        for(u32 i = 0; i < nei_count; i++) {
-           for (u32 p = starts[i]; p < ends[i]; p++) {
-                Photon ph = photons[p];
-                float4 diff = ph.pos - hit_pos;
-                f32 dist_sq = dot(diff.xyz, diff.xyz);
+    for (u32 i = 0; i < nei_count; i++) {
+        for (u32 p = starts[i]; p < ends[i]; p++) {
+            Photon ph = photons[p];
+            float4 diff = ph.pos - hit_pos;
+            f32 dist_sq = dot(diff.xyz, diff.xyz);
 
-                if (dist_sq < radius_sq) {
-                    max_dist_sq = fmax(max_dist_sq, dist_sq);
-                    flux += ph.power;
-                }
-           }
-        }
-    */
-
-    for (u32 p = 0; p < photon_count; p++) {
-        Photon ph = photons[p];
-        float4 diff = ph.pos - hit_pos;
-        f32 dist_sq = dot(diff.xyz, diff.xyz);
-
-        if (dist_sq < radius_sq) {
-            max_dist_sq = fmax(max_dist_sq, dist_sq);
-            flux += ph.power;
+            if (dist_sq < radius_sq && dot(-ph.dir.xyz, normal.xyz) < 0.0f) {
+                max_dist_sq = fmax(max_dist_sq, dist_sq);
+                flux += ph.power;
+            }
         }
     }
+    //
+    // f32 nearest_dist_sq[100];
+    // float4 nearest_power[100];
+    //
+    // for (u32 c = 0; c < nei_count; c++) {
+    //     for (u32 p = starts[c]; p < ends[c]; p++) {
+    //         Photon ph = photons[p];
+    //         float4 diff = ph.pos - hit_pos;
+    //         f32 dist_sq = dot(diff.xyz, diff.xyz);
+    //
+    //         if (dist_sq >= radius_sq)
+    //             continue;
+    //         // don't count photons coming from "inside" the surface
+    //         if (dot(-ph.dir.xyz, normal.xyz) > 0.0f)
+    //             continue;
+    //
+    //         if (collected < samples) {
+    //             nearest_dist_sq[collected] = dist_sq;
+    //             nearest_power[collected] = ph.power;
+    //             collected++;
+    //             max_dist_sq = fmax(max_dist_sq, dist_sq);
+    //         } else if (dist_sq < max_dist_sq) {
+    //             u32 farthest = 0;
+    //             for (u32 j = 1; j < samples; j++) {
+    //                 if (nearest_dist_sq[j] > nearest_dist_sq[farthest])
+    //                     farthest = j;
+    //             }
+    //             nearest_dist_sq[farthest] = dist_sq;
+    //             nearest_power[farthest] = ph.power;
+    //
+    //             max_dist_sq = nearest_dist_sq[0];
+    //             for (u32 j = 1; j < samples; j++) {
+    //                 if (nearest_dist_sq[j] > max_dist_sq)
+    //                     max_dist_sq = nearest_dist_sq[j];
+    //             }
+    //         }
+    //     }
+    // }
+
+    // for (u32 j = 0; j < collected; j++)
+    //     flux += nearest_power[j];
 
     f32 area = PI * max_dist_sq;
-    float4 gathered = (area > EPS) ? flux / area : (float4)(0.0f);
+    float4 diffuse_color = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+    if (area > EPS) {
+        diffuse_color = flux * ((1.0f - metallic) * base_color / PI) / area;
+    }
 
-    out_color[i] = gathered * base_color;
+    out_color[i] = diffuse_color;
     out_color[i].w = 1.0f;
 }

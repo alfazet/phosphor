@@ -76,15 +76,16 @@ void phosphor_main(const ArgsList &args) {
     }
     const Camera &cam = scene.cameras[*scene.chosen_camera];
     // temporary light
-    scene.lights.insert(scene.lights.begin(), make_point_light(glm::vec3(0.0f), glm::vec3(100.0f)));
+    scene.lights.insert(scene.lights.begin(), make_point_light(glm::vec3(0.0f), glm::vec3(500.0f)));
 
-    u32 photons_to_emit = pow2roundup(args.photons);
+    const u32 photons_to_emit = pow2roundup(args.photons);
     // TODO: think if it makes sense, also consider an alternative where each thread can
     // store some max number (ex. MAX_PHOTON_BOUNCES) of photons
-    u32 max_photons = photons_to_emit * MAX_PHOTON_BOUNCES;
+    const u32 max_photons = photons_to_emit * MAX_PHOTON_BOUNCES;
     u32 h_photon_count = 0;
     DBG(photons_to_emit);
     std::vector<Photon> h_photons(max_photons);
+    // h_photons.reserve(max_photons);
 
     TimerScope timer_scope_bvh("building BVH");
     std::vector<BvhNode> tree = create_tree(scene.triangles);
@@ -154,6 +155,7 @@ void phosphor_main(const ArgsList &args) {
     cl::Buffer d_out(ctx.context, CL_MEM_WRITE_ONLY, n_rays * sizeof(float4));
 
     cl::Buffer d_photons(ctx.context, CL_MEM_READ_WRITE, max_photons * sizeof(Photon));
+    // DBG(1);
     cl::Buffer d_photon_count(ctx.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(u32), &h_photon_count);
 
     cl::Program trace_program =
@@ -175,9 +177,10 @@ void phosphor_main(const ArgsList &args) {
     const u32 photon_count = std::min(h_photon_count, max_photons);
     h_photons.resize(photon_count);
     DBG(h_photons.size());
+    DBG(h_photons[0].power.x);
 
     TimerScope timer_scope_hash("building hash struct for photons");
-    const u32 k = 128;
+    const u32 k = 30;
     PhotonHashInfo info = build_hash_info(tree[1].bbox, k);
     PhotonHash struct_hash = build_hash(h_photons, info);
     timer_scope_hash.stop();
@@ -192,11 +195,11 @@ void phosphor_main(const ArgsList &args) {
     cl::Program program = ctx.build_program(std::string(PROJECT_DIR) + "/kernels/get_color.cl", "-I./include");
     cl::Kernel kernel(program, "get_color");
 
-    // f32 search_radius = 100.0f;
+    // f32 search_radius = 10.0f;
     f32 search_radius = std::min(std::min(info.cell_sizes.x, info.cell_sizes.y), info.cell_sizes.z) / 2.0f;
     set_kernel_args(kernel, d_origin, d_dir, n_rays, d_tv0, d_tv1, d_tv2, d_tn0, d_tn1, d_tn2, d_tuv0, d_tuv1, d_tuv2,
                     d_tree, d_tmat, n_tris, d_materials, d_tex_meta, d_tex_atlas, d_photons_sorted, photon_count,
-                    search_radius, d_out, d_cell_start, d_cell_end, info);
+                    search_radius, args.samples, d_out, d_cell_start, d_cell_end, info);
 
     TimerScope timer_scope_image("rendering image");
     ctx.queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(n_rays), cl::NullRange);
