@@ -81,10 +81,10 @@ void phosphor_main(const ArgsList &args) {
     const u32 photons_to_emit = pow2roundup(args.photons);
     // TODO: think if it makes sense, also consider an alternative where each thread can
     // store some max number (ex. MAX_PHOTON_BOUNCES) of photons
-    const u32 max_photons = photons_to_emit * MAX_PHOTON_BOUNCES;
+    const u32 max_photons = photons_to_emit * 4;
     u32 h_photon_count = 0;
     DBG(photons_to_emit);
-    std::vector<Photon> h_photons(max_photons);
+    std::vector<Photon> h_photons;
     // h_photons.reserve(max_photons);
 
     TimerScope timer_scope_bvh("building BVH");
@@ -136,6 +136,10 @@ void phosphor_main(const ArgsList &args) {
     generate_primary_rays(rng, cam, args.resolution, args.resolution, args.image_iters, h_origin, h_dir);
     usize n_rays = h_origin.size();
 
+    cl::Program trace_program =
+        ctx.build_program(std::string(PROJECT_DIR) + "/kernels/trace_photons.cl", "-I./include");
+    cl::Kernel trace_kernel(trace_program, "trace_photons");
+
     cl::Buffer d_origin(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_rays * sizeof(float4), h_origin.data());
     cl::Buffer d_dir(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_rays * sizeof(float4), h_dir.data());
     cl::Buffer d_tv0(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float4), tv0.data());
@@ -161,28 +165,37 @@ void phosphor_main(const ArgsList &args) {
     cl::Buffer d_tex_atlas(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, tex_atlas.size(), tex_atlas.data());
     cl::Buffer d_out(ctx.context, CL_MEM_WRITE_ONLY, n_rays * sizeof(float4));
 
-    cl::Buffer d_photons(ctx.context, CL_MEM_READ_WRITE, max_photons * sizeof(Photon));
-    // DBG(1);
+    const u32 PHOTONS_PER_BATCH = 1 << 15;
+    const u32 BATCH_MAX_PHOTONS = PHOTONS_PER_BATCH * MAX_PHOTON_BOUNCES;
+    cl::Buffer d_photons(ctx.context, CL_MEM_READ_WRITE, BATCH_MAX_PHOTONS * sizeof(Photon));
     cl::Buffer d_photon_count(ctx.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(u32), &h_photon_count);
 
-    cl::Program trace_program =
-        ctx.build_program(std::string(PROJECT_DIR) + "/kernels/trace_photons.cl", "-I./include");
-    cl::Kernel trace_kernel(trace_program, "trace_photons");
-
-    set_kernel_args(trace_kernel, d_photons, d_photon_count, d_lights, (u32)scene.lights.size(), max_photons,
-                    photons_to_emit, args.seed, d_tree, d_tv0, d_tv1, d_tv2, d_tn0, d_tn1, d_tn2, d_tuv0, d_tuv1,
-                    d_tuv2, d_tt0, d_tt1, d_tt2, d_tmat, n_tris, d_materials, d_tex_meta, d_tex_atlas);
-
     TimerScope timer_scope_photons("emitting photons");
-    ctx.queue.enqueueNDRangeKernel(trace_kernel, cl::NullRange, cl::NDRange(photons_to_emit), cl::NullRange);
-    ctx.queue.finish();
+    for (u32 batch_offset = 0; batch_offset < photons_to_emit; batch_offset += PHOTONS_PER_BATCH) {
+        u32 batch_emit = std::min(PHOTONS_PER_BATCH, photons_to_emit - batch_offset);
+
+        u32 h_photon_count = 0;
+        ctx.queue.enqueueWriteBuffer(d_photon_count, CL_TRUE, 0, sizeof(u32), &h_photon_count);
+
+        set_kernel_args(trace_kernel, d_photons, d_photon_count, d_lights, (u32)scene.lights.size(), BATCH_MAX_PHOTONS,
+                        batch_offset, photons_to_emit, args.seed, d_tree, d_tv0, d_tv1, d_tv2, d_tn0, d_tn1, d_tn2,
+                        d_tuv0, d_tuv1, d_tuv2, d_tt0, d_tt1, d_tt2, d_tmat, n_tris, d_materials, d_tex_meta,
+                        d_tex_atlas);
+
+        ctx.queue.enqueueNDRangeKernel(trace_kernel, cl::NullRange, cl::NDRange(batch_emit), cl::NullRange);
+        ctx.queue.finish();
+
+        u32 batch_count = 0;
+        ctx.queue.enqueueReadBuffer(d_photon_count, CL_TRUE, 0, sizeof(u32), &batch_count);
+        batch_count = std::min(batch_count, BATCH_MAX_PHOTONS);
+
+        std::vector<Photon> batch_photons(batch_count);
+        ctx.queue.enqueueReadBuffer(d_photons, CL_TRUE, 0, batch_count * sizeof(Photon), batch_photons.data());
+        h_photons.insert(h_photons.end(), batch_photons.begin(), batch_photons.end());
+    }
     timer_scope_photons.stop();
 
-    ctx.queue.enqueueReadBuffer(d_photons, CL_TRUE, 0, max_photons * sizeof(Photon), h_photons.data());
-    ctx.queue.enqueueReadBuffer(d_photon_count, CL_TRUE, 0, sizeof(u32), &h_photon_count);
-
-    const u32 photon_count = std::min(h_photon_count, max_photons);
-    h_photons.resize(photon_count);
+    const u32 photon_count = static_cast<u32>(h_photons.size());
     DBG(h_photons.size());
     DBG(h_photons[0].power.x);
 
