@@ -10,10 +10,13 @@
 #include "typedefs.h"
 
 __kernel void trace_photons(__global Photon *photons, __global u32 *photon_count, __global const Light *lights,
-                            const u32 n_lights, const u32 max_photons, const u32 offset, const u32 photons_to_emit, const u32 seed,
-                            __global const BvhNode *tree, __global const float4 *tri_v0, __global const float4 *tri_v1,
-                            __global const float4 *tri_v2, __global const float4 *tri_n0, __global const float4 *tri_n1, __global const float4 *tri_n2, __global const float2 *tri_uv0,
-                            __global const float2 *tri_uv1, __global const float2 *tri_uv2, __global const float4 *tri_t0, __global const float4 *tri_t1, __global const float4 *tri_t2,
+                            const u32 n_lights, const u32 max_photons, const u32 offset, const u32 photons_to_emit,
+                            const u32 seed, __global const BvhNode *tree, __global const float4 *tri_v0,
+                            __global const float4 *tri_v1, __global const float4 *tri_v2, __global const float4 *tri_n0,
+                            __global const float4 *tri_n1, __global const float4 *tri_n2,
+                            __global const float2 *tri_uv0, __global const float2 *tri_uv1,
+                            __global const float2 *tri_uv2, __global const float4 *tri_t0,
+                            __global const float4 *tri_t1, __global const float4 *tri_t2,
 
                             __global const u32 *tri_mat_index, const usize n_tris, __global const Material *materials,
                             __global const TextureMeta *tex_meta, __global const u8 *tex_atlas) {
@@ -73,7 +76,7 @@ __kernel void trace_photons(__global Photon *photons, __global u32 *photon_count
         float4 d = base_color * d_factor;
 
         f32 alpha = roughness * roughness;
-        f32 g1 = smith_g1_ggx(acos(fmax(0.0f, dot(-dir, normal))), alpha);
+        f32 g1 = smith_g1_ggx(acos(fmax(0.0f, dot(-dir.xyz, normal.xyz))), alpha);
         float4 s_eff = s * g1;
         // st = specular/transmission
         float4 st = s_eff + base_color * ((1.0f - max_s) * mat.transmission * (1.0f - metallic));

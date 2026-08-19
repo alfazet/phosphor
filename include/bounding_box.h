@@ -14,13 +14,13 @@ typedef struct BoundingBox {
 inline f32 min_f32(f32 a, f32 b) { return a < b ? a : b; }
 inline f32 max_f32(f32 a, f32 b) { return a > b ? a : b; }
 
-inline void expand(BoundingBox &bbox, f32 delta = DELTA) {
-    bbox.bbox_min.x -= delta;
-    bbox.bbox_min.y -= delta;
-    bbox.bbox_min.z -= delta;
-    bbox.bbox_max.x += delta;
-    bbox.bbox_max.y += delta;
-    bbox.bbox_max.z += delta;
+inline void expand(BoundingBox &bbox) {
+    bbox.bbox_min.x -= EPS;
+    bbox.bbox_min.y -= EPS;
+    bbox.bbox_min.z -= EPS;
+    bbox.bbox_max.x += EPS;
+    bbox.bbox_max.y += EPS;
+    bbox.bbox_max.z += EPS;
 }
 
 inline void expand_aabb(BoundingBox &bbox, const float4 p) {

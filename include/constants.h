@@ -1,8 +1,7 @@
 #ifndef PHOSPHOR_CONSTANTS_H
 #define PHOSPHOR_CONSTANTS_H
 
-#define EPS 1e-9f
-#define DELTA 1e-2f
+#define EPS 1e-4f
 #define INF 1e9f
 #define PI 3.141592654f
 
@@ -10,11 +9,11 @@
 #define LUMINOUS_EFFICACY 683.0f // cd * sr / W
 #define DEFAULT_TRANSMISSION 0.0f
 #define DEFAULT_IOR 1.5f
-#define AIR_IOR 1.5f
+#define AIR_IOR 1.0f
 #define MAX_PHOTON_BOUNCES 50
 #define MAX_RAY_BOUNCES 20
 #define MIN_RAY_BOUNCES 4
 
-#define BVH_STACK_SIZE 128
+#define BVH_STACK_SIZE 24
 
 #endif // PHOSPHOR_CONSTANTS_H

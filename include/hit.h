@@ -52,7 +52,7 @@ inline bool triangle_hit_single(u32 t, float4 origin, float4 dir, __global const
         return false;
 
     float4 outward_normal = normalize(compute_bary(u, v, n0, n1, n2));
-    bool front_face = dot(dir, outward_normal) < 0.0f;
+    bool front_face = dot(dir.xyz, outward_normal.xyz) < 0.0f;
     float4 normal = front_face ? outward_normal : -outward_normal;
 
     out->t = tt;
@@ -60,7 +60,7 @@ inline bool triangle_hit_single(u32 t, float4 origin, float4 dir, __global const
     out->v = v;
     out->tri_index = t;
     out->mat_index = tri_mat_index[t];
-    out->normal = normalize(cross(edge1, edge2));
+    out->normal = normal;
     out->front_face = front_face;
 
     return true;
@@ -152,6 +152,8 @@ inline bool scene_intersect(__global const BvhNode *tree, __global const float4 
             }
             continue;
         }
+        if (p + 2 >= BVH_STACK_SIZE)
+            continue;
         stack[++p] = 2 * index;
         stack[++p] = 2 * index + 1;
     }

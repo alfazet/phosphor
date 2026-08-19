@@ -1,4 +1,3 @@
-#include "../include/photon_hash.h"
 #include "bvh.hpp"
 #include "cmd_args.hpp"
 #include "constants.h"
@@ -237,9 +236,9 @@ void phosphor_main(const ArgsList &args) {
         }
         accum /= static_cast<f32>(args.image_iters);
 
-        ldr[p * 3 + 0] = static_cast<u8>(std::clamp(accum.x, 0.0f, 1.0f) * 255.0f);
-        ldr[p * 3 + 1] = static_cast<u8>(std::clamp(accum.y, 0.0f, 1.0f) * 255.0f);
-        ldr[p * 3 + 2] = static_cast<u8>(std::clamp(accum.z, 0.0f, 1.0f) * 255.0f);
+        ldr[p * 3 + 0] = static_cast<u8>(tone_map(accum.x) * 255.0f);
+        ldr[p * 3 + 1] = static_cast<u8>(tone_map(accum.y) * 255.0f);
+        ldr[p * 3 + 2] = static_cast<u8>(tone_map(accum.z) * 255.0f);
     }
     timer_scope_image.stop();
     stbi_write_png(args.output_path.c_str(), static_cast<i32>(args.resolution), static_cast<i32>(args.resolution), 3,

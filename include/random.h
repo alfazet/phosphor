@@ -32,7 +32,7 @@ inline RngState pcg_seed(u32 seed) {
 
 inline RngState make_thread_rng(RngState base, u32 thread_index) { return pcg_seed(base.state + thread_index); }
 
-inline f32 random_float(RngState *rng) { return (f32)pcg_random(rng) / 65535.0f; }
+inline f32 random_float(RngState *rng) { return (f32)pcg_random(rng) / 65536.0f; }
 
 #ifdef __OPENCL_C_VERSION__
 
@@ -45,7 +45,7 @@ inline float4 random_unit_vector(RngState *rng) {
         p.w = 0.0f;
     } while (dot(p.xyz, p.xyz) >= 1.0f);
 
-    float len = sqrt(dot(p.xyz, p.xyz));
+    f32 len = sqrt(dot(p.xyz, p.xyz));
     p.x /= len;
     p.y /= len;
     p.z /= len;
