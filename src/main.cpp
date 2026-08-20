@@ -205,10 +205,14 @@ void phosphor_main(const ArgsList &args) {
 
     cl::Buffer d_photons_sorted(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, h_photons.size() * sizeof(Photon),
                                 h_photons.data());
-    cl::Buffer d_cell_start(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                            struct_hash.bucket_count * sizeof(u32), struct_hash.cell_start.data());
-    cl::Buffer d_cell_end(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, struct_hash.bucket_count * sizeof(u32),
-                          struct_hash.cell_end.data());
+    cl::Buffer d_tree_index(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                            struct_hash.tree_index.size() * sizeof(u32), struct_hash.tree_index.data());
+    cl::Buffer d_bucket_tree_offset(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                    struct_hash.bucket_tree_offset.size() * sizeof(u32),
+                                    struct_hash.bucket_tree_offset.data());
+    cl::Buffer d_bucket_tree_size(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                  struct_hash.bucket_tree_size.size() * sizeof(u32),
+                                  struct_hash.bucket_tree_size.data());
 
     cl::Program program = ctx.build_program(std::string(PROJECT_DIR) + "/kernels/get_color.cl", "-I./include");
     cl::Kernel kernel(program, "get_color");
@@ -217,7 +221,8 @@ void phosphor_main(const ArgsList &args) {
     f32 search_radius = std::min(std::min(info.cell_sizes.x, info.cell_sizes.y), info.cell_sizes.z) / 2.0f;
     set_kernel_args(kernel, d_origin, d_dir, n_rays, d_tv0, d_tv1, d_tv2, d_tn0, d_tn1, d_tn2, d_tuv0, d_tuv1, d_tuv2,
                     d_tt0, d_tt1, d_tt2, d_tree, d_tmat, n_tris, d_materials, d_tex_meta, d_tex_atlas, d_photons_sorted,
-                    photon_count, search_radius, args.samples, d_out, d_cell_start, d_cell_end, info);
+                    photon_count, search_radius, args.samples, d_out, d_tree_index, d_bucket_tree_offset,
+                    d_bucket_tree_size, info);
 
     TimerScope timer_scope_image("rendering image");
     ctx.queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(n_rays), cl::NullRange);
