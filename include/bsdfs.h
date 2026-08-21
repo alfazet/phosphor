@@ -55,6 +55,11 @@ inline f32 fresnel(f32 R_0, float4 incoming, float4 normal) {
     return R_0 + (1.0f - R_0) * pow(1.0f - cos_theta, 5);
 }
 
+inline float4 fresnel4(float4 R_0, float4 incoming, float4 normal) {
+    f32 cos_theta = fabs(dot(incoming, normal));
+    return R_0 + (1.0f - R_0) * pow(1.0f - cos_theta, 5);
+}
+
 // https://en.wikipedia.org/wiki/Schlick's_approximation
 inline f32 fresnel_refracted(f32 ior_1, f32 ior_2, float4 incoming, float4 normal) {
     f32 R_0 = pow((ior_1 - ior_2) / (ior_1 + ior_2), 2);
@@ -78,35 +83,6 @@ inline float4 refract(float4 incoming, float4 normal, f32 eta1, f32 eta2) {
 
     float4 refracted = eta * incoming - (eta * cos_i + sqrt(1.0f - sin_t2)) * normal;
     return normalize(refracted);
-}
-
-inline float4 reflect_or_refract(RngState *rng, float4 incoming, float4 normal, f32 curr_ior, f32 mat_ior,
-                                 f32 mat_transmission, bool front_face) {
-    f32 eta1 = front_face ? curr_ior : mat_ior;
-    f32 eta2 = front_face ? mat_ior : curr_ior;
-    f32 reflection_prob = fresnel_refracted(eta1, eta2, -incoming, normal);
-    f32 x = random_float(rng);
-
-    if (x < reflection_prob) {
-        return reflect(incoming, normal);
-    } else if (x < (1.0f - reflection_prob) * mat_transmission) {
-        return refract(incoming, normal, eta1, eta2);
-    }
-
-    return (float4)(0.0f, 0.0f, 0.0f, 0.0f);
-}
-
-inline float4 ggx_sample_direction(RngState *rng, float4 incoming, float4 normal, f32 roughness, f32 curr_ior,
-                                   f32 mat_ior, f32 mat_transmission, bool front_face) {
-    if (roughness < EPS)
-        return reflect_or_refract(rng, incoming, normal, curr_ior, mat_ior, mat_transmission, front_face);
-
-    float4 h = ggx_sample_vndf(rng, normal, -incoming, roughness);
-    float4 outcome = reflect_or_refract(rng, incoming, h, curr_ior, mat_ior, mat_transmission, front_face);
-
-    if (length(outcome) < EPS)
-        return -incoming;
-    return normalize(outcome);
 }
 
 #endif // __OPENCL_C_VERSION__

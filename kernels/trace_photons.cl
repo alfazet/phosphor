@@ -143,8 +143,8 @@ __kernel void trace_photons(__global Photon *photons, __global u32 *photon_count
 
         Material mat = materials[rec.mat_index];
 
-        f32 phi = atan2(dir.y, dir.x);
-        f32 theta = acos(clamp(dir.z, -1.0f, 1.0f));
+        // f32 phi = atan2(dir.y, dir.x);
+        // f32 theta = acos(clamp(dir.z, -1.0f, 1.0f));
 
         float4 base_color = mat.base_color;
         if (mat.diff_index != NO_TEXTURE) {
@@ -153,77 +153,75 @@ __kernel void trace_photons(__global Photon *photons, __global u32 *photon_count
 
         f32 metallic = mat.metallic;
         f32 roughness = mat.roughness;
+        f32 transmission = mat.transmission;
+        f32 mat_ior = mat.ior;
         if (mat.metal_rough_index != NO_TEXTURE) {
             float4 mr = sample_texture(tex_meta, tex_atlas, mat.metal_rough_index, uv);
             metallic *= mr.z;  // channel B
             roughness *= mr.y; // channel G
         }
 
-        // https://github.com/KhronosGroup/glTF/blob/77b44be7bef26e01fb0b140e3d5bb1716421c5e9/extensions/2.0/Archived/KHR_materials_pbrSpecularGlossiness/examples/convert-between-workflows-bjs/js/babylon.pbrUtilities.js#L12
-        float4 dielectric_specular = (float4)(0.04f);
-        float4 s = mix(dielectric_specular, base_color, metallic);
-        f32 max_s = fmax(s.x, fmax(s.y, s.z));
-        f32 d_factor =
-            (1.0f - dielectric_specular.x) * (1.0f - metallic) * (1.0f - mat.transmission) / fmax(1.0f - max_s, EPS);
-        float4 d = base_color * d_factor;
+        float4 h = ggx_sample_vndf(&rng, normal, -dir, roughness);
+        if (random_float(&rng) < metallic)
+        {
+            float4 reflected = reflect(dir, h);
+            if (length(reflected) < EPS)
+                return;
 
-        f32 alpha = roughness * roughness;
-        f32 g1 = smith_g1_ggx(acos(fmax(0.0f, dot(-dir.xyz, normal.xyz))), alpha);
-        float4 s_eff = s * g1;
-        // st = specular/transmission
-        float4 st = s_eff + base_color * ((1.0f - max_s) * mat.transmission * (1.0f - metallic));
-
-        f32 sum_d = d.x + d.y + d.z;
-        f32 sum_st = st.x + st.y + st.z;
-        f32 sum_total = sum_d + sum_st;
-        f32 rho_r = fmin(fmax(d.x + st.x, fmax(d.y + st.y, d.z + st.z)), 1.0f);
-        f32 rho_d = (sum_total > EPS) ? (rho_r * sum_d / sum_total) : 0.0f;
-        f32 rho_st = rho_r - rho_d;
-
-        f32 xi = random_float(&rng);
-
-        if (xi < rho_d) {
-            // store diffuse photon
             u32 idx = atomic_inc(photon_count);
             if (idx < max_photons) {
                 photons[idx].pos = hit_pos;
-                photons[idx].power = power;
+                photons[idx].power = power ;
                 photons[idx].dir = -dir;
                 photons[idx].normal = normal;
             } else {
                 return;
             }
 
-            float4 new_dir = random_in_unit_hemisphere(&rng, normal);
-            // float4 new_dir = (float4)(0.0f, 1.0f, 0.0f, 0.0f);
+            power *= fresnel4(base_color, dir, h);
             origin = hit_pos + normal * EPS;
-            dir = new_dir;
-            power *= d / rho_d;
-        } else if (xi < rho_d + rho_st) {
-            float4 new_dir =
-                ggx_sample_direction(&rng, dir, normal, roughness, curr_ior, mat.ior, mat.transmission, rec.front_face);
-            if (length(new_dir) < EPS)
+            dir = reflected;
+            continue;
+        }
+
+        f32 ior_1 = rec.front_face ? curr_ior : mat_ior;
+        f32 ior_2 = rec.front_face ? mat_ior : curr_ior;
+        f32 fr = fresnel_refracted(ior_1, ior_2, -dir, h);
+        if (random_float(&rng) < fr)
+        {
+            float4 reflected = reflect(dir, h);
+            if (length(reflected) < EPS)
                 return;
 
-            bool refracted = dot(new_dir, normal) < 0.0f;
-            curr_ior = refracted ? (rec.front_face ? mat.ior : AIR_IOR) : curr_ior;
-
             origin = hit_pos + normal * EPS;
-            dir = new_dir;
-            power *= st / rho_st;
-
-            if (refracted) // TODO
-                return;
+            dir = reflected;
         } else {
-            // absorbed
-            u32 idx = atomic_inc(photon_count);
-            if (idx < max_photons) {
-                photons[idx].pos = hit_pos;
-                photons[idx].power = power;
-                photons[idx].dir = -dir;
-                photons[idx].normal = normal;
+            if (random_float(&rng) < transmission)
+            {
+                float4 refracted = refract(dir, normal, curr_ior, mat_ior);
+                if (length(refracted) < EPS) {
+                    return;
+                }
+                bool did_refract = dot(refracted, normal) < 0.0f;
+                curr_ior = did_refract ? (rec.front_face ? mat.ior : AIR_IOR) : curr_ior;
+
+                origin = hit_pos + normal * EPS;
+                dir = refracted;
+            } else {
+                u32 idx = atomic_inc(photon_count);
+                if (idx < max_photons) {
+                    photons[idx].pos = hit_pos;
+                    photons[idx].power = power;
+                    photons[idx].dir = -dir;
+                    photons[idx].normal = normal;
+                } else {
+                    return;
+                }
+                float4 new_dir = random_in_unit_hemisphere(&rng, normal);
+                power *= base_color;
+                origin = hit_pos + normal * EPS;
+                dir = new_dir;
             }
-            return;
         }
     }
 }
