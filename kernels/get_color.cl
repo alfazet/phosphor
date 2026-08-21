@@ -4,7 +4,6 @@
 #include "material.h"
 #include "photon.h"
 #include "photon_hash.h"
-#include "random.h"
 #include "texture_meta.h"
 #include "typedefs.h"
 
@@ -17,7 +16,8 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
                         __global const Material *materials, __global const TextureMeta *tex_meta,
                         __global const u8 *tex_atlas, __global const Photon *photons, const u32 photon_count,
                         const f32 search_radius, const u32 samples, __global float4 *out_color,
-                        __global const u32 *cell_start, __global const u32 *cell_end, const PhotonHashInfo info) {
+                        __global const u32 *tree_index, __global const u32 *bucket_tree_offset,
+__global const u32 *bucket_tree_size,  const PhotonHashInfo info) {
     usize tid = get_global_id(0);
     if (tid >= n_rays)
         return;
@@ -65,75 +65,11 @@ __kernel void get_color(__global const float4 *ray_origin, __global const float4
     */
 
     float4 flux = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
-
-    u32 starts[27];
-    u32 ends[27];
-    u32 nei_count = get_photon_nei(hit_pos, info, cell_start, cell_end, starts, ends);
-
     f32 radius_sq = search_radius * search_radius;
     f32 max_dist_sq = 0.0f;
-    u32 collected = 0;
 
-    float4 t, b;
-    make_tbn(normal, &t, &b);
-
-    for (u32 i = 0; i < nei_count; i++) {
-        for (u32 p = starts[i]; p < ends[i] && p < photon_count; p++) {
-            Photon ph = photons[p];
-            float4 diff = hit_pos - ph.pos;
-            f32 dist_sq = dot(diff.xyz, diff.xyz);
-            f32 dist_v = fabs(dot(diff.xyz, normal.xyz));
-            f32 dist_h = dot(diff.xyz, b.xyz) * dot(diff.xyz, b.xyz) + dot(diff.xyz, t.xyz) * dot(diff.xyz, t.xyz);
-            if (dist_sq < radius_sq && dot(-ph.dir.xyz, normal.xyz) < 0.0f) {
-                // if (dist_sq < radius_sq && dot(-ph.dir.xyz, normal.xyz) < 0.0f && dot(ph.normal.xyz, normal.xyz) >
-                // 0.9f) {
-                // if (dist_v < EPS && dist_h < radius_sq && dot(-ph.dir.xyz, normal.xyz) < 0.0f) {
-                max_dist_sq = fmax(max_dist_sq, dist_sq);
-                flux += ph.power;
-            }
-        }
-    }
-    //
-    // f32 nearest_dist_sq[100];
-    // float4 nearest_power[100];
-    //
-    // for (u32 c = 0; c < nei_count; c++) {
-    //     for (u32 p = starts[c]; p < ends[c]; p++) {
-    //         Photon ph = photons[p];
-    //         float4 diff = ph.pos - hit_pos;
-    //         f32 dist_sq = dot(diff.xyz, diff.xyz);
-    //
-    //         if (dist_sq >= radius_sq)
-    //             continue;
-    //         // don't count photons coming from "inside" the surface
-    //         if (dot(-ph.dir.xyz, normal.xyz) > 0.0f)
-    //             continue;
-    //
-    //         if (collected < samples) {
-    //             nearest_dist_sq[collected] = dist_sq;
-    //             nearest_power[collected] = ph.power;
-    //             collected++;
-    //             max_dist_sq = fmax(max_dist_sq, dist_sq);
-    //         } else if (dist_sq < max_dist_sq) {
-    //             u32 farthest = 0;
-    //             for (u32 j = 1; j < samples; j++) {
-    //                 if (nearest_dist_sq[j] > nearest_dist_sq[farthest])
-    //                     farthest = j;
-    //             }
-    //             nearest_dist_sq[farthest] = dist_sq;
-    //             nearest_power[farthest] = ph.power;
-    //
-    //             max_dist_sq = nearest_dist_sq[0];
-    //             for (u32 j = 1; j < samples; j++) {
-    //                 if (nearest_dist_sq[j] > max_dist_sq)
-    //                     max_dist_sq = nearest_dist_sq[j];
-    //             }
-    //         }
-    //     }
-    // }
-
-    // for (u32 j = 0; j < collected; j++)
-    //     flux += nearest_power[j];
+    gather_photon_flux(hit_pos, info, tree_index, bucket_tree_offset, bucket_tree_size, photons, samples, radius_sq, &flux,
+                       &max_dist_sq);
 
     f32 area = PI * max_dist_sq;
     float4 diffuse_color = (float4)(0.0f, 0.0f, 0.0f, 0.0f);

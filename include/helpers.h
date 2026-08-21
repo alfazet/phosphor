@@ -1,3 +1,6 @@
+#ifndef PHOSPHOR_HELPERS_H
+#define PHOSPHOR_HELPERS_H
+
 #include "typedefs.h"
 
 // https://stackoverflow.com/questions/364985/algorithm-for-finding-the-smallest-power-of-two-thats-greater-or-equal-to-a-giv
@@ -29,3 +32,5 @@ inline float4 compute_bary(f32 bary_x, f32 bary_y, float4 v0, float4 v1, float4 
 }
 
 inline f32 tone_map(f32 x) { return x / (1.0f + x); }
+
+#endif // PHOSPHOR_HELPERS_H
