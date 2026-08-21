@@ -15,7 +15,7 @@
 #define MIN_RAY_BOUNCES 4
 
 #define BVH_STACK_SIZE 24
-#define KD_STACK_SIZE 64
-#define PHOTON_K 100
+#define KD_STACK_SIZE 24
+#define MAX_PHOTON_SAMPLES 256
 
 #endif // PHOSPHOR_CONSTANTS_H

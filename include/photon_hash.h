@@ -2,6 +2,7 @@
 #define PHOSPHOR_PHOTON_HASH_H
 
 #include "bounding_box.h"
+#include "helpers.h"
 #include "photon.h"
 #include "typedefs.h"
 
@@ -9,7 +10,7 @@
 typedef struct PhotonHashInfo {
     float4 origin;
     float4 cell_sizes;
-    u32 k;
+    u32 grid_res;
     // 2 * 4 * 4 + 4 = 36
 
     // total: 36
@@ -17,12 +18,12 @@ typedef struct PhotonHashInfo {
 } PhotonHashInfo __attribute__((aligned(16)));
 
 inline u32 photon_hash(const float4 pos, const PhotonHashInfo info) {
-    u32 k = info.k;
+    u32 grid_res = info.grid_res;
     f32 fx = (pos.x - info.origin.x) / info.cell_sizes.x;
     f32 fy = (pos.y - info.origin.y) / info.cell_sizes.y;
     f32 fz = (pos.z - info.origin.z) / info.cell_sizes.z;
 
-    if (fx < 0.0f || fy < 0.0f || fz < 0.0f || fx >= (f32)k || fy >= (f32)k || fz >= (f32)k) {
+    if (fx < 0.0f || fy < 0.0f || fz < 0.0f || fx >= (f32)grid_res || fy >= (f32)grid_res || fz >= (f32)grid_res) {
         return 0;
     }
 
@@ -31,14 +32,14 @@ inline u32 photon_hash(const float4 pos, const PhotonHashInfo info) {
     u32 z = (u32)fz;
 
     // return k * k * (u32)(x + k) + k * (u32)(y + k) + (u32)(z + k); // remember to change bucket_count if reverted
-    return k * k * (u32)(x) + k * (u32)(y) + (u32)(z + 1);
+    return grid_res * grid_res * (u32)(x) + grid_res * (u32)(y) + (u32)(z + 1);
     // +1 leaves as 0 as special, empty value
 }
 
 #ifdef __OPENCL_C_VERSION__
 
-inline void try_insert_photon(u32 pidx, f32 d2, u32 k, u32 *result, f32 *dist2, u32 *count) {
-    if (*count < k) {
+inline void try_insert_photon(u32 pidx, f32 d2, u32 grid_res, u32 *result, f32 *dist2, u32 *count) {
+    if (*count < grid_res) {
         result[*count] = pidx;
         dist2[*count] = d2;
         (*count)++;
@@ -46,7 +47,7 @@ inline void try_insert_photon(u32 pidx, f32 d2, u32 k, u32 *result, f32 *dist2, 
     }
 
     u32 worst = 0;
-    for (u32 i = 1; i < k; i++)
+    for (u32 i = 1; i < grid_res; i++)
         if (dist2[i] > dist2[worst])
             worst = i;
 
@@ -65,7 +66,7 @@ inline f32 get_axis(float4 v, u32 axis) {
 }
 
 inline void locate_bucket_knn(__global const u32 *tree_index, u32 offset, u32 tree_size, __global const Photon *photons,
-                              float4 pos, u32 k, f32 max_dist2, u32 *result, f32 *dist2, u32 *count) {
+                              float4 pos, u32 grid_res, f32 max_dist2, u32 *result, f32 *dist2, u32 *count) {
     u32 stack[KD_STACK_SIZE];
     i32 sp = 0;
     stack[0] = 1;
@@ -84,7 +85,7 @@ inline void locate_bucket_knn(__global const u32 *tree_index, u32 offset, u32 tr
         f32 d2 = dot(diff.xyz, diff.xyz);
 
         if (d2 < max_dist2)
-            try_insert_photon(pidx - 1, d2, k, result, dist2, count);
+            try_insert_photon(pidx - 1, d2, grid_res, result, dist2, count);
 
         u32 axis = ph.axis;
         f32 delta = get_axis(pos, axis) - get_axis(ph.pos, axis);
@@ -94,9 +95,9 @@ inline void locate_bucket_knn(__global const u32 *tree_index, u32 offset, u32 tr
         u32 far = (delta < 0.0f) ? index * 2 + 1 : index * 2;
 
         f32 current_max = max_dist2;
-        if (*count >= k) {
+        if (*count >= grid_res) {
             current_max = dist2[0];
-            for (u32 i = 1; i < k; i++)
+            for (u32 i = 1; i < grid_res; i++)
                 current_max = fmax(current_max, dist2[i]);
         }
 
@@ -109,9 +110,10 @@ inline void locate_bucket_knn(__global const u32 *tree_index, u32 offset, u32 tr
 
 inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __global const u32 *tree_index,
                                __global const u32 *bucket_tree_offset, __global const u32 *bucket_tree_size,
-                               __global const Photon *photons, f32 max_dist2, float4 *flux, f32 *out_max_dist2) {
-    u32 result[PHOTON_K];
-    f32 dist2[PHOTON_K];
+                               __global const Photon *photons, u32 samples, f32 max_dist2, float4 *flux,
+                               f32 *out_max_dist2) {
+    u32 result[MAX_PHOTON_SAMPLES];
+    f32 dist2[MAX_PHOTON_SAMPLES];
     u32 count = 0;
 
     for (u32 i = 0; i < 27; i++) {
@@ -132,7 +134,7 @@ inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __gl
         if (size == 0)
             continue;
 
-        locate_bucket_knn(tree_index, bucket_tree_offset[h], size, photons, pos, PHOTON_K, max_dist2, result, dist2,
+        locate_bucket_knn(tree_index, bucket_tree_offset[h], size, photons, pos, samples, max_dist2, result, dist2,
                           &count);
     }
 
@@ -160,13 +162,13 @@ typedef struct PhotonHash {
     u32 bucket_count;
 } PhotonHash;
 
-inline PhotonHashInfo build_hash_info(BoundingBox bbox, u32 k) {
+inline PhotonHashInfo build_hash_info(BoundingBox bbox, u32 grid_res) {
     PhotonHashInfo info;
-    info.k = k;
+    info.grid_res = grid_res;
     info.origin = (float4){bbox.bbox_min.x, bbox.bbox_min.y, bbox.bbox_min.z, 0.0f};
-    info.cell_sizes.x = (bbox.bbox_max.x - bbox.bbox_min.x) / k;
-    info.cell_sizes.y = (bbox.bbox_max.y - bbox.bbox_min.y) / k;
-    info.cell_sizes.z = (bbox.bbox_max.z - bbox.bbox_min.z) / k;
+    info.cell_sizes.x = (bbox.bbox_max.x - bbox.bbox_min.x) / grid_res;
+    info.cell_sizes.y = (bbox.bbox_max.y - bbox.bbox_min.y) / grid_res;
+    info.cell_sizes.z = (bbox.bbox_max.z - bbox.bbox_min.z) / grid_res;
     return info;
 }
 
@@ -210,7 +212,7 @@ inline void balance(std::vector<Photon> &photons, usize index, usize start, usiz
 inline PhotonHash build_hash(std::vector<Photon> &photons, PhotonHashInfo info) {
     u32 n_photons = photons.size();
     PhotonHash grid;
-    grid.bucket_count = (info.k * (info.k * (info.k + 1) + 1)) + 1; // Horner for efficiency
+    grid.bucket_count = (info.grid_res * (info.grid_res * (info.grid_res + 1) + 1)) + 1; // Horner for efficiency
 
     std::vector<u32> hashes(n_photons);
     std::unordered_map<u32, u32> hashes_count;

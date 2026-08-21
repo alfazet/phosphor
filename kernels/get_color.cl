@@ -4,7 +4,6 @@
 #include "material.h"
 #include "photon.h"
 #include "photon_hash.h"
-#include "random.h"
 #include "texture_meta.h"
 #include "typedefs.h"
 
@@ -69,7 +68,7 @@ __global const u32 *bucket_tree_size,  const PhotonHashInfo info) {
     f32 radius_sq = search_radius * search_radius;
     f32 max_dist_sq = 0.0f;
 
-    gather_photon_flux(hit_pos, info, tree_index, bucket_tree_offset, bucket_tree_size, photons, radius_sq, &flux,
+    gather_photon_flux(hit_pos, info, tree_index, bucket_tree_offset, bucket_tree_size, photons, samples, radius_sq, &flux,
                        &max_dist_sq);
 
     f32 area = PI * max_dist_sq;
