@@ -43,9 +43,7 @@ void generate_primary_rays(RngState &rng, const Camera &cam, u32 image_width, u3
             for (u32 j = 0; j < image_iters; j++) {
                 const f32 s = (x + 0.5f + random_float(&rng) - 0.5f) / static_cast<f32>(image_width);
                 const f32 t = 1.0f - (y + 0.5f + random_float(&rng) - 0.5f) / static_cast<f32>(image_height);
-
                 Ray r = get_camera_ray(cam, s, t);
-
                 usize idx = (static_cast<usize>(y) * image_width + x) * image_iters + j;
                 origins[idx] = r.origin;
                 dirs[idx] = r.dir;
@@ -74,8 +72,6 @@ void phosphor_main(const ArgsList &args) {
         return;
     }
     const Camera &cam = scene.cameras[*scene.chosen_camera];
-    // temporary light
-    scene.lights.insert(scene.lights.begin(), make_point_light(glm::vec3(0.0f), glm::vec3(500.0f)));
 
     const u32 photons_to_emit = pow2roundup(args.photons);
     // TODO: think if it makes sense, also consider an alternative where each thread can
@@ -164,6 +160,17 @@ void phosphor_main(const ArgsList &args) {
     cl::Buffer d_tex_atlas(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, tex_atlas.size(), tex_atlas.data());
     cl::Buffer d_out(ctx.context, CL_MEM_WRITE_ONLY, n_rays * sizeof(float4));
 
+    std::vector<f32> &h_pref_sum = scene.light_area_pref_sum;
+    cl::Buffer d_light_pref_sum(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, h_pref_sum.size() * sizeof(f32),
+                                h_pref_sum.data());
+    f32 total_luminance = h_pref_sum.empty() ? 0.0f : h_pref_sum.back();
+    BoundingBox scene_bbox = tree[1].bbox;
+    glm::vec3 bbox_min(scene_bbox.bbox_min.x, scene_bbox.bbox_min.y, scene_bbox.bbox_min.z);
+    glm::vec3 bbox_max(scene_bbox.bbox_max.x, scene_bbox.bbox_max.y, scene_bbox.bbox_max.z);
+    glm::vec3 center = 0.5f * (bbox_min + bbox_max);
+    float4 scene_center{{center.x, center.y, center.z, 0.0f}};
+    f32 scene_radius = 0.5f * glm::length(bbox_max - bbox_min);
+
     const u32 PHOTONS_PER_BATCH = 1 << 15;
     const u32 BATCH_MAX_PHOTONS = PHOTONS_PER_BATCH * MAX_PHOTON_BOUNCES;
     cl::Buffer d_photons(ctx.context, CL_MEM_READ_WRITE, BATCH_MAX_PHOTONS * sizeof(Photon));
@@ -179,7 +186,7 @@ void phosphor_main(const ArgsList &args) {
         set_kernel_args(trace_kernel, d_photons, d_photon_count, d_lights, (u32)scene.lights.size(), BATCH_MAX_PHOTONS,
                         batch_offset, photons_to_emit, args.seed, d_tree, d_tv0, d_tv1, d_tv2, d_tn0, d_tn1, d_tn2,
                         d_tuv0, d_tuv1, d_tuv2, d_tt0, d_tt1, d_tt2, d_tmat, n_tris, d_materials, d_tex_meta,
-                        d_tex_atlas);
+                        d_tex_atlas, d_light_pref_sum, total_luminance, scene_center, scene_radius);
 
         ctx.queue.enqueueNDRangeKernel(trace_kernel, cl::NullRange, cl::NDRange(batch_emit), cl::NullRange);
         ctx.queue.finish();
@@ -217,7 +224,6 @@ void phosphor_main(const ArgsList &args) {
     cl::Program program = ctx.build_program(std::string(PROJECT_DIR) + "/kernels/get_color.cl", "-I./include");
     cl::Kernel kernel(program, "get_color");
 
-    // f32 search_radius = 10.0f;
     f32 search_radius = std::min(std::min(info.cell_sizes.x, info.cell_sizes.y), info.cell_sizes.z) / 2.0f;
     set_kernel_args(kernel, d_origin, d_dir, n_rays, d_tv0, d_tv1, d_tv2, d_tn0, d_tn1, d_tn2, d_tuv0, d_tuv1, d_tuv2,
                     d_tt0, d_tt1, d_tt2, d_tree, d_tmat, n_tris, d_materials, d_tex_meta, d_tex_atlas, d_photons_sorted,

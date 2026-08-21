@@ -1,6 +1,9 @@
 #ifndef PHOSPHOR_LIGHT_H
 #define PHOSPHOR_LIGHT_H
 
+#include "constants.h"
+#include "material.h"
+#include "random.h"
 #include "typedefs.h"
 
 #define LIGHT_POINT 0

@@ -114,9 +114,10 @@ Light make_directional_light(vec3 direction, vec3 power, f32 radius = 0.0f) {
     return l;
 }
 
-Light make_textured_light(u32 tex_index, u32 tri_start, u32 tri_count) {
+Light make_textured_light(u32 tex_index, u32 tri_start, u32 tri_count, vec3 power) {
     Light l{};
     l.kind = LIGHT_TEXTURED;
+    l.power = to_float4(power);
     l.aux = float4{{bits_as_float(tex_index), bits_as_float(tri_start), bits_as_float(tri_count), 0.0f}};
     return l;
 }
@@ -456,7 +457,16 @@ void process_node(aiNode *node, const aiScene *aiscene, SceneData &out_scene, ma
         u32 triangle_count = static_cast<u32>(out_scene.triangles.size()) - triangle_start;
         if (emissive.has_value() && triangle_count > 0) {
             const Material &m = out_scene.materials[mat_index];
-            out_scene.lights.push_back(make_textured_light(m.emis_index, triangle_start, triangle_count));
+            f32 total_area = 0.0f;
+            for (u32 j = triangle_start; j < triangle_start + triangle_count; j++) {
+                const HostTriangle &t = out_scene.triangles[j];
+                vec3 e1(t.v1.x - t.v0.x, t.v1.y - t.v0.y, t.v1.z - t.v0.z);
+                vec3 e2(t.v2.x - t.v0.x, t.v2.y - t.v0.y, t.v2.z - t.v0.z);
+                total_area += 0.5f * glm::length(glm::cross(e1, e2));
+            }
+            vec3 emissive_power = PI * (*emissive) * total_area;
+            out_scene.lights.push_back(
+                make_textured_light(m.emis_index, triangle_start, triangle_count, emissive_power));
         }
     }
 
