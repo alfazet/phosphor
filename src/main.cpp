@@ -43,31 +43,29 @@ void phosphor_main(const ArgsList &args) {
     u32 photons_to_emit = round_up_to_pow2(args.photons);
     u32 photons_per_batch = std::min(photons_to_emit, MAX_PHOTONS_PER_BATCH);
     u32 max_photons_in_batch = photons_per_batch * MAX_PHOTON_BOUNCES;
-
     cl::Buffer d_photons(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(Photon));
-    u32 h_photon_count = 0;
-    cl::Buffer d_photon_count(ctx.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(u32), &h_photon_count);
+    u32 h_batch_size = 0;
+    cl::Buffer d_batch_size(ctx.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(u32), &h_batch_size);
 
     std::vector<Photon> h_photons;
     TimerScope timer_scope_photons("emitting photons");
     for (u32 batch_offset = 0; batch_offset < photons_to_emit; batch_offset += photons_per_batch) {
-        u32 batch_emit = std::min(photons_per_batch, photons_to_emit - batch_offset);
-        h_photon_count = 0;
-        ctx.queue.enqueueWriteBuffer(d_photon_count, CL_TRUE, 0, sizeof(u32), &h_photon_count);
+        u32 to_emit = std::min(photons_per_batch, photons_to_emit - batch_offset);
+        h_batch_size = 0;
+        ctx.queue.enqueueWriteBuffer(d_batch_size, CL_TRUE, 0, sizeof(u32), &h_batch_size);
 
         buffers.set_emit_photons_args(k_emit_photons, batch_offset, photons_to_emit, args.seed, max_photons_in_batch,
-                                      d_photons, d_photon_count);
-        ctx.queue.enqueueNDRangeKernel(k_emit_photons, cl::NullRange, cl::NDRange(batch_emit), cl::NullRange);
+                                      d_photons, d_batch_size);
+        ctx.queue.enqueueNDRangeKernel(k_emit_photons, cl::NullRange, cl::NDRange(to_emit), cl::NullRange);
         ctx.queue.finish();
 
-        u32 batch_count = 0;
-        ctx.queue.enqueueReadBuffer(d_photon_count, CL_TRUE, 0, sizeof(u32), &batch_count);
-        batch_count = std::min(batch_count, max_photons_in_batch);
+        u32 h_final_batch_size = 0;
+        ctx.queue.enqueueReadBuffer(d_batch_size, CL_TRUE, 0, sizeof(u32), &h_final_batch_size);
+        h_final_batch_size = std::min(h_final_batch_size, max_photons_in_batch);
 
-        // TODO: this could be done without allocating batch_photons
-        std::vector<Photon> batch_photons(batch_count);
-        ctx.queue.enqueueReadBuffer(d_photons, CL_TRUE, 0, batch_count * sizeof(Photon), batch_photons.data());
-        h_photons.insert(h_photons.end(), batch_photons.begin(), batch_photons.end());
+        h_photons.resize(h_photons.size() + h_final_batch_size);
+        ctx.queue.enqueueReadBuffer(d_photons, CL_TRUE, 0, h_final_batch_size * sizeof(Photon),
+                                    h_photons.data() + h_photons.size() - h_final_batch_size);
     }
     timer_scope_photons.stop();
 
