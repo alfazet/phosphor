@@ -1,8 +1,7 @@
 #include "bounding_box.h"
 #include "bvh_node.h"
-#include "constants.h"
-#include "helpers.h"
 #include "triangle.h"
+#include "utils.h"
 
 #include <algorithm>
 #include <vector>
@@ -22,7 +21,7 @@ bool box_compare2(Triangle &a, Triangle &b) { return box_compare(a, b, 2); }
 std::vector<BvhNode> create_tree(std::vector<Triangle> &triangles) {
     std::vector<BvhNode> res;
     res.emplace_back(BvhNode()); // 0 intentionally left blank so binary tree aligns well
-    res.resize(2 * pow2roundup(triangles.size()) + 1);
+    res.resize(2 * round_up_to_pow2(triangles.size()) + 1);
 
     split(triangles, 0, triangles.size(), res, 1);
     return res;

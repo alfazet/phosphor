@@ -1,6 +1,8 @@
 #ifndef PHOSPHOR_CONSTANTS_H
 #define PHOSPHOR_CONSTANTS_H
 
+#define GPU_ALIGN __attribute__((aligned(16)))
+
 #define EPS 1e-4f
 #define INF 1e9f
 #define PI 3.141592654f

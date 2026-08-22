@@ -1,9 +1,10 @@
 #ifndef PHOSPHOR_MATERIAL_H
 #define PHOSPHOR_MATERIAL_H
 
+#include "constants.h"
 #include "typedefs.h"
 
-typedef struct Material {
+typedef struct GPU_ALIGN Material {
     float4 base_color;
     float4 emissive;
     float4 att_color;
@@ -32,7 +33,7 @@ typedef struct Material {
 
     // total: 116
     u8 _padding[12];
-} Material __attribute__((aligned(16)));
+} Material;
 
 #ifdef __OPENCL_C_VERSION__
 

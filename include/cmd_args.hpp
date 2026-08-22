@@ -11,7 +11,7 @@ constexpr const char *HELP_FLAG = "--help";
 
 constexpr u32 DEFAULT_WIDTH = 1024;
 constexpr u32 DEFAULT_HEIGHT = 1024;
-constexpr u32 DEFAULT_ITERS = 8;
+constexpr u32 DEFAULT_IMAGE_ITERS = 8;
 constexpr u32 DEFAULT_SAMPLES = 64;
 constexpr u32 DEFAULT_PHOTONS_PER_LIGHT = 65536;
 constexpr f32 DEFAULT_RAY_STEP = 0.0001f;
@@ -23,9 +23,10 @@ constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
 #define ARG_TABLE(X)                                                                                                   \
     X("-w", width, u32, parse_u32, DEFAULT_WIDTH, "image width (px)")                                                  \
     X("-h", height, u32, parse_u32, DEFAULT_HEIGHT, "image height (px)")                                               \
-    X("-i", iters, u32, parse_u32, DEFAULT_ITERS, "number of image iterations")                                        \
+    X("-i", image_iters, u32, parse_u32, DEFAULT_IMAGE_ITERS, "number of image iterations")                            \
     X("-s", samples, u32, parse_u32, DEFAULT_SAMPLES, "number of samples for photon gathering")                        \
-    X("-p", photons, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT, "number of photons to emit")                           \
+    X("-p", photons, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT,                                                        \
+      "number of photons to emit (will be rounded up to power of 2)")                                                  \
     X("-m", model, std::string, parse_string, DEFAULT_MODEL_PATH, "gltf model path")                                   \
     X("-o", output_path, std::string, parse_string, DEFAULT_OUTPUT_PATH, "output image path")                          \
     X("-k", grid_res, u32, parse_u32, DEFAULT_GRID_RES, "spatial hash resolution")                                     \

@@ -11,7 +11,7 @@
 #define LIGHT_DIRECTIONAL 2
 #define LIGHT_TEXTURED 3
 
-typedef struct Light {
+typedef struct GPU_ALIGN Light {
     float4 position;
     float4 power;
     float4 direction;
@@ -29,6 +29,6 @@ typedef struct Light {
 
     // total: 113
     u8 _padding[15];
-} Light __attribute__((aligned(16)));
+} Light;
 
 #endif // PHOSPHOR_LIGHT_H

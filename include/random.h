@@ -1,15 +1,16 @@
 #ifndef PHOSPHOR_RANDOM_H
 #define PHOSPHOR_RANDOM_H
 
+#include "constants.h"
 #include "typedefs.h"
 
-typedef struct RngState {
+typedef struct GPU_ALIGN RngState {
     u32 state;
     // 1 * 4 = 4
 
     // total: 4
     u8 _padding[12];
-} RngState __attribute__((aligned(16)));
+} RngState;
 
 // values from https://github.com/imneme/pcg-c/blob/master/include/pcg_variants.h
 

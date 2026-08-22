@@ -19,6 +19,8 @@ struct SceneData {
     std::vector<Camera> cameras;
     std::vector<Texture> textures;
     std::optional<u32> chosen_camera{};
+
+    const Camera& get_camera() const;
 };
 
 SceneData read_gltf_scene(const char *path);

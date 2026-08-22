@@ -1,6 +1,5 @@
 #include "light.hpp"
-
-inline f32 bits_as_float(u32 x) { return *reinterpret_cast<f32 *>(&x); }
+#include "utils.h"
 
 Light make_point_light(vec3 position, vec3 power) {
     Light l{};

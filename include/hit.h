@@ -1,11 +1,13 @@
 #ifndef PHOSPHOR_HIT_H
 #define PHOSPHOR_HIT_H
 
+#ifdef __OPENCL_C_VERSION__
+
 #include "bounding_box.h"
 #include "bvh_node.h"
 #include "constants.h"
-#include "helpers.h"
 #include "typedefs.h"
+#include "utils.h"
 
 typedef struct HitRecord {
     f32 t;
@@ -16,6 +18,19 @@ typedef struct HitRecord {
     u32 mat_index;
     bool front_face;
 } HitRecord;
+
+inline float4 compute_bary(f32 bary_x, f32 bary_y, float4 v0, float4 v1, float4 v2) {
+    f32 w0 = 1.0f - bary_x - bary_y;
+    f32 w1 = bary_x;
+    f32 w2 = bary_y;
+
+    float4 result;
+    result.x = w0 * v0.x + w1 * v1.x + w2 * v2.x;
+    result.y = w0 * v0.y + w1 * v1.y + w2 * v2.y;
+    result.z = w0 * v0.z + w1 * v1.z + w2 * v2.z;
+    result.w = 0.0f;
+    return result;
+}
 
 inline bool triangle_hit_single(u32 t, float4 origin, float4 dir, __global const float4 *tri_v0,
                                 __global const float4 *tri_v1, __global const float4 *tri_v2,
@@ -160,5 +175,7 @@ inline bool scene_intersect(__global const BvhNode *tree, __global const float4 
 
     return found;
 }
+
+#endif // __OPENCL_C_VERSION__
 
 #endif // PHOSPHOR_HIT_H

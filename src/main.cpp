@@ -2,35 +2,32 @@
 #include "camera.hpp"
 #include "cmd_args.hpp"
 #include "constants.h"
-#include "helpers.h"
 #include "image_output.hpp"
 #include "logger.hpp"
 #include "opencl_ctx.hpp"
 #include "photon.h"
 #include "photon_hash.h"
-#include "printers.hpp"
 #include "random.h"
 #include "scene.hpp"
 #include "scene_buffers.hpp"
+#include "utils.h"
 
 #include <glm/glm.hpp>
 #include <iostream>
 #include <vector>
 
-constexpr const char *KERNEL_COMPILATION_FLAGS = "-I./include";
-constexpr const char *EMIT_PHOTONS_NAME = "emit_photons";
-constexpr const char *TRACE_RAYS_NAME = "trace_rays";
-
 void phosphor_main(const ArgsList &args) {
     ClContext ctx;
-    print_opencl_data(ctx);
+    LOG_INFO("OpenCL platform/device: {}/{}", ctx.platform_name(), ctx.device_name());
+
+    cl::Kernel k_emit_photons = ctx.make_kernel("emit_photons");
+    cl::Kernel k_trace_rays = ctx.make_kernel("trace_rays");
 
     SceneData scene = read_gltf_scene(args.model.c_str());
     if (scene.triangles.empty()) {
-        LOG_ERROR("scene has no triangles, nothing to render");
+        LOG_ERROR("empty scene, nothing to render");
         return;
     }
-    Camera &camera = scene.cameras[*scene.chosen_camera];
 
     TimerScope timer_scope_bvh("building BVH");
     std::vector<BvhNode> bvh = create_tree(scene.triangles);
@@ -40,17 +37,12 @@ void phosphor_main(const ArgsList &args) {
     buffers.upload_scene(ctx, scene, bvh);
 
     RngState rng = pcg_seed(args.seed);
-    std::vector<float4> h_origin, h_dir;
-    generate_primary_rays(camera, rng, args.width, args.height, args.iters, h_origin, h_dir);
+    auto [h_origin, h_dir] = scene.get_camera().generate_rays(rng, args.width, args.height, args.image_iters);
     buffers.upload_rays(ctx, h_origin, h_dir);
 
-    u32 photons_to_emit = pow2roundup(args.photons);
+    u32 photons_to_emit = round_up_to_pow2(args.photons);
     u32 photons_per_batch = std::min(photons_to_emit, MAX_PHOTONS_PER_BATCH);
     u32 max_photons_in_batch = photons_per_batch * MAX_PHOTON_BOUNCES;
-
-    cl::Program emit_photons =
-        ctx.build_program(std::string(PROJECT_DIR) + "/kernels/" + EMIT_PHOTONS_NAME + ".cl", KERNEL_COMPILATION_FLAGS);
-    cl::Kernel k_emit_photons(emit_photons, EMIT_PHOTONS_NAME);
 
     cl::Buffer d_photons(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(Photon));
     u32 h_photon_count = 0;
@@ -84,10 +76,6 @@ void phosphor_main(const ArgsList &args) {
     PhotonHash struct_hash = build_hash(h_photons, info);
     timer_scope_hash.stop();
 
-    cl::Program trace_rays =
-        ctx.build_program(std::string(PROJECT_DIR) + "/kernels/" + TRACE_RAYS_NAME + ".cl", KERNEL_COMPILATION_FLAGS);
-    cl::Kernel k_trace_rays(trace_rays, TRACE_RAYS_NAME);
-
     buffers.upload_photons(ctx, struct_hash, h_photons);
     cl::Buffer d_out(ctx.context, CL_MEM_WRITE_ONLY, buffers.n_rays * sizeof(float4));
 
@@ -102,7 +90,7 @@ void phosphor_main(const ArgsList &args) {
     ctx.queue.enqueueReadBuffer(d_out, CL_TRUE, 0, buffers.n_rays * sizeof(float4), h_out.data());
     timer_scope_image.stop();
 
-    write_png(args.output_path, args.width, args.height, args.iters, h_out);
+    write_png(args.output_path, args.width, args.height, args.image_iters, h_out);
 }
 
 i32 main(i32 argc, char **argv) {

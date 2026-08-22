@@ -1,9 +1,10 @@
 #ifndef PHOSPHOR_TEXTURE_META_H
 #define PHOSPHOR_TEXTURE_META_H
 
+#include "constants.h"
 #include "typedefs.h"
 
-typedef struct TextureMeta {
+typedef struct GPU_ALIGN TextureMeta {
     float2 uv_offset;
     float2 uv_scale;
     f32 uv_rotation;
@@ -26,6 +27,6 @@ typedef struct TextureMeta {
 
     // total: 44
     u8 _padding[4];
-} TextureMeta __attribute__((aligned(16)));
+} TextureMeta;
 
 #endif // PHOSPHOR_TEXTURE_META_H

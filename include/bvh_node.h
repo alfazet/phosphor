@@ -4,7 +4,7 @@
 #include "bounding_box.h"
 #include "typedefs.h"
 
-typedef struct BvhNode {
+typedef struct GPU_ALIGN BvhNode {
     BoundingBox bbox;
     // 2 * 4 * 4 = 32
 
@@ -13,6 +13,6 @@ typedef struct BvhNode {
 
     // total: 36
     u8 _padding[12];
-} BvhNode __attribute__((aligned(16)));
+} BvhNode;
 
 #endif // PHOSPHOR_BVH_NODE_H

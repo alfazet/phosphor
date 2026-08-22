@@ -8,12 +8,16 @@
 #include <CL/opencl.hpp>
 #include <string>
 
+constexpr const char *KERNEL_COMPILATION_FLAGS = "-I./include";
+
 struct ClContext {
     explicit ClContext();
 
     void select_platform_and_device();
 
     cl::Program build_program(const std::string &path, const std::string &build_opts) const;
+
+    cl::Kernel make_kernel(const char *name) const;
 
     std::string device_name() const;
 

@@ -262,7 +262,7 @@ void parse_camera(const aiCamera *ai_camera, SceneData &out_scene, mat4 global_t
     f32 fov_h_deg = ai_camera->mHorizontalFOV * (180.0f / static_cast<f32>(PI));
     f32 aspect = ai_camera->mAspect > 0.0f ? ai_camera->mAspect : DEFAULT_CAMERA_ASPECT;
 
-    out_scene.cameras.push_back(make_camera(position, look_at_world, up, fov_h_deg, aspect));
+    out_scene.cameras.emplace_back(position, look_at_world, up, fov_h_deg, aspect);
 }
 
 void parse_light(const aiLight *ai_light, SceneData &out_scene, mat4 global_transform) {
@@ -354,8 +354,8 @@ SceneData read_gltf_scene(const char *file_name) {
     build_light_pref_sum(scene);
 
     if (!ai_scene->HasCameras()) {
-        LOG_ERROR("scene has no cameras, using default");
-        // TODO: bring back the default camera on the edge of the bbox
+        LOG_FATAL("scene has no cameras");
+        // TODO: bring back the default camera on the edge of the bbox and change this to a warning
     }
     scene.chosen_camera = 0;
 
@@ -363,3 +363,5 @@ SceneData read_gltf_scene(const char *file_name) {
              scene.materials.size(), scene.lights.size(), scene.textures.size(), scene.cameras.size());
     return scene;
 }
+
+const Camera &SceneData::get_camera() const { return this->cameras[*this->chosen_camera]; }

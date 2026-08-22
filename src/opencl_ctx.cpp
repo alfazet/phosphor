@@ -61,6 +61,12 @@ cl::Program ClContext::build_program(const std::string &path, const std::string 
     return program;
 }
 
+cl::Kernel ClContext::make_kernel(const char *name) const {
+    cl::Program program =
+        this->build_program(std::string(PROJECT_DIR) + "/kernels/" + name + ".cl", KERNEL_COMPILATION_FLAGS);
+    return {program, name};
+}
+
 std::string ClContext::device_name() const { return device.getInfo<CL_DEVICE_NAME>(); }
 
 std::string ClContext::platform_name() const { return platform.getInfo<CL_PLATFORM_NAME>(); }

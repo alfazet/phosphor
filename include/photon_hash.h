@@ -2,12 +2,13 @@
 #define PHOSPHOR_PHOTON_HASH_H
 
 #include "bounding_box.h"
-#include "helpers.h"
+#include "constants.h"
 #include "photon.h"
 #include "typedefs.h"
+#include "utils.h"
 
 // https://courses.csail.mit.edu/18.337/2012/projects/sherry_wu_paper.pdf
-typedef struct PhotonHashInfo {
+typedef struct GPU_ALIGN PhotonHashInfo {
     float4 origin;
     float4 cell_sizes;
     u32 grid_res;
@@ -15,7 +16,7 @@ typedef struct PhotonHashInfo {
 
     // total: 36
     u8 _padding[12];
-} PhotonHashInfo __attribute__((aligned(16)));
+} PhotonHashInfo;
 
 inline u32 photon_hash(const float4 pos, const PhotonHashInfo info) {
     u32 grid_res = info.grid_res;
@@ -253,7 +254,7 @@ inline PhotonHash build_hash(std::vector<Photon> &photons, PhotonHashInfo info) 
     u32 tree_total = 0;
     for (u32 b = 0; b < grid.bucket_count; b++) {
         u32 count = grid.cell_end[b] - grid.cell_start[b];
-        u32 size = count == 0 ? 0 : pow2roundup(count + 1);
+        u32 size = count == 0 ? 0 : round_up_to_pow2(count + 1);
         grid.bucket_tree_size[b] = size;
         grid.bucket_tree_offset[b] = tree_total;
         tree_total += size;
