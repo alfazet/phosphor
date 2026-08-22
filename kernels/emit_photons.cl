@@ -5,7 +5,6 @@
 #include "material.h"
 #include "photon.h"
 #include "random.h"
-#include "ray.h"
 #include "texture_meta.h"
 #include "typedefs.h"
 
@@ -99,25 +98,24 @@ inline void sample_light(RngState *rng, __global const Light *lights, u32 n_ligh
     *power /= scale;
 }
 
-__kernel void trace_photons(__global Photon *photons, __global u32 *photon_count, __global const Light *lights,
-                            const u32 n_lights, const u32 max_photons, const u32 offset, const u32 photons_to_emit,
-                            const u32 seed, __global const BvhNode *tree, __global const float4 *tri_v0,
-                            __global const float4 *tri_v1, __global const float4 *tri_v2, __global const float4 *tri_n0,
-                            __global const float4 *tri_n1, __global const float4 *tri_n2,
-                            __global const float2 *tri_uv0, __global const float2 *tri_uv1,
-                            __global const float2 *tri_uv2, __global const float4 *tri_t0,
-                            __global const float4 *tri_t1, __global const float4 *tri_t2,
+__kernel void emit_photons(__global Photon *photons, __global u32 *photon_count, __global const Light *lights,
+                           const u32 n_lights, const u32 max_photons, const u32 offset, const u32 photons_to_emit,
+                           const u32 seed, __global const BvhNode *tree, __global const float4 *tri_v0,
+                           __global const float4 *tri_v1, __global const float4 *tri_v2, __global const float4 *tri_n0,
+                           __global const float4 *tri_n1, __global const float4 *tri_n2, __global const float2 *tri_uv0,
+                           __global const float2 *tri_uv1, __global const float2 *tri_uv2,
+                           __global const float4 *tri_t0, __global const float4 *tri_t1, __global const float4 *tri_t2,
 
-                            __global const u32 *tri_mat_index, const usize n_tris, __global const Material *materials,
-                            __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
+                           __global const u32 *tri_mat_index, const u32 n_tris, __global const Material *materials,
+                           __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
 
-                            __global const f32 *light_pref_sum, const f32 total_luminance, const float4 scene_center,
-                            const f32 scene_radius) {
-    usize gid = get_global_id(0) + offset;
-    if (gid - offset >= photons_to_emit)
+                           __global const f32 *light_pref_sum, const f32 total_luminance, const float4 scene_center,
+                           const f32 scene_radius) {
+    u32 tid = get_global_id(0) + offset;
+    if (tid - offset >= photons_to_emit)
         return;
 
-    RngState rng = pcg_seed(seed + (u32)gid);
+    RngState rng = pcg_seed(seed + tid);
 
     float4 origin, dir, power;
     sample_light(&rng, lights, n_lights, light_pref_sum, total_luminance, scene_center, scene_radius, tri_v0, tri_v1,
@@ -135,16 +133,23 @@ __kernel void trace_photons(__global Photon *photons, __global u32 *photon_count
             return;
 
         float4 hit_pos = origin + dir * rec.t;
-        float4 normal = rec.normal;
+        float4 normal = rec.front_face ? rec.normal : -rec.normal;
 
         float2 uv0 = tri_uv0[rec.tri_index], uv1 = tri_uv1[rec.tri_index], uv2 = tri_uv2[rec.tri_index];
         f32 w = 1.0f - rec.u - rec.v;
         float2 uv = (float2)(w * uv0.x + rec.u * uv1.x + rec.v * uv2.x, w * uv0.y + rec.u * uv1.y + rec.v * uv2.y);
 
         Material mat = materials[rec.mat_index];
-
-        // f32 phi = atan2(dir.y, dir.x);
-        // f32 theta = acos(clamp(dir.z, -1.0f, 1.0f));
+        if (curr_ior != AIR_IOR && mat.thickness > 0.0f && mat.att_dist > EPS) {
+            f32 travel = rec.t;
+            float4 att_color = mat.att_color;
+            float4 sigma = (float4)(-log(fmax(att_color.x, EPS)), -log(fmax(att_color.x, EPS)),
+                                    -log(fmax(att_color.x, EPS)), 0.0f) /
+                           mat.att_dist;
+            power.x *= exp(-sigma.x * travel);
+            power.y *= exp(-sigma.y * travel);
+            power.z *= exp(-sigma.z * travel);
+        }
 
         float4 base_color = mat.base_color;
         if (mat.diff_index != NO_TEXTURE) {
@@ -162,8 +167,7 @@ __kernel void trace_photons(__global Photon *photons, __global u32 *photon_count
         }
 
         float4 h = ggx_sample_vndf(&rng, normal, -dir, roughness);
-        if (random_float(&rng) < metallic)
-        {
+        if (random_float(&rng) < metallic) {
             float4 reflected = reflect(dir, h);
             if (length(reflected) < EPS)
                 return;
@@ -171,7 +175,7 @@ __kernel void trace_photons(__global Photon *photons, __global u32 *photon_count
             u32 idx = atomic_inc(photon_count);
             if (idx < max_photons) {
                 photons[idx].pos = hit_pos;
-                photons[idx].power = power ;
+                photons[idx].power = power;
                 photons[idx].dir = -dir;
                 photons[idx].normal = normal;
             } else {
@@ -187,8 +191,7 @@ __kernel void trace_photons(__global Photon *photons, __global u32 *photon_count
         f32 ior_1 = rec.front_face ? curr_ior : mat_ior;
         f32 ior_2 = rec.front_face ? mat_ior : curr_ior;
         f32 fr = fresnel_refracted(ior_1, ior_2, -dir, h);
-        if (random_float(&rng) < fr)
-        {
+        if (random_float(&rng) < fr) {
             float4 reflected = reflect(dir, h);
             if (length(reflected) < EPS)
                 return;
@@ -196,16 +199,15 @@ __kernel void trace_photons(__global Photon *photons, __global u32 *photon_count
             origin = hit_pos + normal * EPS;
             dir = reflected;
         } else {
-            if (random_float(&rng) < transmission)
-            {
-                float4 refracted = refract(dir, normal, curr_ior, mat_ior);
+            if (random_float(&rng) < transmission) {
+                float4 refracted = refract(dir, normal, ior_1, ior_2);
                 if (length(refracted) < EPS) {
                     return;
                 }
                 bool did_refract = dot(refracted, normal) < 0.0f;
                 curr_ior = did_refract ? (rec.front_face ? mat.ior : AIR_IOR) : curr_ior;
 
-                origin = hit_pos + normal * EPS;
+                origin = hit_pos - normal * EPS;
                 dir = refracted;
             } else {
                 u32 idx = atomic_inc(photon_count);

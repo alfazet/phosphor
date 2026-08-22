@@ -394,4 +394,6 @@ class TimerScope {
     std::thread thread_;
 };
 
+void init_logger();
+
 #endif // PHOSPHOR_LOGGER_HPP

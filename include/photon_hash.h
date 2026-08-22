@@ -172,10 +172,10 @@ inline PhotonHashInfo build_hash_info(BoundingBox bbox, u32 grid_res) {
     return info;
 }
 
-inline u32 choose_axis(std::vector<Photon> &photons, usize start, usize end) {
+inline u32 choose_axis(std::vector<Photon> &photons, u32 start, u32 end) {
     float4 minp = photons[start].pos;
     float4 maxp = photons[start].pos;
-    for (usize i = start + 1; i < end; i++) {
+    for (u32 i = start + 1; i < end; i++) {
         minp.x = min_f32(minp.x, photons[i].pos.x);
         minp.y = min_f32(minp.y, photons[i].pos.y);
         minp.z = min_f32(minp.z, photons[i].pos.z);
@@ -191,13 +191,13 @@ inline u32 choose_axis(std::vector<Photon> &photons, usize start, usize end) {
     return 2;
 }
 
-inline void balance(std::vector<Photon> &photons, usize index, usize start, usize end, std::vector<u32> &tree_index,
+inline void balance(std::vector<Photon> &photons, u32 index, u32 start, u32 end, std::vector<u32> &tree_index,
                     u32 offset, u32 tree_size) {
     if (start >= end || index >= tree_size)
         return;
 
     u32 axis = choose_axis(photons, start, end);
-    usize median = (start + end) / 2;
+    u32 median = (start + end) / 2;
 
     std::nth_element(photons.begin() + start, photons.begin() + median, photons.begin() + end,
                      [axis](const Photon &a, const Photon &b) { return a.pos.s[axis] < b.pos.s[axis]; });

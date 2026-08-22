@@ -79,7 +79,7 @@ ArgsList ArgParser::parse_all() {
 
     while (this->arg_i < this->n_args) {
         const char *flag = this->values[this->arg_i];
-        if (strcmp(flag, "-h") == 0 || strcmp(flag, "--help") == 0)
+        if (strcmp(flag, HELP_FLAG) == 0)
             throw HelpRequested{};
 
         auto iter = flag_parsers.find(flag);

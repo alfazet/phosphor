@@ -1,30 +1,30 @@
+#include "bsdfs.h"
 #include "bvh_node.h"
 #include "constants.h"
 #include "hit.h"
 #include "material.h"
 #include "photon.h"
 #include "photon_hash.h"
+#include "random.h"
 #include "texture_meta.h"
 #include "typedefs.h"
-#include "random.h"
-#include "bsdfs.h"
 
-__kernel void get_color(__global const float4 *ray_origin, __global const float4 *ray_dir, const usize n_rays, const u32 seed,
-                        __global const float4 *tri_v0, __global const float4 *tri_v1, __global const float4 *tri_v2,
-                        __global const float4 *tri_n0, __global const float4 *tri_n1, __global const float4 *tri_n2,
-                        __global const float2 *tri_uv0, __global const float2 *tri_uv1, __global const float2 *tri_uv2,
-                        __global const float4 *tri_t0, __global const float4 *tri_t1, __global const float4 *tri_t2,
-                        __global const BvhNode *tree, __global const u32 *tri_mat_index, const usize n_tris,
-                        __global const Material *materials, __global const TextureMeta *tex_meta,
-                        __global const u8 *tex_atlas, __global const Photon *photons, const u32 photon_count,
-                        const f32 search_radius, const u32 samples, __global float4 *out_color,
-                        __global const u32 *tree_index, __global const u32 *bucket_tree_offset,
-__global const u32 *bucket_tree_size,  const PhotonHashInfo info) {
-    usize tid = get_global_id(0);
+__kernel void trace_rays(__global const float4 *ray_origin, __global const float4 *ray_dir, const u32 n_rays,
+                         const u32 seed, __global const float4 *tri_v0, __global const float4 *tri_v1,
+                         __global const float4 *tri_v2, __global const float4 *tri_n0, __global const float4 *tri_n1,
+                         __global const float4 *tri_n2, __global const float2 *tri_uv0, __global const float2 *tri_uv1,
+                         __global const float2 *tri_uv2, __global const float4 *tri_t0, __global const float4 *tri_t1,
+                         __global const float4 *tri_t2, __global const BvhNode *tree, __global const u32 *tri_mat_index,
+                         const u32 n_triagles, __global const Material *materials, __global const TextureMeta *tex_meta,
+                         __global const u8 *tex_atlas, __global const Photon *photons, const u32 n_photons,
+                         const f32 search_radius, const u32 samples, __global float4 *out_color,
+                         __global const u32 *tree_index, __global const u32 *bucket_tree_offset,
+                         __global const u32 *bucket_tree_size, const PhotonHashInfo info) {
+    u32 tid = get_global_id(0);
     if (tid >= n_rays)
         return;
 
-    RngState rng = pcg_seed(seed + (u32)tid);
+    RngState rng = pcg_seed(seed + tid);
 
     float4 stack_diffuse[MAX_RAY_BOUNCES];
     float4 stack_weight[MAX_RAY_BOUNCES];
@@ -35,19 +35,11 @@ __global const u32 *bucket_tree_size,  const PhotonHashInfo info) {
     f32 curr_ior = AIR_IOR;
     float4 hit_pos, normal;
 
-    // used to visualize how the space is partitionaed using spatial hashing
-    /*
-    u32 h = photon_hash(hit_pos, info);
-    f32 hue = fmod((f32)h * 0.61803f, 1.0f); // golden-ratio scatter for visual distinctness
-    out_color[i] = (float4)(hue, fmod(hue*3.0f,1.0f), fmod(hue*7.0f,1.0f), 1.0f);
-    return;
-    */
-
     i32 depth = 0;
-    for (; depth < (i32)MAX_RAY_BOUNCES; depth++) {
+    for (; depth < MAX_RAY_BOUNCES; depth++) {
         HitRecord rec;
         bool hit = scene_intersect(tree, tri_v0, tri_v1, tri_v2, tri_uv0, tri_uv1, tri_uv2, tri_n0, tri_n1, tri_n2,
-                               tri_mat_index, (u32)n_tris, origin, dir, EPS, INF, &rec);
+                                   tri_mat_index, n_triagles, origin, dir, EPS, INF, &rec);
         stack_hit[depth] = hit;
         if (!hit)
             break;
@@ -61,7 +53,21 @@ __global const u32 *bucket_tree_size,  const PhotonHashInfo info) {
         float2 uv = (float2)(w * uv0.x + rec.u * uv1.x + rec.v * uv2.x, w * uv0.y + rec.u * uv1.y + rec.v * uv2.y);
 
         Material mat = materials[rec.mat_index];
-        float4 base_color = mat.base_color;
+
+        // Beer-Lambert law for volumetric materials
+        float4 vol_trans = (float4)(1.0f, 1.0f, 1.0f, 0.0f);
+        if (curr_ior != AIR_IOR && mat.thickness > 0.0f && mat.att_dist > EPS) {
+            f32 travel = rec.t;
+            float4 att_color = mat.att_color;
+            float4 sigma = (float4)(-log(fmax(att_color.x, EPS)), -log(fmax(att_color.y, EPS)),
+                                    -log(fmax(att_color.z, EPS)), 0.0f) /
+                           mat.att_dist;
+            vol_trans.x = exp(-sigma.x * travel);
+            vol_trans.y = exp(-sigma.y * travel);
+            vol_trans.z = exp(-sigma.z * travel);
+        }
+        float4 base_color = mat.base_color * vol_trans;
+
         if (mat.diff_index != NO_TEXTURE) {
             base_color *= sample_texture(tex_meta, tex_atlas, mat.diff_index, uv);
         }
@@ -94,8 +100,7 @@ __global const u32 *bucket_tree_size,  const PhotonHashInfo info) {
         stack_weight[depth] = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
 
         float4 h = ggx_sample_vndf(&rng, normal, -dir, roughness);
-        if (random_float(&rng) < metallic)
-        {
+        if (random_float(&rng) < metallic) {
             float4 reflected = reflect(dir, h);
             if (length(reflected) < EPS) {
                 stack_weight[depth] = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
@@ -112,8 +117,7 @@ __global const u32 *bucket_tree_size,  const PhotonHashInfo info) {
         f32 ior_1 = rec.front_face ? curr_ior : mat_ior;
         f32 ior_2 = rec.front_face ? mat_ior : AIR_IOR;
         f32 fr = fresnel_refracted(ior_1, ior_2, -dir, h);
-        if (random_float(&rng) < fr)
-        {
+        if (random_float(&rng) < fr) {
             float4 reflected = reflect(dir, h);
             if (length(reflected) < EPS) {
                 stack_weight[depth] = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
@@ -129,8 +133,7 @@ __global const u32 *bucket_tree_size,  const PhotonHashInfo info) {
             dir = reflected;
             continue;
         }
-        if (random_float(&rng) < transmission)
-        {
+        if (random_float(&rng) < transmission) {
             float4 refracted = refract(dir, normal, ior_1, ior_2);
             if (length(refracted) < EPS) {
                 stack_weight[depth] = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
@@ -153,7 +156,7 @@ __global const u32 *bucket_tree_size,  const PhotonHashInfo info) {
     }
 
     float4 result = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
-    for (i32 i = depth-1; i >= 0; i--) {
+    for (i32 i = depth - 1; i >= 0; i--) {
         if (!stack_hit[i])
             continue;
         result = stack_diffuse[i] + stack_weight[i] * result;

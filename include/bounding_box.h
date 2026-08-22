@@ -10,7 +10,7 @@ typedef struct BoundingBox {
 } BoundingBox;
 
 #ifndef __OPENCL_C_VERSION__
-#include "host_triangle.hpp"
+#include "triangle.h"
 inline f32 min_f32(f32 a, f32 b) { return a < b ? a : b; }
 inline f32 max_f32(f32 a, f32 b) { return a > b ? a : b; }
 
@@ -33,7 +33,7 @@ inline void expand_aabb(BoundingBox &bbox, const float4 p) {
     bbox.bbox_max.z = max_f32(bbox.bbox_max.z, p.z);
 }
 
-inline BoundingBox get_bounding_box(const HostTriangle &tri) {
+inline BoundingBox get_bounding_box(const Triangle &tri) {
     float4 bbox_min = {{INF, INF, INF, 0.0f}};
     float4 bbox_max = {{-INF, -INF, -INF, 0.0f}};
     BoundingBox res = {bbox_min, bbox_max};

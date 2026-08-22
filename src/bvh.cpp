@@ -2,24 +2,24 @@
 #include "bvh_node.h"
 #include "constants.h"
 #include "helpers.h"
-#include "host_triangle.hpp"
+#include "triangle.h"
 
 #include <algorithm>
 #include <vector>
 
-void split(std::vector<HostTriangle> &triangles, u32 start, u32 end, std::vector<BvhNode> &tree, u32 p);
+void split(std::vector<Triangle> &triangles, u32 start, u32 end, std::vector<BvhNode> &tree, u32 p);
 
-bool box_compare(HostTriangle &a, HostTriangle &b, u32 index) {
+bool box_compare(Triangle &a, Triangle &b, u32 index) {
     return get_bounding_box(a).bbox_min.s[index] < get_bounding_box(b).bbox_min.s[index];
 }
 
-bool box_compare0(HostTriangle &a, HostTriangle &b) { return box_compare(a, b, 0); }
+bool box_compare0(Triangle &a, Triangle &b) { return box_compare(a, b, 0); }
 
-bool box_compare1(HostTriangle &a, HostTriangle &b) { return box_compare(a, b, 1); }
+bool box_compare1(Triangle &a, Triangle &b) { return box_compare(a, b, 1); }
 
-bool box_compare2(HostTriangle &a, HostTriangle &b) { return box_compare(a, b, 2); }
+bool box_compare2(Triangle &a, Triangle &b) { return box_compare(a, b, 2); }
 
-std::vector<BvhNode> create_tree(std::vector<HostTriangle> &triangles) {
+std::vector<BvhNode> create_tree(std::vector<Triangle> &triangles) {
     std::vector<BvhNode> res;
     res.emplace_back(BvhNode()); // 0 intentionally left blank so binary tree aligns well
     res.resize(2 * pow2roundup(triangles.size()) + 1);
@@ -28,7 +28,7 @@ std::vector<BvhNode> create_tree(std::vector<HostTriangle> &triangles) {
     return res;
 }
 
-void split(std::vector<HostTriangle> &triangles, u32 start, u32 end, std::vector<BvhNode> &tree, u32 p) {
+void split(std::vector<Triangle> &triangles, u32 start, u32 end, std::vector<BvhNode> &tree, u32 p) {
     u32 span = end - start;
     if (span == 1) {
         BvhNode node;

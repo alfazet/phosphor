@@ -1,5 +1,15 @@
 #include "logger.hpp"
 
+void init_logger() {
+    auto &l = logger::Logger::instance();
+    l.set_level(logger::Level::Debug);
+
+    auto multi = std::make_unique<logger::MultiSink>();
+    multi->add(std::make_unique<logger::ConsoleSink>());
+    multi->add(std::make_unique<logger::FileSink>("phosphor.log", false));
+    l.set_sink(std::move(multi));
+}
+
 const char *logger::level_to_string(logger::Level lvl) {
     switch (lvl) {
     case logger::Level::Debug:

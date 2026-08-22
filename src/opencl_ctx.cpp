@@ -6,7 +6,6 @@
 ClContext::ClContext() {
     this->select_platform_and_device();
     this->context = cl::Context(this->device);
-    // TODO: take a look at properties again
     this->queue = cl::CommandQueue(this->context, this->device, cl::QueueProperties::None);
 
     LOG_INFO("OpenCL context set up successfully");
