@@ -113,6 +113,10 @@ void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const Bv
     }
     if (atlas.empty())
         atlas.push_back(0);
+    if (tex_meta.empty())
+        tex_meta.push_back(TextureMeta{});
+    if (atlas.empty())
+        atlas.push_back(0);
 
     this->tex_meta = dev_buf(ctx, tex_meta.data(), tex_meta.size(), sizeof(TextureMeta));
     this->tex_atlas = dev_buf(ctx, atlas.data(), atlas.size(), sizeof(u8));
