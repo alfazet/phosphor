@@ -3,7 +3,6 @@
 #include "constants.h"
 #include "hit.h"
 #include "material.h"
-#include "photon.h"
 #include "photon_hash.h"
 #include "random.h"
 #include "texture_meta.h"
@@ -16,8 +15,12 @@ __kernel void trace_rays(__global const float4 *ray_origin, __global const float
                          __global const float2 *tri_uv2, __global const float4 *tri_t0, __global const float4 *tri_t1,
                          __global const float4 *tri_t2, __global const BvhNode *tree, __global const u32 *tri_mat_index,
                          const u32 n_triagles, __global const Material *materials, __global const TextureMeta *tex_meta,
-                         __global const u8 *tex_atlas, __global const Photon *photons, const u32 n_photons,
-                         const f32 search_radius, const u32 samples, __global float4 *out_color,
+                         __global const u8 *tex_atlas,
+
+                         __global const float4 *photon_pos, __global const float4 *photon_power,
+                         __global const float4 *photon_dir, __global const float4 *photon_normal,
+
+                         const u32 n_photons, const f32 search_radius, const u32 samples, __global float4 *out_color,
                          __global const u32 *tree_index, __global const u32 *bucket_tree_offset,
                          __global const u32 *bucket_tree_size, const PhotonHashInfo info) {
     u32 tid = get_global_id(0);
@@ -95,8 +98,8 @@ __kernel void trace_rays(__global const float4 *ray_origin, __global const float
             f32 radius_sq = search_radius * search_radius;
             f32 max_dist_sq = 0.0f;
 
-            gather_photon_flux(hit_pos, info, tree_index, bucket_tree_offset, bucket_tree_size, photons, samples,
-                               radius_sq, &flux, &max_dist_sq);
+            gather_photon_flux(hit_pos, info, tree_index, bucket_tree_offset, bucket_tree_size, photon_pos,
+                               photon_power, samples, radius_sq, &flux, &max_dist_sq);
 
             f32 area = PI * max_dist_sq;
             if (area > EPS)

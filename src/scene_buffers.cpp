@@ -156,31 +156,39 @@ void SceneBuffers::upload_rays(ClContext &ctx, const std::vector<float4> &origin
     this->ray_dir = dev_buf(ctx, dirs.data(), n_rays, sizeof(float4));
 }
 
-void SceneBuffers::upload_photons(ClContext &ctx, PhotonHash &hash, std::vector<Photon> &photons) {
-    this->n_photons = static_cast<u32>(photons.size());
+void SceneBuffers::upload_photons(ClContext &ctx, PhotonHash &hash, std::vector<float4> &photon_pos,
+                                  std::vector<float4> &photon_power, std::vector<float4> &photon_dir,
+                                  std::vector<float4> &photon_normal) {
+    this->n_photons = static_cast<u32>(photon_pos.size());
 
-    photons_sorted = dev_buf(ctx, photons.data(), n_photons, sizeof(Photon));
+    this->photon_pos = dev_buf(ctx, photon_pos.data(), n_photons, sizeof(float4));
+    this->photon_power = dev_buf(ctx, photon_power.data(), n_photons, sizeof(float4));
+    this->photon_dir = dev_buf(ctx, photon_dir.data(), n_photons, sizeof(float4));
+    this->photon_normal = dev_buf(ctx, photon_normal.data(), n_photons, sizeof(float4));
+
     tree_index = dev_buf(ctx, hash.tree_index.data(), hash.tree_index.size(), sizeof(u32));
     bucket_tree_offset = dev_buf(ctx, hash.bucket_tree_offset.data(), hash.bucket_tree_offset.size(), sizeof(u32));
     bucket_tree_size = dev_buf(ctx, hash.bucket_tree_size.data(), hash.bucket_tree_size.size(), sizeof(u32));
 }
 
 void SceneBuffers::set_emit_photons_args(cl::Kernel &kernel, u32 batch_offset, u32 photons_to_emit, u32 seed,
-                                         u32 batch_max_photons, cl::Buffer &out_photons,
-                                         cl::Buffer &out_photon_count) const {
-    set_kernel_args(kernel, out_photons, out_photon_count, lights, n_lights, batch_max_photons, batch_offset,
-                    photons_to_emit, seed, bvh_nodes, tri_v0, tri_v1, tri_v2, tri_n0, tri_n1, tri_n2, tri_uv0, tri_uv1,
-                    tri_uv2, tri_t0, tri_t1, tri_t2, tri_mat_index, n_triangles, etri_v0, etri_v1, etri_v2, etri_n0,
-                    etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2, etri_t0, etri_t1, etri_t2, etri_mat_index,
-                    materials, tex_meta, tex_atlas, light_pref_sum, total_luminance, scene_center, scene_radius);
+                                         u32 batch_max_photons, cl::Buffer &out_photon_pos,
+                                         cl::Buffer &out_photon_power, cl::Buffer &out_photon_dir,
+                                         cl::Buffer &out_photon_normal, cl::Buffer &out_photon_count) const {
+    set_kernel_args(kernel, out_photon_pos, out_photon_power, out_photon_dir, out_photon_normal, out_photon_count,
+                    lights, n_lights, batch_max_photons, batch_offset, photons_to_emit, seed, bvh_nodes, tri_v0, tri_v1,
+                    tri_v2, tri_n0, tri_n1, tri_n2, tri_uv0, tri_uv1, tri_uv2, tri_t0, tri_t1, tri_t2, tri_mat_index,
+                    n_triangles, etri_v0, etri_v1, etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2,
+                    etri_t0, etri_t1, etri_t2, etri_mat_index, materials, tex_meta, tex_atlas, light_pref_sum,
+                    total_luminance, scene_center, scene_radius);
 }
 
 void SceneBuffers::set_trace_rays_args(cl::Kernel &kernel, f32 search_radius, u32 samples, PhotonHashInfo info,
                                        u32 seed, cl::Buffer &out_color) const {
     set_kernel_args(kernel, ray_origin, ray_dir, n_rays, seed, tri_v0, tri_v1, tri_v2, tri_n0, tri_n1, tri_n2, tri_uv0,
                     tri_uv1, tri_uv2, tri_t0, tri_t1, tri_t2, bvh_nodes, tri_mat_index, n_triangles, materials,
-                    tex_meta, tex_atlas, photons_sorted, n_photons, search_radius, samples, out_color, tree_index,
-                    bucket_tree_offset, bucket_tree_size, info);
+                    tex_meta, tex_atlas, photon_pos, photon_power, photon_dir, photon_normal, n_photons, search_radius,
+                    samples, out_color, tree_index, bucket_tree_offset, bucket_tree_size, info);
 }
 
 void SceneBuffers::print_buffer_sizes() const {
@@ -232,7 +240,7 @@ void SceneBuffers::print_buffer_sizes() const {
     sz("ray_origin", ray_origin);
     sz("ray_dir", ray_dir);
 
-    sz("photons_sorted", photons_sorted);
+    sz("photon_pos", photon_pos);
     sz("tree_index", tree_index);
     sz("bucket_tree_offset", bucket_tree_offset);
     sz("bucket_tree_size", bucket_tree_size);

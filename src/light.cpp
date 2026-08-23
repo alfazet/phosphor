@@ -36,6 +36,6 @@ Light make_textured_light(u32 tex_index, u32 tri_start, u32 tri_count, vec3 powe
     Light l{};
     l.kind = LIGHT_TEXTURED;
     l.power = vec3_to_float4(power);
-    l.aux = float4{{bits_as_float(tex_index), bits_as_float(tri_start), bits_as_float(tri_count), 0.0f}};
+    l.aux = float4{{as_float(tex_index), as_float(tri_start), as_float(tri_count), 0.0f}};
     return l;
 }
