@@ -15,12 +15,14 @@ struct SceneData {
     std::vector<Triangle> triangles;
     std::vector<Material> materials;
     std::vector<Light> lights;
-    std::vector<f32> light_area_pref_sum;
+    std::vector<f32> luminance_pref_sum;
     std::vector<Camera> cameras;
     std::vector<Texture> textures;
     std::optional<u32> chosen_camera{};
 
     const Camera &get_camera() const;
+
+    void build_luminance_pref_sum();
 };
 
 SceneData read_gltf_scene(const char *path);

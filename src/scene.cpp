@@ -319,17 +319,6 @@ void parse_node(aiNode *ai_node, const aiScene *ai_scene, SceneData &out_scene, 
         parse_node(ai_node->mChildren[i], ai_scene, out_scene, global_transform);
 }
 
-void build_light_pref_sum(SceneData &out_scene) {
-    out_scene.light_area_pref_sum.clear();
-    out_scene.light_area_pref_sum.reserve(out_scene.lights.size());
-    f32 running = 0.0f;
-    for (const auto &l : out_scene.lights) {
-        f32 luminance = l.power.x * 0.2126f + l.power.y * 0.7152f + l.power.z * 0.0722f;
-        running += std::max(luminance, 0.0f);
-        out_scene.light_area_pref_sum.push_back(running);
-    }
-}
-
 SceneData read_gltf_scene(const char *file_name) {
     TimerScope timer_scope("loading scene");
 
@@ -349,7 +338,7 @@ SceneData read_gltf_scene(const char *file_name) {
 
     mat4 identity(1.0f);
     parse_node(ai_scene->mRootNode, ai_scene, scene, identity);
-    build_light_pref_sum(scene);
+    scene.build_luminance_pref_sum();
 
     if (!ai_scene->HasCameras()) {
         LOG_FATAL("scene has no cameras");
@@ -363,3 +352,14 @@ SceneData read_gltf_scene(const char *file_name) {
 }
 
 const Camera &SceneData::get_camera() const { return this->cameras[*this->chosen_camera]; }
+
+void SceneData::build_luminance_pref_sum() {
+    this->luminance_pref_sum.clear();
+    this->luminance_pref_sum.reserve(this->lights.size());
+    f32 running = 0.0f;
+    for (const auto &l : this->lights) {
+        f32 luminance = l.power.x * 0.2126f + l.power.y * 0.7152f + l.power.z * 0.0722f;
+        running += std::max(luminance, 0.0f);
+        this->luminance_pref_sum.push_back(running);
+    }
+}

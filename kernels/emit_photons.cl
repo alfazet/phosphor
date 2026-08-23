@@ -67,6 +67,93 @@ static inline void sample_spot_light(RngState *rng, Light *light, float4 *origin
     *power = light->power * falloff;
 }
 
+static inline void sample_textured_light(RngState *rng, Light *light, __global const float4 *tri_v0,
+                                         __global const float4 *tri_v1, __global const float4 *tri_v2,
+                                         __global const float4 *tri_n0, __global const float4 *tri_n1,
+                                         __global const float4 *tri_n2, __global const float2 *tri_uv0,
+                                         __global const float2 *tri_uv1, __global const float2 *tri_uv2,
+                                         __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
+                                         float4 *origin, float4 *dir, float4 *power
+
+) {
+    u32 tex_index = as_uint(light->aux.x);
+    u32 tri_start = as_uint(light->aux.y);
+    u32 tri_count = as_uint(light->aux.z);
+
+    if (tri_count == 0) {
+        *origin = (float4)(0.0f);
+        *dir = (float4)(0.0f, 1.0f, 0.0f, 0.0f);
+        *power = (float4)(0.0f);
+        return;
+    }
+
+    u32 chosen_tri = tri_start;
+    if (tri_count > 1) {
+        f32 total_area = 0.0f;
+        for (u32 i = 0; i < tri_count; i++) {
+            u32 t = tri_start + i;
+            float4 e1 = tri_v1[t] - tri_v0[t];
+            float4 e2 = tri_v2[t] - tri_v0[t];
+            f32 area = 0.5f * length(cross(e1, e2));
+            total_area += area;
+        }
+
+        if (total_area > EPS) {
+            f32 r = random_float(rng) * total_area;
+            f32 accum = 0.0f;
+            for (u32 i = 0; i < tri_count; i++) {
+                u32 t = tri_start + i;
+                float4 e1 = tri_v1[t] - tri_v0[t];
+                float4 e2 = tri_v2[t] - tri_v0[t];
+                f32 area = 0.5f * length(cross(e1, e2));
+                accum += area;
+                if (r <= accum || i == tri_count - 1) {
+                    chosen_tri = t;
+                    break;
+                }
+            }
+        }
+    }
+
+    f32 r1 = random_float(rng);
+    f32 r2 = random_float(rng);
+    f32 sqrt_r1 = sqrt(r1);
+    f32 u = 1.0f - sqrt_r1;
+    f32 v = r2 * sqrt_r1;
+    f32 w = 1.0f - u - v;
+
+    float4 v0 = tri_v0[chosen_tri];
+    float4 v1 = tri_v1[chosen_tri];
+    float4 v2 = tri_v2[chosen_tri];
+    *origin = w * v0 + u * v1 + v * v2;
+
+    float4 n0 = tri_n0[chosen_tri];
+    float4 n1 = tri_n1[chosen_tri];
+    float4 n2 = tri_n2[chosen_tri];
+    float4 normal = w * n0 + u * n1 + v * n2;
+    if (length(normal) > EPS) {
+        normal = normalize(normal);
+    } else {
+        float4 e1 = v1 - v0;
+        float4 e2 = v2 - v0;
+        normal = normalize(cross(e1, e2));
+    }
+
+    float2 uv0 = tri_uv0[chosen_tri];
+    float2 uv1 = tri_uv1[chosen_tri];
+    float2 uv2 = tri_uv2[chosen_tri];
+    float2 uv = (float2)(w * uv0.x + u * uv1.x + v * uv2.x, w * uv0.y + u * uv1.y + v * uv2.y);
+
+    *dir = random_in_unit_hemisphere(rng, normal);
+
+    float4 em_power = light->power;
+    if (tex_index != NO_TEXTURE) {
+        float4 tex_color = sample_texture(tex_meta, tex_atlas, tex_index, uv);
+        em_power *= tex_color;
+    }
+    *power = em_power;
+}
+
 inline void sample_light(RngState *rng, __global const Light *lights, u32 n_lights, __global const f32 *light_pref_sum,
                          f32 total_luminance, float4 scene_center, f32 scene_radius, __global const float4 *tri_v0,
                          __global const float4 *tri_v1, __global const float4 *tri_v2, __global const float4 *tri_n0,
@@ -93,8 +180,8 @@ inline void sample_light(RngState *rng, __global const Light *lights, u32 n_ligh
     } else if (light.kind == LIGHT_DIRECTIONAL) {
         // TODO
     } else {
-        // TODO
-        // LIGHT_TEXTURED
+        sample_textured_light(rng, &light, tri_v0, tri_v1, tri_v2, tri_n0, tri_n1, tri_n2, tri_uv0, tri_uv1, tri_uv2,
+                              tex_meta, tex_atlas, origin, dir, power);
     }
     *power /= scale;
 }

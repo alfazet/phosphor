@@ -54,9 +54,9 @@ void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const Bv
     this->materials = dev_buf(ctx, scene.materials.data(), n_materials, sizeof(Material));
     this->lights = dev_buf(ctx, scene.lights.data(), n_lights, sizeof(Light));
 
-    const std::vector<f32> &pref = scene.light_area_pref_sum;
-    this->light_pref_sum = dev_buf(ctx, pref.data(), pref.size(), sizeof(f32));
-    this->total_luminance = pref.empty() ? 0.0f : pref.back();
+    const std::vector<f32> &luminance_pref_sum = scene.luminance_pref_sum;
+    this->light_pref_sum = dev_buf(ctx, luminance_pref_sum.data(), luminance_pref_sum.size(), sizeof(f32));
+    this->total_luminance = luminance_pref_sum.empty() ? 0.0f : luminance_pref_sum.back();
 
     std::vector<TextureMeta> tex_meta(n_textures);
     std::vector<u8> atlas;
