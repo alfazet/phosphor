@@ -18,6 +18,13 @@ struct SceneBuffers {
     cl::Buffer tri_mat_index;
     u32 n_triangles = 0;
 
+    cl::Buffer etri_v0, etri_v1, etri_v2;
+    cl::Buffer etri_uv0, etri_uv1, etri_uv2;
+    cl::Buffer etri_n0, etri_n1, etri_n2;
+    cl::Buffer etri_t0, etri_t1, etri_t2;
+    cl::Buffer etri_mat_index;
+    u32 en_triangles = 0;
+
     cl::Buffer bvh_nodes;
 
     cl::Buffer materials;
@@ -56,6 +63,7 @@ struct SceneBuffers {
 
     void set_trace_rays_args(cl::Kernel &kernel, f32 search_radius, u32 samples, PhotonHashInfo info, u32 seed,
                              cl::Buffer &out_color) const;
+    void print_buffer_sizes() const;
 };
 
 #endif // PHOSPHOR_SCENE_BUFFERS_HPP

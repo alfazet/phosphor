@@ -84,8 +84,7 @@ __kernel void trace_rays(__global const float4 *ray_origin, __global const float
 
         stack_emissive[depth] = mat.emissive;
         if (mat.emis_index != NO_TEXTURE) {
-            float4 mr = sample_texture(tex_meta, tex_atlas, mat.emis_index, uv);
-            stack_emissive[depth] = sample_texture(tex_meta, tex_atlas, mat.metal_rough_index, uv);
+            stack_emissive[depth] = sample_texture(tex_meta, tex_atlas, mat.emis_index, uv);
         }
 
         f32 mix_factor = fmax(metallic, transmission);

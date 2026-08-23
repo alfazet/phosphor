@@ -1,6 +1,7 @@
 #include "scene_buffers.hpp"
 #include "bounding_box.h"
 #include "glm_bundle.hpp"
+#include "logger.hpp"
 #include "opencl_ctx.hpp"
 #include "texture_meta.h"
 
@@ -11,6 +12,7 @@ cl::Buffer dev_buf(ClContext &ctx, const void *data, u32 count, u32 item_size) {
 
 void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const Bvh &bvh) {
     this->n_triangles = scene.triangles.size();
+    this->en_triangles = scene.emissive_triangles.size();
     this->n_materials = scene.materials.size();
     this->n_lights = scene.lights.size();
     this->n_textures = scene.textures.size();
@@ -50,6 +52,43 @@ void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const Bv
     this->tri_t1 = dev_buf(ctx, tt1.data(), n_triangles, sizeof(float4));
     this->tri_t2 = dev_buf(ctx, tt2.data(), n_triangles, sizeof(float4));
     this->tri_mat_index = dev_buf(ctx, tmat.data(), n_triangles, sizeof(u32));
+
+    std::vector<float4> etv0(en_triangles), etv1(en_triangles), etv2(en_triangles);
+    std::vector<float2> etuv0(en_triangles), etuv1(en_triangles), etuv2(en_triangles);
+    std::vector<float4> etn0(en_triangles), etn1(en_triangles), etn2(en_triangles);
+    std::vector<float4> ett0(en_triangles), ett1(en_triangles), ett2(en_triangles);
+    std::vector<u32> etmat(en_triangles);
+    for (u32 i = 0; i < en_triangles; i++) {
+        const auto &t = scene.emissive_triangles[i];
+        etv0[i] = t.v0;
+        etv1[i] = t.v1;
+        etv2[i] = t.v2;
+        etuv0[i] = t.uv0;
+        etuv1[i] = t.uv1;
+        etuv2[i] = t.uv2;
+        etn0[i] = t.n0;
+        etn1[i] = t.n1;
+        etn2[i] = t.n2;
+        ett0[i] = t.t0;
+        ett1[i] = t.t1;
+        ett2[i] = t.t2;
+        etmat[i] = t.mat_index;
+    }
+
+    this->etri_v0 = dev_buf(ctx, etv0.data(), en_triangles, sizeof(float4));
+    this->etri_v1 = dev_buf(ctx, etv1.data(), en_triangles, sizeof(float4));
+    this->etri_v2 = dev_buf(ctx, etv2.data(), en_triangles, sizeof(float4));
+    this->etri_uv0 = dev_buf(ctx, etuv0.data(), en_triangles, sizeof(float2));
+    this->etri_uv1 = dev_buf(ctx, etuv1.data(), en_triangles, sizeof(float2));
+    this->etri_uv2 = dev_buf(ctx, etuv2.data(), en_triangles, sizeof(float2));
+    this->etri_n0 = dev_buf(ctx, etn0.data(), en_triangles, sizeof(float4));
+    this->etri_n1 = dev_buf(ctx, etn1.data(), en_triangles, sizeof(float4));
+    this->etri_n2 = dev_buf(ctx, etn2.data(), en_triangles, sizeof(float4));
+    this->etri_t0 = dev_buf(ctx, ett0.data(), en_triangles, sizeof(float4));
+    this->etri_t1 = dev_buf(ctx, ett1.data(), en_triangles, sizeof(float4));
+    this->etri_t2 = dev_buf(ctx, ett2.data(), en_triangles, sizeof(float4));
+    this->etri_mat_index = dev_buf(ctx, etmat.data(), en_triangles, sizeof(u32));
+
     this->bvh_nodes = dev_buf(ctx, bvh.nodes.data(), bvh.nodes.size(), sizeof(BvhNode));
     this->materials = dev_buf(ctx, scene.materials.data(), n_materials, sizeof(Material));
     this->lights = dev_buf(ctx, scene.lights.data(), n_lights, sizeof(Light));
@@ -72,6 +111,10 @@ void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const Bv
         tex_meta[i] = m;
         atlas.insert(atlas.end(), tex.tex_atlas.begin(), tex.tex_atlas.end());
     }
+    if (atlas.empty())
+        atlas.push_back(0);
+    if (tex_meta.empty())
+        tex_meta.push_back(TextureMeta{});
     if (atlas.empty())
         atlas.push_back(0);
 
@@ -106,8 +149,9 @@ void SceneBuffers::set_emit_photons_args(cl::Kernel &kernel, u32 batch_offset, u
                                          cl::Buffer &out_photon_count) const {
     set_kernel_args(kernel, out_photons, out_photon_count, lights, n_lights, batch_max_photons, batch_offset,
                     photons_to_emit, seed, bvh_nodes, tri_v0, tri_v1, tri_v2, tri_n0, tri_n1, tri_n2, tri_uv0, tri_uv1,
-                    tri_uv2, tri_t0, tri_t1, tri_t2, tri_mat_index, n_triangles, materials, tex_meta, tex_atlas,
-                    light_pref_sum, total_luminance, scene_center, scene_radius);
+                    tri_uv2, tri_t0, tri_t1, tri_t2, tri_mat_index, n_triangles, etri_v0, etri_v1, etri_v2, etri_n0,
+                    etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2, etri_t0, etri_t1, etri_t2, etri_mat_index,
+                    materials, tex_meta, tex_atlas, light_pref_sum, total_luminance, scene_center, scene_radius);
 }
 
 void SceneBuffers::set_trace_rays_args(cl::Kernel &kernel, f32 search_radius, u32 samples, PhotonHashInfo info,
@@ -116,4 +160,59 @@ void SceneBuffers::set_trace_rays_args(cl::Kernel &kernel, f32 search_radius, u3
                     tri_uv1, tri_uv2, tri_t0, tri_t1, tri_t2, bvh_nodes, tri_mat_index, n_triangles, materials,
                     tex_meta, tex_atlas, photons_sorted, n_photons, search_radius, samples, out_color, tree_index,
                     bucket_tree_offset, bucket_tree_size, info);
+}
+
+void SceneBuffers::print_buffer_sizes() const {
+    auto sz = [](const char *name, const cl::Buffer &buf) {
+        if (buf() == nullptr) {
+            LOG_INFO("{:<24} : (unallocated)", name);
+            return;
+        }
+        cl_ulong bytes = buf.getInfo<CL_MEM_SIZE>();
+        LOG_INFO("{:<24} : {} bytes", name, bytes);
+    };
+
+    sz("tri_v0", tri_v0);
+    sz("tri_v1", tri_v1);
+    sz("tri_v2", tri_v2);
+    sz("tri_uv0", tri_uv0);
+    sz("tri_uv1", tri_uv1);
+    sz("tri_uv2", tri_uv2);
+    sz("tri_n0", tri_n0);
+    sz("tri_n1", tri_n1);
+    sz("tri_n2", tri_n2);
+    sz("tri_t0", tri_t0);
+    sz("tri_t1", tri_t1);
+    sz("tri_t2", tri_t2);
+    sz("tri_mat_index", tri_mat_index);
+
+    sz("etri_v0", etri_v0);
+    sz("etri_v1", etri_v1);
+    sz("etri_v2", etri_v2);
+    sz("etri_uv0", etri_uv0);
+    sz("etri_uv1", etri_uv1);
+    sz("etri_uv2", etri_uv2);
+    sz("etri_n0", etri_n0);
+    sz("etri_n1", etri_n1);
+    sz("etri_n2", etri_n2);
+    sz("etri_t0", etri_t0);
+    sz("etri_t1", etri_t1);
+    sz("etri_t2", etri_t2);
+    sz("etri_mat_index", etri_mat_index);
+
+    sz("bvh_nodes", bvh_nodes);
+    sz("materials", materials);
+    sz("lights", lights);
+    sz("light_pref_sum", light_pref_sum);
+
+    sz("tex_meta", tex_meta);
+    sz("tex_atlas", tex_atlas);
+
+    sz("ray_origin", ray_origin);
+    sz("ray_dir", ray_dir);
+
+    sz("photons_sorted", photons_sorted);
+    sz("tree_index", tree_index);
+    sz("bucket_tree_offset", bucket_tree_offset);
+    sz("bucket_tree_size", bucket_tree_size);
 }

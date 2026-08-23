@@ -231,17 +231,20 @@ void parse_mesh(aiMesh *ai_mesh, const aiScene *ai_scene, SceneData &out_scene, 
     }
 
     u32 triangle_count = static_cast<u32>(out_scene.triangles.size()) - triangle_start;
+    u32 emissive_triangles_start = out_scene.emissive_triangles.size();
     if (emissive.has_value() && triangle_count > 0) {
         const Material &m = out_scene.materials[mat_index];
         f32 total_area = 0.0f;
         for (u32 j = triangle_start; j < triangle_start + triangle_count; j++) {
             const Triangle &tri = out_scene.triangles[j];
+            out_scene.emissive_triangles.push_back(tri);
             vec3 e1(tri.v1.x - tri.v0.x, tri.v1.y - tri.v0.y, tri.v1.z - tri.v0.z);
             vec3 e2(tri.v2.x - tri.v0.x, tri.v2.y - tri.v0.y, tri.v2.z - tri.v0.z);
             total_area += 0.5f * glm::length(glm::cross(e1, e2));
         }
         vec3 emissive_power = PI * (*emissive) * total_area;
-        out_scene.lights.push_back(make_textured_light(m.emis_index, triangle_start, triangle_count, emissive_power));
+        out_scene.lights.push_back(
+            make_textured_light(m.emis_index, emissive_triangles_start, triangle_count, emissive_power));
     }
 }
 

@@ -13,6 +13,7 @@
 
 struct SceneData {
     std::vector<Triangle> triangles;
+    std::vector<Triangle> emissive_triangles;
     std::vector<Material> materials;
     std::vector<Light> lights;
     std::vector<f32> luminance_pref_sum;

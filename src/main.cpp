@@ -81,6 +81,7 @@ void phosphor_main(const ArgsList &args) {
     f32 search_radius = std::min({info.cell_sizes.x, info.cell_sizes.y, info.cell_sizes.z}) / 2.0f;
     buffers.set_trace_rays_args(k_trace_rays, search_radius, args.samples, info, args.seed, d_out);
 
+    buffers.print_buffer_sizes();
     TimerScope timer_scope_image("rendering image");
     ctx.queue.enqueueNDRangeKernel(k_trace_rays, cl::NullRange, cl::NDRange(buffers.n_rays), cl::NullRange);
     ctx.queue.finish();
