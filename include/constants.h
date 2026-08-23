@@ -22,4 +22,7 @@
 #define MAX_PHOTONS_PER_BATCH (1u << 15)
 #define DEFAULT_CAMERA_ASPECT (16.0f / 9.0f)
 
+#define BLACK (float4)(0.0f, 0.0f, 0.0f, 0.0f)
+#define WHITE (float4)(1.0f, 1.0f, 1.0f, 0.0f)
+
 #endif // PHOSPHOR_CONSTANTS_H
