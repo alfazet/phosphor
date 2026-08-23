@@ -7,6 +7,7 @@
 #include "random.h"
 #include "texture_meta.h"
 #include "typedefs.h"
+#include "utils.h"
 
 static inline u32 select_light(RngState *rng, __global const f32 *pref_sum, u32 n_lights, f32 total_luminance,
                                f32 *scale) {

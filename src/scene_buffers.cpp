@@ -9,7 +9,7 @@ cl::Buffer dev_buf(ClContext &ctx, const void *data, u32 count, u32 item_size) {
                       const_cast<void *>(data));
 }
 
-void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const std::vector<BvhNode> &bvh) {
+void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const Bvh &bvh) {
     this->n_triangles = scene.triangles.size();
     this->n_materials = scene.materials.size();
     this->n_lights = scene.lights.size();
@@ -50,7 +50,7 @@ void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const st
     this->tri_t1 = dev_buf(ctx, tt1.data(), n_triangles, sizeof(float4));
     this->tri_t2 = dev_buf(ctx, tt2.data(), n_triangles, sizeof(float4));
     this->tri_mat_index = dev_buf(ctx, tmat.data(), n_triangles, sizeof(u32));
-    this->bvh_nodes = dev_buf(ctx, bvh.data(), bvh.size(), sizeof(BvhNode));
+    this->bvh_nodes = dev_buf(ctx, bvh.nodes.data(), bvh.nodes.size(), sizeof(BvhNode));
     this->materials = dev_buf(ctx, scene.materials.data(), n_materials, sizeof(Material));
     this->lights = dev_buf(ctx, scene.lights.data(), n_lights, sizeof(Light));
 
@@ -78,7 +78,7 @@ void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const st
     this->tex_meta = dev_buf(ctx, tex_meta.data(), tex_meta.size(), sizeof(TextureMeta));
     this->tex_atlas = dev_buf(ctx, atlas.data(), atlas.size(), sizeof(u8));
 
-    BoundingBox scene_bbox = bvh[1].bbox;
+    BoundingBox scene_bbox = bvh.get_bbox();
     vec3 bbox_min(scene_bbox.bbox_min.x, scene_bbox.bbox_min.y, scene_bbox.bbox_min.z);
     vec3 bbox_max(scene_bbox.bbox_max.x, scene_bbox.bbox_max.y, scene_bbox.bbox_max.z);
     vec3 center = 0.5f * (bbox_min + bbox_max);
@@ -114,6 +114,6 @@ void SceneBuffers::set_trace_rays_args(cl::Kernel &kernel, f32 search_radius, u3
                                        u32 seed, cl::Buffer &out_color) const {
     set_kernel_args(kernel, ray_origin, ray_dir, n_rays, seed, tri_v0, tri_v1, tri_v2, tri_n0, tri_n1, tri_n2, tri_uv0,
                     tri_uv1, tri_uv2, tri_t0, tri_t1, tri_t2, bvh_nodes, tri_mat_index, n_triangles, materials,
-                    tex_meta, tex_atlas, photons_sorted, n_photons, search_radius, samples, out_color,
-                    tree_index, bucket_tree_offset, bucket_tree_size, info);
+                    tex_meta, tex_atlas, photons_sorted, n_photons, search_radius, samples, out_color, tree_index,
+                    bucket_tree_offset, bucket_tree_size, info);
 }

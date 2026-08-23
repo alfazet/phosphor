@@ -6,6 +6,7 @@
 #include "constants.h"
 #include "random.h"
 #include "typedefs.h"
+#include "utils.h"
 
 // "Sampling the GGX Distribution of Visible Normals", Heitz 2018
 inline float4 ggx_sample_vndf(RngState *rng, float4 normal, float4 view, f32 roughness) {

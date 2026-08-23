@@ -1,7 +1,7 @@
 #ifndef PHOSPHOR_SCENE_BUFFERS_HPP
 #define PHOSPHOR_SCENE_BUFFERS_HPP
 
-#include "bvh_node.h"
+#include "bvh.hpp"
 #include "opencl_ctx.hpp"
 #include "photon.h"
 #include "photon_hash.h"
@@ -45,7 +45,7 @@ struct SceneBuffers {
     float4 scene_center{};
     f32 scene_radius = 0.0f;
 
-    void upload_scene(ClContext &ctx, const SceneData &scene, const std::vector<BvhNode> &bvh);
+    void upload_scene(ClContext &ctx, const SceneData &scene, const Bvh &bvh);
 
     void upload_rays(ClContext &ctx, const std::vector<float4> &origins, const std::vector<float4> &dirs);
 

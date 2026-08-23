@@ -163,7 +163,7 @@ typedef struct PhotonHash {
     u32 bucket_count;
 } PhotonHash;
 
-inline PhotonHashInfo build_hash_info(BoundingBox bbox, u32 grid_res) {
+inline PhotonHashInfo build_hash_info(const BoundingBox &bbox, u32 grid_res) {
     PhotonHashInfo info;
     info.grid_res = grid_res;
     info.origin = (float4){bbox.bbox_min.x, bbox.bbox_min.y, bbox.bbox_min.z, 0.0f};

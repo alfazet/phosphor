@@ -3,6 +3,7 @@
 
 #include "constants.h"
 #include "typedefs.h"
+#include "utils.h"
 
 typedef struct GPU_ALIGN RngState {
     u32 state;
@@ -13,7 +14,6 @@ typedef struct GPU_ALIGN RngState {
 } RngState;
 
 // values from https://github.com/imneme/pcg-c/blob/master/include/pcg_variants.h
-
 inline u32 pcg_random(RngState *rng) {
     u32 oldstate = rng->state;
     rng->state = rng->state * 747796405u + 2891336453u;
@@ -52,20 +52,6 @@ inline float4 random_unit_vector(RngState *rng) {
     p.z /= len;
 
     return p;
-}
-
-inline void make_tbn(float4 normal, float4 *tangent, float4 *bitangent) {
-    normal.w = 0.0f;
-    float4 tmp = (fabs(normal.x) > 0.1f) ? (float4)(0.0f, 1.0f, 0.0f, 0.0f) : (float4)(1.0f, 0.0f, 0.0f, 0.0f);
-
-    *tangent = cross(normal, tmp);
-    if (length(*tangent) < EPS) {
-        tmp = (float4)(0.0f, 0.0f, 1.0f, 0.0f);
-        *tangent = cross(normal, tmp);
-    }
-
-    *tangent = normalize(*tangent);
-    *bitangent = cross(normal, *tangent);
 }
 
 inline float4 random_in_unit_hemisphere(RngState *rng, float4 normal) {

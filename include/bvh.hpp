@@ -6,6 +6,12 @@
 
 #include <vector>
 
-std::vector<BvhNode> create_tree(std::vector<Triangle> &triangles);
+struct Bvh {
+    std::vector<BvhNode> nodes;
+
+    Bvh(const std::vector<Triangle> &triangles);
+
+    const BoundingBox& get_bbox() const;
+};
 
 #endif // PHOSPHOR_GPU_BVH_H

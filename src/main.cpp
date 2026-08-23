@@ -12,7 +12,6 @@
 #include "scene_buffers.hpp"
 #include "utils.h"
 
-#include <glm/glm.hpp>
 #include <iostream>
 #include <vector>
 
@@ -30,8 +29,9 @@ void phosphor_main(const ArgsList &args) {
     }
 
     TimerScope timer_scope_bvh("building BVH");
-    std::vector<BvhNode> bvh = create_tree(scene.triangles);
+    Bvh bvh(scene.triangles);
     timer_scope_bvh.stop();
+    const BoundingBox &bbox = bvh.get_bbox();
 
     SceneBuffers buffers;
     buffers.upload_scene(ctx, scene, bvh);
@@ -70,7 +70,7 @@ void phosphor_main(const ArgsList &args) {
     timer_scope_photons.stop();
 
     TimerScope timer_scope_hash("building hash struct for photons");
-    PhotonHashInfo info = build_hash_info(bvh[1].bbox, args.grid_res);
+    PhotonHashInfo info = build_hash_info(bbox, args.grid_res);
     PhotonHash struct_hash = build_hash(h_photons, info);
     timer_scope_hash.stop();
 
