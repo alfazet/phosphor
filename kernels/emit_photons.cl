@@ -150,11 +150,11 @@ static inline void sample_textured_light(RngState *rng, Light *light, __global c
 inline void sample_light(RngState *rng, __global const Light *lights, u32 n_lights, __global const f32 *light_pref_sum,
                          f32 total_luminance, float4 scene_center, f32 scene_radius, __global const float4 *etri_v0,
                          __global const float4 *etri_v1, __global const float4 *etri_v2, __global const float4 *etri_n0,
-                         __global const float4 *etri_n1, __global const float4 *etri_n2, __global const float2 *etri_uv0,
-                         __global const float2 *etri_uv1, __global const float2 *etri_uv2,
-                         __global const Material *materials, __global const u32 *etri_mat_index,
-                         __global const TextureMeta *tex_meta, __global const u8 *tex_atlas, float4 *origin,
-                         float4 *dir, float4 *power) {
+                         __global const float4 *etri_n1, __global const float4 *etri_n2,
+                         __global const float2 *etri_uv0, __global const float2 *etri_uv1,
+                         __global const float2 *etri_uv2, __global const Material *materials,
+                         __global const u32 *etri_mat_index, __global const TextureMeta *tex_meta,
+                         __global const u8 *tex_atlas, float4 *origin, float4 *dir, float4 *power) {
     if (n_lights == 0 || total_luminance < EPS) {
         *origin = (float4)(0.0f);
         *dir = (float4)(0.0f, 1.0f, 0.0f, 0.0f);
@@ -174,28 +174,27 @@ inline void sample_light(RngState *rng, __global const Light *lights, u32 n_ligh
         // TODO
     } else {
 
-        sample_textured_light(rng, &light, etri_v0, etri_v1, etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2,
-                              tex_meta, tex_atlas, origin, dir, power);
+        sample_textured_light(rng, &light, etri_v0, etri_v1, etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1,
+                              etri_uv2, tex_meta, tex_atlas, origin, dir, power);
     }
     *power /= scale;
 }
 
-__kernel void emit_photons(__global Photon *photons, __global u32 *photon_count, __global const Light *lights,
-                           const u32 n_lights, const u32 max_photons, const u32 offset, const u32 photons_to_emit,
-                           const u32 seed, __global const BvhNode *tree, __global const float4 *tri_v0,
-                           __global const float4 *tri_v1, __global const float4 *tri_v2, __global const float4 *tri_n0,
-                           __global const float4 *tri_n1, __global const float4 *tri_n2, __global const float2 *tri_uv0,
-                           __global const float2 *tri_uv1, __global const float2 *tri_uv2,
-                           __global const float4 *tri_t0, __global const float4 *tri_t1, __global const float4 *tri_t2,
-                           __global const u32 *tri_mat_index, const u32 n_tris, __global const float4 *etri_v0,
-                           __global const float4 *etri_v1, __global const float4 *etri_v2, __global const float4 *etri_n0,
-                           __global const float4 *etri_n1, __global const float4 *etri_n2, __global const float2 *etri_uv0,
-                           __global const float2 *etri_uv1, __global const float2 *etri_uv2,
-                           __global const float4 *etri_t0, __global const float4 *etri_t1, __global const float4 *etri_t2,
-                           __global const u32 *etri_mat_index, __global const Material *materials,
-                           __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
-                           __global const f32 *light_pref_sum, const f32 total_luminance, const float4 scene_center,
-                           const f32 scene_radius) {
+__kernel void
+emit_photons(__global Photon *photons, __global u32 *photon_count, __global const Light *lights, const u32 n_lights,
+             const u32 max_photons, const u32 offset, const u32 photons_to_emit, const u32 seed,
+             __global const BvhNode *tree, __global const float4 *tri_v0, __global const float4 *tri_v1,
+             __global const float4 *tri_v2, __global const float4 *tri_n0, __global const float4 *tri_n1,
+             __global const float4 *tri_n2, __global const float2 *tri_uv0, __global const float2 *tri_uv1,
+             __global const float2 *tri_uv2, __global const float4 *tri_t0, __global const float4 *tri_t1,
+             __global const float4 *tri_t2, __global const u32 *tri_mat_index, const u32 n_tris,
+             __global const float4 *etri_v0, __global const float4 *etri_v1, __global const float4 *etri_v2,
+             __global const float4 *etri_n0, __global const float4 *etri_n1, __global const float4 *etri_n2,
+             __global const float2 *etri_uv0, __global const float2 *etri_uv1, __global const float2 *etri_uv2,
+             __global const float4 *etri_t0, __global const float4 *etri_t1, __global const float4 *etri_t2,
+             __global const u32 *etri_mat_index, __global const Material *materials,
+             __global const TextureMeta *tex_meta, __global const u8 *tex_atlas, __global const f32 *light_pref_sum,
+             const f32 total_luminance, const float4 scene_center, const f32 scene_radius) {
     u32 tid = get_global_id(0) + offset;
     if (tid - offset >= photons_to_emit)
         return;
