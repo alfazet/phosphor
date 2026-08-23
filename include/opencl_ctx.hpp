@@ -19,9 +19,11 @@ struct ClContext {
 
     cl::Kernel make_kernel(const char *name) const;
 
+    std::string platform_name() const;
+
     std::string device_name() const;
 
-    std::string platform_name() const;
+    usize max_alloc_size() const;
 
     // platform = an OpenCl impl, e.g. Intel, Nvidia, AMD
     cl::Platform platform;

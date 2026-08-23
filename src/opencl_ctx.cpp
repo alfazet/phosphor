@@ -67,6 +67,8 @@ cl::Kernel ClContext::make_kernel(const char *name) const {
     return {program, name};
 }
 
+std::string ClContext::platform_name() const { return platform.getInfo<CL_PLATFORM_NAME>(); }
+
 std::string ClContext::device_name() const { return device.getInfo<CL_DEVICE_NAME>(); }
 
-std::string ClContext::platform_name() const { return platform.getInfo<CL_PLATFORM_NAME>(); }
+usize ClContext::max_alloc_size() const { return device.getInfo<CL_DEVICE_MAX_MEM_ALLOC_SIZE>(); }

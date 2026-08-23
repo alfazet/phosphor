@@ -17,7 +17,8 @@
 
 void phosphor_main(const ArgsList &args) {
     ClContext ctx;
-    LOG_INFO("OpenCL platform/device: {}/{}", ctx.platform_name(), ctx.device_name());
+    LOG_INFO("OpenCL platform/device: {}/{} with max. alloc size {} bytes", ctx.platform_name(), ctx.device_name(),
+             ctx.max_alloc_size());
 
     cl::Kernel k_emit_photons = ctx.make_kernel("emit_photons");
     cl::Kernel k_trace_rays = ctx.make_kernel("trace_rays");
@@ -105,6 +106,10 @@ i32 main(i32 argc, char **argv) {
     } catch (const ArgParseError &e) {
         LOG_ERROR("parsing arguments: {}", e.what());
         arg_parser.print_help();
+        return 1;
+    } catch (const cl::Error &e) {
+        // look up the codes here: https://gist.github.com/bmount/4a7144ce801e5569a0b6
+        LOG_ERROR("OpenCL error (code {}): {}", e.err(), e.what());
         return 1;
     }
 
