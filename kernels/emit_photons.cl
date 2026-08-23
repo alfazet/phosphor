@@ -67,11 +67,11 @@ static inline void sample_spot_light(RngState *rng, Light *light, float4 *origin
     *power = light->power * falloff;
 }
 
-static inline void sample_textured_light(RngState *rng, Light *light, __global const float4 *tri_v0,
-                                         __global const float4 *tri_v1, __global const float4 *tri_v2,
-                                         __global const float4 *tri_n0, __global const float4 *tri_n1,
-                                         __global const float4 *tri_n2, __global const float2 *tri_uv0,
-                                         __global const float2 *tri_uv1, __global const float2 *tri_uv2,
+static inline void sample_textured_light(RngState *rng, Light *light, __global const float4 *etri_v0,
+                                         __global const float4 *etri_v1, __global const float4 *etri_v2,
+                                         __global const float4 *etri_n0, __global const float4 *etri_n1,
+                                         __global const float4 *etri_n2, __global const float2 *etri_uv0,
+                                         __global const float2 *etri_uv1, __global const float2 *etri_uv2,
                                          __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
                                          float4 *origin, float4 *dir, float4 *power
 
@@ -85,8 +85,8 @@ static inline void sample_textured_light(RngState *rng, Light *light, __global c
         f32 total_area = 0.0f;
         for (u32 i = 0; i < n_triangles; i++) {
             u32 t = start + i;
-            float4 e1 = tri_v1[t] - tri_v0[t];
-            float4 e2 = tri_v2[t] - tri_v0[t];
+            float4 e1 = etri_v1[t] - etri_v0[t];
+            float4 e2 = etri_v2[t] - etri_v0[t];
             f32 area = 0.5f * length(cross(e1, e2));
             total_area += area;
         }
@@ -96,8 +96,8 @@ static inline void sample_textured_light(RngState *rng, Light *light, __global c
             f32 accum = 0.0f;
             for (u32 i = 0; i < n_triangles; i++) {
                 u32 t = start + i;
-                float4 e1 = tri_v1[t] - tri_v0[t];
-                float4 e2 = tri_v2[t] - tri_v0[t];
+                float4 e1 = etri_v1[t] - etri_v0[t];
+                float4 e2 = etri_v2[t] - etri_v0[t];
                 f32 area = 0.5f * length(cross(e1, e2));
                 accum += area;
                 if (r <= accum || i == n_triangles - 1) {
@@ -115,14 +115,14 @@ static inline void sample_textured_light(RngState *rng, Light *light, __global c
     f32 v = r2 * sqrt_r1;
     f32 w = 1.0f - u - v;
 
-    float4 v0 = tri_v0[chosen_idx];
-    float4 v1 = tri_v1[chosen_idx];
-    float4 v2 = tri_v2[chosen_idx];
+    float4 v0 = etri_v0[chosen_idx];
+    float4 v1 = etri_v1[chosen_idx];
+    float4 v2 = etri_v2[chosen_idx];
     *origin = w * v0 + u * v1 + v * v2;
 
-    float4 n0 = tri_n0[chosen_idx];
-    float4 n1 = tri_n1[chosen_idx];
-    float4 n2 = tri_n2[chosen_idx];
+    float4 n0 = etri_n0[chosen_idx];
+    float4 n1 = etri_n1[chosen_idx];
+    float4 n2 = etri_n2[chosen_idx];
     float4 normal = w * n0 + u * n1 + v * n2;
     if (length(normal) > EPS) {
         normal = normalize(normal);
@@ -132,9 +132,9 @@ static inline void sample_textured_light(RngState *rng, Light *light, __global c
         normal = normalize(cross(e1, e2));
     }
 
-    float2 uv0 = tri_uv0[chosen_idx];
-    float2 uv1 = tri_uv1[chosen_idx];
-    float2 uv2 = tri_uv2[chosen_idx];
+    float2 uv0 = etri_uv0[chosen_idx];
+    float2 uv1 = etri_uv1[chosen_idx];
+    float2 uv2 = etri_uv2[chosen_idx];
     float2 uv = (float2)(w * uv0.x + u * uv1.x + v * uv2.x, w * uv0.y + u * uv1.y + v * uv2.y);
 
     *dir = random_in_unit_hemisphere(rng, normal);
@@ -148,11 +148,11 @@ static inline void sample_textured_light(RngState *rng, Light *light, __global c
 }
 
 inline void sample_light(RngState *rng, __global const Light *lights, u32 n_lights, __global const f32 *light_pref_sum,
-                         f32 total_luminance, float4 scene_center, f32 scene_radius, __global const float4 *tri_v0,
-                         __global const float4 *tri_v1, __global const float4 *tri_v2, __global const float4 *tri_n0,
-                         __global const float4 *tri_n1, __global const float4 *tri_n2, __global const float2 *tri_uv0,
-                         __global const float2 *tri_uv1, __global const float2 *tri_uv2,
-                         __global const Material *materials, __global const u32 *tri_mat_index,
+                         f32 total_luminance, float4 scene_center, f32 scene_radius, __global const float4 *etri_v0,
+                         __global const float4 *etri_v1, __global const float4 *etri_v2, __global const float4 *etri_n0,
+                         __global const float4 *etri_n1, __global const float4 *etri_n2, __global const float2 *etri_uv0,
+                         __global const float2 *etri_uv1, __global const float2 *etri_uv2,
+                         __global const Material *materials, __global const u32 *etri_mat_index,
                          __global const TextureMeta *tex_meta, __global const u8 *tex_atlas, float4 *origin,
                          float4 *dir, float4 *power) {
     if (n_lights == 0 || total_luminance < EPS) {
@@ -173,7 +173,8 @@ inline void sample_light(RngState *rng, __global const Light *lights, u32 n_ligh
     } else if (light.kind == LIGHT_DIRECTIONAL) {
         // TODO
     } else {
-        sample_textured_light(rng, &light, tri_v0, tri_v1, tri_v2, tri_n0, tri_n1, tri_n2, tri_uv0, tri_uv1, tri_uv2,
+
+        sample_textured_light(rng, &light, etri_v0, etri_v1, etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2,
                               tex_meta, tex_atlas, origin, dir, power);
     }
     *power /= scale;
@@ -186,10 +187,13 @@ __kernel void emit_photons(__global Photon *photons, __global u32 *photon_count,
                            __global const float4 *tri_n1, __global const float4 *tri_n2, __global const float2 *tri_uv0,
                            __global const float2 *tri_uv1, __global const float2 *tri_uv2,
                            __global const float4 *tri_t0, __global const float4 *tri_t1, __global const float4 *tri_t2,
-
-                           __global const u32 *tri_mat_index, const u32 n_tris, __global const Material *materials,
+                           __global const u32 *tri_mat_index, const u32 n_tris, __global const float4 *etri_v0,
+                           __global const float4 *etri_v1, __global const float4 *etri_v2, __global const float4 *etri_n0,
+                           __global const float4 *etri_n1, __global const float4 *etri_n2, __global const float2 *etri_uv0,
+                           __global const float2 *etri_uv1, __global const float2 *etri_uv2,
+                           __global const float4 *etri_t0, __global const float4 *etri_t1, __global const float4 *etri_t2,
+                           __global const u32 *etri_mat_index, __global const Material *materials,
                            __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
-
                            __global const f32 *light_pref_sum, const f32 total_luminance, const float4 scene_center,
                            const f32 scene_radius) {
     u32 tid = get_global_id(0) + offset;
@@ -199,8 +203,8 @@ __kernel void emit_photons(__global Photon *photons, __global u32 *photon_count,
     RngState rng = pcg_seed(seed + tid);
 
     float4 origin, dir, power;
-    sample_light(&rng, lights, n_lights, light_pref_sum, total_luminance, scene_center, scene_radius, tri_v0, tri_v1,
-                 tri_v2, tri_n0, tri_n1, tri_n2, tri_uv0, tri_uv1, tri_uv2, materials, tri_mat_index, tex_meta,
+    sample_light(&rng, lights, n_lights, light_pref_sum, total_luminance, scene_center, scene_radius, etri_v0, etri_v1,
+                 etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2, materials, tri_mat_index, tex_meta,
                  tex_atlas, &origin, &dir, &power);
     power /= (f32)photons_to_emit;
 
