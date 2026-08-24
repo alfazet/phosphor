@@ -157,9 +157,6 @@ static inline void sample_directional_light(RngState *rng, Light *light, float4 
     *dir = light->direction;
     *origin = center - light->direction * 2.0f * radius + disk_offset;
     *power = light->power;
-
-    *origin = (float4)(10.0f, 10.0f, 10.0f, 0.0f);
-    *dir    = (float4)(-1.0f, -1.0f, -1.0f, 0.0f);
 }
 
 inline void sample_light(RngState *rng, __global const Light *lights, u32 n_lights, __global const f32 *light_pref_sum,
