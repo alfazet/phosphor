@@ -6,6 +6,11 @@
 #include "texture_meta.h"
 
 cl::Buffer dev_buf(ClContext &ctx, const void *data, u32 count, u32 item_size) {
+    if (count == 0) {
+        static const u8 dummy[16] = {};
+        return cl::Buffer(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, item_size, (void *)(dummy));
+    }
+
     return cl::Buffer(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, count * item_size,
                       const_cast<void *>(data));
 }
