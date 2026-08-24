@@ -101,6 +101,7 @@ i32 main(i32 argc, char **argv) {
         LOG_INFO("chosen parameters:");
         arg_parser.print_values(args);
         phosphor_main(args);
+        arg_parser.write_image_metadata(args);
     } catch (const HelpRequested &) {
         arg_parser.print_help();
         return 0;
