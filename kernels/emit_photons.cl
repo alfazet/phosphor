@@ -147,6 +147,18 @@ static inline void sample_textured_light(RngState *rng, Light *light, __global c
     *power = emissive_power;
 }
 
+static inline void sample_directional_light(RngState *rng, Light *light, float4 center, f32 radius, float4 *origin, float4 *dir, float4 *power)
+{
+    // https://stackoverflow.com/questions/5837572/generate-a-random-point-within-a-circle-uniformly
+    f32 r1 = radius * sqrt(random_float(rng));
+    f32 r2 = 2 * PI * random_float(rng);
+    float4 disk_offset = r1 * (cos(r2) * light->tangent + sin(r2) * light->bitangent);
+
+    *dir = light->direction;
+    *origin = center - light->direction * 10.0f * radius + disk_offset;
+    *power = light->power;
+}
+
 inline void sample_light(RngState *rng, __global const Light *lights, u32 n_lights, __global const f32 *light_pref_sum,
                          f32 total_luminance, float4 scene_center, f32 scene_radius, __global const float4 *etri_v0,
                          __global const float4 *etri_v1, __global const float4 *etri_v2, __global const float4 *etri_n0,
@@ -171,9 +183,10 @@ inline void sample_light(RngState *rng, __global const Light *lights, u32 n_ligh
     } else if (light.kind == LIGHT_SPOT) {
         sample_spot_light(rng, &light, origin, dir, power);
     } else if (light.kind == LIGHT_DIRECTIONAL) {
-        // TODO
+        return;
+        sample_directional_light(rng, &light, scene_center, scene_radius, origin, dir, power);
+        *power *= scale;
     } else {
-
         sample_textured_light(rng, &light, etri_v0, etri_v1, etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1,
                               etri_uv2, tex_meta, tex_atlas, origin, dir, power);
     }

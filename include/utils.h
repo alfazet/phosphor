@@ -21,6 +21,20 @@ inline u32 round_up_to_pow2(u32 x) {
 // reinterprets the bits of a 32 bit unsigned int as a float
 inline f32 bits_as_float(u32 x) { return *(f32 *)(&x); }
 
+#ifndef __OPENCL_C_VERSION__
+#include "glm_bundle.hpp"
+inline void make_tbn(const vec3 &n, vec3 &t, vec3 &b) {
+    if (glm::abs(n.x) > glm::abs(n.y)) {
+        // n crossed with (0, 1, 0)
+        t = glm::normalize(vec3(-n.z, 0.0f, n.x));
+    } else {
+        // n crossed with (1, 0, 0)
+        t = glm::normalize(vec3(0.0f, n.z, -n.y));
+    }
+    b = glm::cross(n, t);
+}
+#endif // __OPENCL_C_VERSION__
+
 #ifdef __OPENCL_C_VERSION__
 
 inline void make_tbn(float4 normal, float4 *tangent, float4 *bitangent) {

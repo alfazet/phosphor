@@ -129,9 +129,10 @@ void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const Bv
     BoundingBox scene_bbox = bvh.get_bbox();
     vec3 bbox_min(scene_bbox.bbox_min.x, scene_bbox.bbox_min.y, scene_bbox.bbox_min.z);
     vec3 bbox_max(scene_bbox.bbox_max.x, scene_bbox.bbox_max.y, scene_bbox.bbox_max.z);
+    vec3 diff = bbox_max - bbox_min;
     vec3 center = 0.5f * (bbox_min + bbox_max);
     this->scene_center = float4{{center.x, center.y, center.z, 0.0f}};
-    this->scene_radius = 0.5f * glm::length(bbox_max - bbox_min);
+    this->scene_radius = glm::pow(glm::max(diff.x, glm::max(diff.y, diff.z)), 2);
 }
 
 void SceneBuffers::upload_rays(ClContext &ctx, const std::vector<float4> &origins, const std::vector<float4> &dirs) {
