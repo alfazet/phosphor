@@ -14,6 +14,7 @@
 #define AIR_IOR 1.0f
 #define MAX_PHOTON_BOUNCES 50
 #define MAX_RAY_BOUNCES 5
+#define MIN_CELL_SIZE 0.1f
 
 #define BVH_STACK_SIZE 24
 #define KD_STACK_SIZE 24
