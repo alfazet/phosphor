@@ -173,16 +173,17 @@ inline PhotonHashInfo build_hash_info(const BoundingBox &bbox, u32 grid_res) {
     return info;
 }
 
-inline u32 choose_axis(std::vector<float4> &photon_pos, u32 start, u32 end) {
-    float4 minp = photon_pos[start];
-    float4 maxp = photon_pos[start];
+inline u32 choose_axis(const std::vector<float4> &photon_pos, const std::vector<u32> &indices, u32 start, u32 end) {
+    float4 minp = photon_pos[indices[start]];
+    float4 maxp = photon_pos[indices[start]];
     for (u32 i = start + 1; i < end; i++) {
-        minp.x = min_f32(minp.x, photon_pos[i].x);
-        minp.y = min_f32(minp.y, photon_pos[i].y);
-        minp.z = min_f32(minp.z, photon_pos[i].z);
-        maxp.x = max_f32(maxp.x, photon_pos[i].x);
-        maxp.y = max_f32(maxp.y, photon_pos[i].y);
-        maxp.z = max_f32(maxp.z, photon_pos[i].z);
+        float4 p = photon_pos[indices[i]];
+        minp.x = min_f32(minp.x, p.x);
+        minp.y = min_f32(minp.y, p.y);
+        minp.z = min_f32(minp.z, p.z);
+        maxp.x = max_f32(maxp.x, p.x);
+        maxp.y = max_f32(maxp.y, p.y);
+        maxp.z = max_f32(maxp.z, p.z);
     }
     f32 ex = maxp.x - minp.x, ey = maxp.y - minp.y, ez = maxp.z - minp.z;
     if (ex > ey && ex > ez)
@@ -192,22 +193,22 @@ inline u32 choose_axis(std::vector<float4> &photon_pos, u32 start, u32 end) {
     return 2;
 }
 
-inline void balance(std::vector<float4> &photon_pos, u32 index, u32 start, u32 end, std::vector<u32> &tree_index,
-                    u32 offset, u32 tree_size) {
+inline void balance(std::vector<float4> &photon_pos, std::vector<u32> &indices, u32 index, u32 start, u32 end,
+                    std::vector<u32> &tree_index, u32 offset, u32 tree_size) {
     if (start >= end || index >= tree_size)
         return;
 
-    u32 axis = choose_axis(photon_pos, start, end);
+    u32 axis = choose_axis(photon_pos, indices, start, end);
     u32 median = (start + end) / 2;
 
-    std::nth_element(photon_pos.begin() + start, photon_pos.begin() + median, photon_pos.begin() + end,
-                     [axis](const float4 &a, const float4 &b) { return a.s[axis] < b.s[axis]; });
+    std::nth_element(indices.begin() + start, indices.begin() + median, indices.begin() + end,
+                     [&photon_pos, axis](u32 a, u32 b) { return photon_pos[a].s[axis] < photon_pos[b].s[axis]; });
 
-    photon_pos[median].w = as_float(axis);
-    tree_index[offset + index] = static_cast<u32>(median) + 1; // 0 left blank
+    photon_pos[indices[median]].w = as_float(axis);
+    tree_index[offset + index] = indices[median] + 1; // 0 left blank
 
-    balance(photon_pos, index * 2, start, median, tree_index, offset, tree_size);
-    balance(photon_pos, index * 2 + 1, median + 1, end, tree_index, offset, tree_size);
+    balance(photon_pos, indices, index * 2, start, median, tree_index, offset, tree_size);
+    balance(photon_pos, indices, index * 2 + 1, median + 1, end, tree_index, offset, tree_size);
 }
 
 inline PhotonHash build_hash(std::vector<float4> &photon_pos, std::vector<float4> &photon_power,
@@ -271,13 +272,15 @@ inline PhotonHash build_hash(std::vector<float4> &photon_pos, std::vector<float4
         tree_total += size;
     }
 
+    std::vector<u32> kd_indices(n_photons);
+    std::iota(kd_indices.begin(), kd_indices.end(), 0);
     grid.tree_index.assign(tree_total, 0);
     for (u32 b = 0; b < grid.bucket_count; b++) {
         u32 count = grid.cell_end[b] - grid.cell_start[b];
         if (count == 0)
             continue;
-        balance(photon_pos, 1, grid.cell_start[b], grid.cell_end[b], grid.tree_index, grid.bucket_tree_offset[b],
-                grid.bucket_tree_size[b]);
+        balance(photon_pos, kd_indices, 1, grid.cell_start[b],
+                grid.cell_end[b], grid.tree_index, grid.bucket_tree_offset[b], grid.bucket_tree_size[b]);
     }
 
     return grid;
