@@ -32,7 +32,7 @@ inline u32 photon_hash(const float4 pos, const PhotonHashInfo info) {
     u32 z = (u32)fz;
 
     // return k * k * (u32)(x + k) + k * (u32)(y + k) + (u32)(z + k); // remember to change bucket_count if reverted
-    return grid_res * grid_res * (u32)(x) + grid_res * (u32)(y) + (u32)(z + 1);
+    return grid_res * grid_res * x + grid_res * y + z + 1;
     // +1 leaves as 0 as special, empty value
 }
 
@@ -215,7 +215,7 @@ inline PhotonHash build_hash(std::vector<float4> &photon_pos, std::vector<float4
                              std::vector<float4> &photon_dir, std::vector<float4> &photon_normal, PhotonHashInfo info) {
     u32 n_photons = photon_pos.size();
     PhotonHash grid;
-    grid.bucket_count = (info.grid_res * (info.grid_res * (info.grid_res + 1) + 1)) + 1; // Horner for efficiency
+    grid.bucket_count = info.grid_res * info.grid_res * info.grid_res + 1;
 
     std::vector<u32> hashes(n_photons);
     std::unordered_map<u32, u32> hashes_count;
