@@ -241,6 +241,9 @@ void SceneBuffers::print_buffer_sizes() const {
     sz("ray_dir", ray_dir);
 
     sz("photon_pos", photon_pos);
+    sz("photon_power", photon_power);
+    sz("photon_dir", photon_dir);
+    sz("photon_normal", photon_normal);
     sz("tree_index", tree_index);
     sz("bucket_tree_offset", bucket_tree_offset);
     sz("bucket_tree_size", bucket_tree_size);

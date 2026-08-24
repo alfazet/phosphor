@@ -227,7 +227,7 @@ inline PhotonHash build_hash(std::vector<float4> &photon_pos, std::vector<float4
     }
 
     // https://stackoverflow.com/questions/37368787/c-sort-one-vector-based-on-another-one
-    std::vector<usize> indices(n_photons);
+    std::vector<u32> indices(n_photons);
     std::iota(indices.begin(), indices.end(), 0);
     std::sort(indices.begin(), indices.end(), [&hashes](u32 a, u32 b) { return hashes[a] < hashes[b]; });
 
