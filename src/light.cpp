@@ -1,4 +1,5 @@
 #include "light.hpp"
+#include "logger.hpp"
 #include "utils.h"
 
 Light make_point_light(vec3 position, vec3 power) {
@@ -19,7 +20,7 @@ Light make_spot_light(vec3 position, vec3 power, vec3 direction, f32 inner_rad, 
     return l;
 }
 
-Light make_directional_light(vec3 direction, vec3 power, f32 radius) {
+Light make_directional_light(vec3 direction, vec3 power) {
     vec3 t, b;
     make_tbn(direction, t, b);
     Light l{};
@@ -28,7 +29,6 @@ Light make_directional_light(vec3 direction, vec3 power, f32 radius) {
     l.tangent = vec3_to_float4(t);
     l.bitangent = vec3_to_float4(b);
     l.power = vec3_to_float4(power);
-    l.aux = float4{{radius, 0.0f, 0.0f, 0.0f}};
     return l;
 }
 

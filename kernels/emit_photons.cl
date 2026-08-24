@@ -155,8 +155,11 @@ static inline void sample_directional_light(RngState *rng, Light *light, float4 
     float4 disk_offset = r1 * (cos(r2) * light->tangent + sin(r2) * light->bitangent);
 
     *dir = light->direction;
-    *origin = center - light->direction * 10.0f * radius + disk_offset;
+    *origin = center - light->direction * 2.0f * radius + disk_offset;
     *power = light->power;
+
+    *origin = (float4)(10.0f, 10.0f, 10.0f, 0.0f);
+    *dir    = (float4)(-1.0f, -1.0f, -1.0f, 0.0f);
 }
 
 inline void sample_light(RngState *rng, __global const Light *lights, u32 n_lights, __global const f32 *light_pref_sum,
@@ -183,9 +186,7 @@ inline void sample_light(RngState *rng, __global const Light *lights, u32 n_ligh
     } else if (light.kind == LIGHT_SPOT) {
         sample_spot_light(rng, &light, origin, dir, power);
     } else if (light.kind == LIGHT_DIRECTIONAL) {
-        return;
         sample_directional_light(rng, &light, scene_center, scene_radius, origin, dir, power);
-        *power *= scale;
     } else {
         sample_textured_light(rng, &light, etri_v0, etri_v1, etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1,
                               etri_uv2, tex_meta, tex_atlas, origin, dir, power);

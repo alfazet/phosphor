@@ -1,3 +1,4 @@
+#include "../include/logger.hpp"
 #include "bvh.hpp"
 #include "camera.hpp"
 #include "cmd_args.hpp"
@@ -64,12 +65,12 @@ void phosphor_main(const ArgsList &args) {
         u32 h_final_batch_size = 0;
         ctx.queue.enqueueReadBuffer(d_batch_size, CL_TRUE, 0, sizeof(u32), &h_final_batch_size);
         h_final_batch_size = std::min(h_final_batch_size, max_photons_in_batch);
-
+        if (h_final_batch_size <= 0)
+            LOG_FATAL("no photon hit");
         h_photons.resize(h_photons.size() + h_final_batch_size);
         ctx.queue.enqueueReadBuffer(d_photons, CL_TRUE, 0, h_final_batch_size * sizeof(Photon),
                                     h_photons.data() + h_photons.size() - h_final_batch_size);
     }
-    LOG_INFO("1");
     timer_scope_photons.stop();
     TimerScope timer_scope_hash("building hash struct for photons");
     PhotonHashInfo info = build_hash_info(bbox, args.grid_res);
