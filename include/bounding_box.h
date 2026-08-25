@@ -10,29 +10,39 @@ typedef struct BoundingBox {
 } BoundingBox;
 
 #ifndef __OPENCL_C_VERSION__
-#include "host_triangle.hpp"
+#include "triangle.h"
 inline f32 min_f32(f32 a, f32 b) { return a < b ? a : b; }
 inline f32 max_f32(f32 a, f32 b) { return a > b ? a : b; }
 
-inline void expand_aabb(float4 bbox_min, float4 bbox_max, const float4 p) {
-    bbox_min.x = min_f32(bbox_min.x, p.x);
-    bbox_min.y = min_f32(bbox_min.y, p.y);
-    bbox_min.z = min_f32(bbox_min.z, p.z);
-
-    bbox_max.x = max_f32(bbox_max.x, p.x);
-    bbox_max.y = max_f32(bbox_max.y, p.y);
-    bbox_max.z = max_f32(bbox_max.z, p.z);
+inline void expand(BoundingBox &bbox) {
+    bbox.bbox_min.x -= EPS;
+    bbox.bbox_min.y -= EPS;
+    bbox.bbox_min.z -= EPS;
+    bbox.bbox_max.x += EPS;
+    bbox.bbox_max.y += EPS;
+    bbox.bbox_max.z += EPS;
 }
 
-inline BoundingBox get_bounding_box(const HostTriangle &tri) {
-    float4 bbox_min{{INF, INF, INF, 0.0f}};
-    float4 bbox_max{{-INF, -INF, -INF, 0.0f}};
+inline void expand_aabb(BoundingBox &bbox, const float4 p) {
+    bbox.bbox_min.x = min_f32(bbox.bbox_min.x, p.x);
+    bbox.bbox_min.y = min_f32(bbox.bbox_min.y, p.y);
+    bbox.bbox_min.z = min_f32(bbox.bbox_min.z, p.z);
 
-    expand_aabb(bbox_min, bbox_max, tri.v0);
-    expand_aabb(bbox_min, bbox_max, tri.v1);
-    expand_aabb(bbox_min, bbox_max, tri.v2);
+    bbox.bbox_max.x = max_f32(bbox.bbox_max.x, p.x);
+    bbox.bbox_max.y = max_f32(bbox.bbox_max.y, p.y);
+    bbox.bbox_max.z = max_f32(bbox.bbox_max.z, p.z);
+}
 
-    return {bbox_min, bbox_max};
+inline BoundingBox get_bounding_box(const Triangle &tri) {
+    float4 bbox_min = {{INF, INF, INF, 0.0f}};
+    float4 bbox_max = {{-INF, -INF, -INF, 0.0f}};
+    BoundingBox res = {bbox_min, bbox_max};
+
+    expand_aabb(res, tri.v0);
+    expand_aabb(res, tri.v1);
+    expand_aabb(res, tri.v2);
+    expand(res);
+    return res;
 }
 
 inline u32 longest_axis(const BoundingBox bbox) {
@@ -61,7 +71,7 @@ inline BoundingBox merge(const BoundingBox &a, const BoundingBox &b) {
     result.bbox_max.x = max_f32(a.bbox_max.x, b.bbox_max.x);
     result.bbox_max.y = max_f32(a.bbox_max.y, b.bbox_max.y);
     result.bbox_max.z = max_f32(a.bbox_max.z, b.bbox_max.z);
-
+    expand(result);
     return result;
 }
 #endif // __OPENCL_C_VERSION__

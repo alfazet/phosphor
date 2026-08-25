@@ -1,6 +1,9 @@
 #ifndef PHOSPHOR_LIGHT_H
 #define PHOSPHOR_LIGHT_H
 
+#include "constants.h"
+#include "material.h"
+#include "random.h"
 #include "typedefs.h"
 
 #define LIGHT_POINT 0
@@ -8,7 +11,7 @@
 #define LIGHT_DIRECTIONAL 2
 #define LIGHT_TEXTURED 3
 
-typedef struct Light {
+typedef struct GPU_ALIGN Light {
     float4 position;
     float4 power;
     float4 direction;
@@ -17,7 +20,6 @@ typedef struct Light {
     float4 origin;
     float4 aux;
     // spot: .x = inner cone angle, .y = outer cone angle
-    // directional: .x = radius
     // textured: .x = (as u32) tex_index, .y = (as u32) tri_start, .z = (as u32) tri_count
     // 7 * 4 * 4 = 112
 
@@ -26,6 +28,6 @@ typedef struct Light {
 
     // total: 113
     u8 _padding[15];
-} Light __attribute__((aligned(16)));
+} Light;
 
 #endif // PHOSPHOR_LIGHT_H

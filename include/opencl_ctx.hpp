@@ -4,8 +4,11 @@
 #define CL_HPP_TARGET_OPENCL_VERSION 300
 #define CL_HPP_ENABLE_EXCEPTIONS
 
+#include "typedefs.h"
 #include <CL/opencl.hpp>
 #include <string>
+
+constexpr const char *KERNEL_COMPILATION_FLAGS = "-I./include";
 
 struct ClContext {
     explicit ClContext();
@@ -14,9 +17,13 @@ struct ClContext {
 
     cl::Program build_program(const std::string &path, const std::string &build_opts) const;
 
-    std::string device_name() const;
+    cl::Kernel make_kernel(const char *name) const;
 
     std::string platform_name() const;
+
+    std::string device_name() const;
+
+    usize max_alloc_size() const;
 
     // platform = an OpenCl impl, e.g. Intel, Nvidia, AMD
     cl::Platform platform;
@@ -25,5 +32,10 @@ struct ClContext {
     cl::Context context;
     cl::CommandQueue queue;
 };
+
+template <typename... Args> void set_kernel_args(cl::Kernel &kernel, Args &&...args) {
+    u32 index = 0;
+    (kernel.setArg(index++, std::forward<Args>(args)), ...);
+}
 
 #endif // PHOSPHOR_OPENCL_CTX_HPP

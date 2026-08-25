@@ -6,7 +6,6 @@
 ClContext::ClContext() {
     this->select_platform_and_device();
     this->context = cl::Context(this->device);
-    // TODO: take a look at properties again
     this->queue = cl::CommandQueue(this->context, this->device, cl::QueueProperties::None);
 
     LOG_INFO("OpenCL context set up successfully");
@@ -62,6 +61,14 @@ cl::Program ClContext::build_program(const std::string &path, const std::string 
     return program;
 }
 
-std::string ClContext::device_name() const { return device.getInfo<CL_DEVICE_NAME>(); }
+cl::Kernel ClContext::make_kernel(const char *name) const {
+    cl::Program program =
+        this->build_program(std::string(PROJECT_DIR) + "/kernels/" + name + ".cl", KERNEL_COMPILATION_FLAGS);
+    return {program, name};
+}
 
 std::string ClContext::platform_name() const { return platform.getInfo<CL_PLATFORM_NAME>(); }
+
+std::string ClContext::device_name() const { return device.getInfo<CL_DEVICE_NAME>(); }
+
+usize ClContext::max_alloc_size() const { return device.getInfo<CL_DEVICE_MAX_MEM_ALLOC_SIZE>(); }

@@ -1,199 +1,117 @@
+#include "../include/logger.hpp"
 #include "bvh.hpp"
+#include "camera.hpp"
 #include "cmd_args.hpp"
+#include "constants.h"
+#include "image_output.hpp"
 #include "logger.hpp"
 #include "opencl_ctx.hpp"
-#include "printers.hpp"
+#include "photon.h"
+#include "photon_hash.h"
 #include "random.h"
-#include "ray.h"
 #include "scene.hpp"
-#include "stb_image_write.h"
-#include "texture_meta.h"
+#include "scene_buffers.hpp"
+#include "utils.h"
 
-#include <glm/glm.hpp>
 #include <iostream>
 #include <vector>
 
-Ray get_camera_ray(const Camera &cam, f32 s, f32 t) {
-    glm::vec3 position(cam.position.x, cam.position.y, cam.position.z);
-    glm::vec3 lower_left_corner(cam.lower_left_corner.x, cam.lower_left_corner.y, cam.lower_left_corner.z);
-    glm::vec3 horizontal(cam.horizontal.x, cam.horizontal.y, cam.horizontal.z);
-    glm::vec3 vertical(cam.vertical.x, cam.vertical.y, cam.vertical.z);
-
-    glm::vec3 direction = lower_left_corner + s * horizontal + t * vertical - position;
-    glm::vec3 dir_n = glm::normalize(direction);
-
-    Ray r{};
-    r.origin = float4{{position.x, position.y, position.z, 0.0f}};
-    r.dir = float4{{dir_n.x, dir_n.y, dir_n.z, 0.0f}};
-    return r;
-}
-
-void generate_primary_rays(RngState &rng, const Camera &cam, u32 image_width, u32 image_height, u32 image_iters,
-                           std::vector<float4> &origins, std::vector<float4> &dirs) {
-    origins.resize(static_cast<usize>(image_width) * image_height * image_iters);
-    dirs.resize(static_cast<usize>(image_width) * image_height * image_iters);
-
-    for (u32 y = 0; y < image_height; y++) {
-        for (u32 x = 0; x < image_width; x++) {
-            for (u32 j = 0; j < image_iters; j++) {
-                const f32 s = (x + 0.5f + random_float(&rng) - 0.5f) / static_cast<f32>(image_width);
-                const f32 t = 1.0f - (y + 0.5f + random_float(&rng) - 0.5f) / static_cast<f32>(image_height);
-
-                Ray r = get_camera_ray(cam, s, t);
-
-                usize idx = (static_cast<usize>(y) * image_width + x) * image_iters + j;
-                origins[idx] = r.origin;
-                dirs[idx] = r.dir;
-            }
-        }
-    }
-}
-
-void init_logger() {
-    auto &l = logger::Logger::instance();
-    l.set_level(logger::Level::Debug);
-
-    auto multi = std::make_unique<logger::MultiSink>();
-    multi->add(std::make_unique<logger::ConsoleSink>());
-    multi->add(std::make_unique<logger::FileSink>("phosphor.log", false));
-    l.set_sink(std::move(multi));
-}
-
 void phosphor_main(const ArgsList &args) {
     ClContext ctx;
-    print_opencl_data(ctx);
+    LOG_INFO("OpenCL platform/device: {}/{} with max. alloc size {} bytes", ctx.platform_name(), ctx.device_name(),
+             ctx.max_alloc_size());
 
-    SceneData scene = read_file(args.model.c_str());
+    cl::Kernel k_emit_photons = ctx.make_kernel("emit_photons");
+    cl::Kernel k_trace_rays = ctx.make_kernel("trace_rays");
+
+    SceneData scene = read_gltf_scene(args.model.c_str());
     if (scene.triangles.empty()) {
-        LOG_ERROR("scene has no triangles, nothing to render");
+        LOG_ERROR("empty scene, nothing to render");
         return;
     }
-    const Camera &cam = scene.cameras[*scene.chosen_camera];
 
     TimerScope timer_scope_bvh("building BVH");
-    std::vector<BvhNode> tree = create_tree(scene.triangles);
+    Bvh bvh(scene.triangles);
     timer_scope_bvh.stop();
+    const BoundingBox &bbox = bvh.get_bbox();
 
-    usize n_tris = scene.triangles.size();
-    std::vector<float4> tv0(n_tris), tv1(n_tris), tv2(n_tris);
-    std::vector<float2> tuv0(n_tris), tuv1(n_tris), tuv2(n_tris);
-    std::vector<u32> tmat(n_tris);
-    for (usize i = 0; i < n_tris; i++) {
-        const auto &t = scene.triangles[i];
-        tv0[i] = t.v0;
-        tv1[i] = t.v1;
-        tv2[i] = t.v2;
-        tuv0[i] = t.uv0;
-        tuv1[i] = t.uv1;
-        tuv2[i] = t.uv2;
-        tmat[i] = t.mat_index;
-    }
-
-    std::vector<TextureMeta> tex_meta(scene.textures.size());
-    std::vector<u8> tex_atlas;
-    for (usize i = 0; i < scene.textures.size(); i++) {
-        const auto &tex = scene.textures[i];
-        TextureMeta m{};
-        m.atlas_offset = static_cast<u32>(tex_atlas.size());
-        m.width = tex.width;
-        m.height = tex.height;
-        m.channels = 3;
-        m.mip_levels_count = static_cast<u32>(tex.tex_offsets.size());
-        m.mip_table_offset = 0;
-        tex_meta[i] = m;
-        tex_atlas.insert(tex_atlas.end(), tex.tex_atlas.begin(), tex.tex_atlas.end());
-    }
-    if (tex_atlas.empty())
-        tex_atlas.push_back(0);
+    SceneBuffers buffers;
+    buffers.upload_scene(ctx, scene, bvh);
 
     RngState rng = pcg_seed(args.seed);
-    std::vector<float4> h_origin, h_dir;
-    generate_primary_rays(rng, cam, args.resolution, args.resolution, args.image_iters, h_origin, h_dir);
-    usize n_rays = h_origin.size();
+    auto [h_origin, h_dir] = scene.get_camera().generate_rays(rng, args.width, args.height, args.image_iters);
+    buffers.upload_rays(ctx, h_origin, h_dir);
 
-    cl::Buffer d_origin(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_rays * sizeof(float4), h_origin.data());
-    cl::Buffer d_dir(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_rays * sizeof(float4), h_dir.data());
-    cl::Buffer d_tv0(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float4), tv0.data());
-    cl::Buffer d_tv1(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float4), tv1.data());
-    cl::Buffer d_tv2(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float4), tv2.data());
-    cl::Buffer d_tuv0(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float2), tuv0.data());
-    cl::Buffer d_tuv1(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float2), tuv1.data());
-    cl::Buffer d_tuv2(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(float2), tuv2.data());
-    cl::Buffer d_tree(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, tree.size() * sizeof(BvhNode), tree.data());
-    cl::Buffer d_tmat(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, n_tris * sizeof(u32), tmat.data());
-    cl::Buffer d_materials(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                           scene.materials.size() * sizeof(Material), scene.materials.data());
-    cl::Buffer d_tex_meta(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, tex_meta.size() * sizeof(TextureMeta),
-                          tex_meta.data());
-    cl::Buffer d_tex_atlas(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, tex_atlas.size(), tex_atlas.data());
-    cl::Buffer d_out(ctx.context, CL_MEM_WRITE_ONLY, n_rays * sizeof(float4));
+    u32 photons_to_emit = round_up_to_pow2(args.photons);
+    u32 photons_per_batch = std::min(photons_to_emit, MAX_PHOTONS_PER_BATCH);
+    u32 max_photons_in_batch = photons_per_batch * MAX_PHOTON_BOUNCES;
+    cl::Buffer d_photons(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(Photon));
+    u32 h_batch_size = 0;
+    cl::Buffer d_batch_size(ctx.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(u32), &h_batch_size);
 
-    cl::Program program = ctx.build_program(std::string(PROJECT_DIR) + "/kernels/get_color.cl", "-I./include");
-    cl::Kernel kernel(program, "get_color");
+    buffers.print_buffer_sizes();
+    std::vector<Photon> h_photons;
+    TimerScope timer_scope_photons("emitting photons");
+    for (u32 batch_offset = 0; batch_offset < photons_to_emit; batch_offset += photons_per_batch) {
+        u32 to_emit = std::min(photons_per_batch, photons_to_emit - batch_offset);
+        h_batch_size = 0;
+        ctx.queue.enqueueWriteBuffer(d_batch_size, CL_TRUE, 0, sizeof(u32), &h_batch_size);
 
-    kernel.setArg(0, d_origin);
-    kernel.setArg(1, d_dir);
-    kernel.setArg(2, n_rays);
-    kernel.setArg(3, d_tv0);
-    kernel.setArg(4, d_tv1);
-    kernel.setArg(5, d_tv2);
-    kernel.setArg(6, d_tuv0);
-    kernel.setArg(7, d_tuv1);
-    kernel.setArg(8, d_tuv2);
-    kernel.setArg(9, d_tree);
-    kernel.setArg(10, d_tmat);
-    kernel.setArg(11, n_tris);
-    kernel.setArg(12, d_materials);
-    kernel.setArg(13, d_tex_meta);
-    kernel.setArg(14, d_tex_atlas);
-    kernel.setArg(15, d_out);
+        buffers.set_emit_photons_args(k_emit_photons, batch_offset, photons_to_emit, args.seed, max_photons_in_batch,
+                                      d_photons, d_batch_size);
+        ctx.queue.enqueueNDRangeKernel(k_emit_photons, cl::NullRange, cl::NDRange(to_emit), cl::NullRange);
+        ctx.queue.finish();
 
-    ctx.queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(n_rays), cl::NullRange);
+        u32 h_final_batch_size = 0;
+        ctx.queue.enqueueReadBuffer(d_batch_size, CL_TRUE, 0, sizeof(u32), &h_final_batch_size);
+        h_final_batch_size = std::min(h_final_batch_size, max_photons_in_batch);
+        if (h_final_batch_size <= 0)
+            LOG_FATAL("no photon hit");
+        h_photons.resize(h_photons.size() + h_final_batch_size);
+        ctx.queue.enqueueReadBuffer(d_photons, CL_TRUE, 0, h_final_batch_size * sizeof(Photon),
+                                    h_photons.data() + h_photons.size() - h_final_batch_size);
+    }
+    timer_scope_photons.stop();
+    TimerScope timer_scope_hash("building hash struct for photons");
+    PhotonHashInfo info = build_hash_info(bbox, args.grid_res);
+    PhotonHash struct_hash = build_hash(h_photons, info);
+    timer_scope_hash.stop();
+    buffers.upload_photons(ctx, struct_hash, h_photons);
+    cl::Buffer d_out(ctx.context, CL_MEM_WRITE_ONLY, buffers.n_rays * sizeof(float4));
 
-    std::vector<float4> h_out(n_rays);
-    ctx.queue.enqueueReadBuffer(d_out, CL_TRUE, 0, n_rays * sizeof(float4), h_out.data());
+    f32 search_radius = std::min({info.cell_sizes.x, info.cell_sizes.y, info.cell_sizes.z}) / 2.0f;
+    buffers.set_trace_rays_args(k_trace_rays, search_radius, args.samples, info, args.seed, d_out);
 
     TimerScope timer_scope_image("rendering image");
-    ctx.queue.enqueueNDRangeKernel(kernel, cl::NullRange, cl::NDRange(n_rays), cl::NullRange);
-    ctx.queue.enqueueReadBuffer(d_out, CL_TRUE, 0, n_rays * sizeof(float4), h_out.data());
+    ctx.queue.enqueueNDRangeKernel(k_trace_rays, cl::NullRange, cl::NDRange(buffers.n_rays), cl::NullRange);
+    ctx.queue.finish();
+
+    std::vector<float4> h_out(buffers.n_rays);
+    ctx.queue.enqueueReadBuffer(d_out, CL_TRUE, 0, buffers.n_rays * sizeof(float4), h_out.data());
     timer_scope_image.stop();
 
-    usize n_pixels = static_cast<usize>(args.resolution) * args.resolution;
-    std::vector<u8> ldr(n_pixels * 3);
-    for (usize p = 0; p < n_pixels; p++) {
-        glm::vec3 accum(0.0f);
-        for (u32 j = 0; j < args.image_iters; j++) {
-            const float4 &c = h_out[p * args.image_iters + j];
-            accum += glm::vec3(c.x, c.y, c.z);
-        }
-        accum /= static_cast<f32>(args.image_iters);
-
-        ldr[p * 3 + 0] = static_cast<u8>(std::clamp(accum.x, 0.0f, 1.0f) * 255.0f);
-        ldr[p * 3 + 1] = static_cast<u8>(std::clamp(accum.y, 0.0f, 1.0f) * 255.0f);
-        ldr[p * 3 + 2] = static_cast<u8>(std::clamp(accum.z, 0.0f, 1.0f) * 255.0f);
-    }
-    stbi_write_png(args.output_path.c_str(), static_cast<i32>(args.resolution), static_cast<i32>(args.resolution), 3,
-                   ldr.data(), static_cast<i32>(args.resolution) * 3);
-
-    LOG_INFO("wrote {}", args.output_path);
+    write_png(args.output_path, args.width, args.height, args.image_iters, h_out);
 }
 
 i32 main(i32 argc, char **argv) {
     init_logger();
-
     ArgParser arg_parser(argc, argv, std::cout);
     try {
         auto args = arg_parser.parse_all();
         LOG_INFO("chosen parameters:");
         arg_parser.print_values(args);
-
         phosphor_main(args);
+        arg_parser.write_image_metadata(args);
     } catch (const HelpRequested &) {
         arg_parser.print_help();
         return 0;
     } catch (const ArgParseError &e) {
         LOG_ERROR("parsing arguments: {}", e.what());
         arg_parser.print_help();
+        return 1;
+    } catch (const cl::Error &e) {
+        // look up the codes here: https://gist.github.com/bmount/4a7144ce801e5569a0b6
+        LOG_ERROR("OpenCL error (code {}): {}", e.err(), e.what());
         return 1;
     }
 

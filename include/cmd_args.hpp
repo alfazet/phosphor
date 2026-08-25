@@ -7,26 +7,30 @@
 #include <string>
 #include <unordered_map>
 
-constexpr u32 DEFAULT_RESOLUTION = 1024;
+constexpr const char *HELP_FLAG = "--help";
+
+constexpr u32 DEFAULT_WIDTH = 1024;
+constexpr u32 DEFAULT_HEIGHT = 1024;
+constexpr u32 DEFAULT_IMAGE_ITERS = 8;
 constexpr u32 DEFAULT_SAMPLES = 64;
 constexpr u32 DEFAULT_PHOTONS_PER_LIGHT = 65536;
 constexpr f32 DEFAULT_RAY_STEP = 0.0001f;
-constexpr u32 DEFAULT_IMAGE_ITERS = 8;
-constexpr f32 DEFAULT_SEARCH_RADIUS = 0.2f;
 constexpr u32 DEFAULT_SEED = 2137;
+constexpr u32 DEFAULT_GRID_RES = 128;
 constexpr const char *DEFAULT_MODEL_PATH = "./models/sample.glb";
 constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
 
 #define ARG_TABLE(X)                                                                                                   \
-    X("-r", resolution, u32, parse_u32, DEFAULT_RESOLUTION, "resolution")                                              \
+    X("-w", width, u32, parse_u32, DEFAULT_WIDTH, "image width (px)")                                                  \
+    X("-h", height, u32, parse_u32, DEFAULT_HEIGHT, "image height (px)")                                               \
+    X("-i", image_iters, u32, parse_u32, DEFAULT_IMAGE_ITERS, "number of image iterations")                            \
     X("-s", samples, u32, parse_u32, DEFAULT_SAMPLES, "number of samples for photon gathering")                        \
-    X("-p", photons_per_light, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT, "average photons per light source")          \
+    X("-p", photons, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT,                                                        \
+      "number of photons to emit (will be rounded up to power of 2)")                                                  \
     X("-m", model, std::string, parse_string, DEFAULT_MODEL_PATH, "gltf model path")                                   \
     X("-o", output_path, std::string, parse_string, DEFAULT_OUTPUT_PATH, "output image path")                          \
-    X("-i", image_iters, u32, parse_u32, DEFAULT_IMAGE_ITERS, "image iterations")                                      \
+    X("-k", grid_res, u32, parse_u32, DEFAULT_GRID_RES, "spatial hash resolution")                                     \
     X("--ray-step", ray_step, f32, parse_f32, DEFAULT_RAY_STEP, "ray step as a fraction of scene diagonal")            \
-    X("--search-radius", search_radius, f32, parse_f32, DEFAULT_SEARCH_RADIUS,                                         \
-      "photon search radius as a fraction of scene diagonal")                                                          \
     X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")
 
 struct ArgsList {
@@ -50,6 +54,7 @@ class ArgParser {
 
     void print_help() const;
     void print_values(const ArgsList &args) const;
+    void write_image_metadata(const ArgsList &args) const;
 
   private:
     static std::unordered_map<std::string, void (ArgParser::*)(ArgsList &) const> flag_parsers;
