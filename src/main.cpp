@@ -52,7 +52,6 @@ void phosphor_main(const ArgsList &args) {
     u32 h_batch_size = 0;
     cl::Buffer d_batch_size(ctx.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(u32), &h_batch_size);
     std::vector<float4> h_photon_pos, h_photon_power, h_photon_dir, h_photon_normal;
-    buffers.print_buffer_sizes();
 
     ProgressScope progress_scope_photons("emitting photons", photons_to_emit);
     for (u32 batch_offset = 0; batch_offset < photons_to_emit; batch_offset += photons_per_batch) {
@@ -94,8 +93,10 @@ void phosphor_main(const ArgsList &args) {
     timer_scope_hash.stop();
 
     buffers.upload_photons(ctx, struct_hash, h_photon_pos, h_photon_power, h_photon_dir, h_photon_normal);
-    cl::Buffer d_out(ctx.context, CL_MEM_WRITE_ONLY, buffers.n_rays * sizeof(float4));
 
+    buffers.print_buffer_sizes();
+
+    cl::Buffer d_out(ctx.context, CL_MEM_WRITE_ONLY, buffers.n_rays * sizeof(float4));
     f32 search_radius = std::min({info.cell_sizes.x, info.cell_sizes.y, info.cell_sizes.z}) / 2.0f;
     buffers.set_trace_rays_args(k_trace_rays, search_radius, args.samples, info, args.seed, d_out);
 
