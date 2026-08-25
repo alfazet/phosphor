@@ -18,8 +18,13 @@ inline u32 round_up_to_pow2(u32 x) {
     return x;
 }
 
-// reinterprets the bits of a 32 bit unsigned int as a float
-inline f32 bits_as_float(u32 x) { return *(f32 *)(&x); }
+#ifndef __OPENCL_C_VERSION__
+#include <bit>
+
+inline f32 as_float(u32 x) { return std::bit_cast<f32>(x); }
+inline u32 as_uint(f32 x) { return std::bit_cast<u32>(x); }
+
+#endif // __OPENCL_C_VERSION__
 
 #ifndef __OPENCL_C_VERSION__
 #include "glm_bundle.hpp"

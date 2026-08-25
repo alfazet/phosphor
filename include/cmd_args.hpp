@@ -17,7 +17,7 @@ constexpr u32 DEFAULT_PHOTONS_PER_LIGHT = 65536;
 constexpr f32 DEFAULT_RAY_STEP = 0.0001f;
 constexpr u32 DEFAULT_SEED = 2137;
 constexpr u32 DEFAULT_GRID_RES = 128;
-constexpr const char *DEFAULT_MODEL_PATH = "./models/sample.glb";
+constexpr const char *DEFAULT_MODEL_PATH = "./models/sample/sample.glb";
 constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
 
 #define ARG_TABLE(X)                                                                                                   \

@@ -3,7 +3,6 @@
 #include "hit.h"
 #include "light.h"
 #include "material.h"
-#include "photon.h"
 #include "random.h"
 #include "texture_meta.h"
 #include "typedefs.h"
@@ -192,18 +191,20 @@ inline void sample_light(RngState *rng, __global const Light *lights, u32 n_ligh
 }
 
 __kernel void
-emit_photons(__global Photon *photons, __global u32 *photon_count, __global const Light *lights, const u32 n_lights,
-             const u32 max_photons, const u32 offset, const u32 photons_to_emit, const u32 seed,
-             __global const BvhNode *tree, __global const float4 *tri_v0, __global const float4 *tri_v1,
-             __global const float4 *tri_v2, __global const float4 *tri_n0, __global const float4 *tri_n1,
-             __global const float4 *tri_n2, __global const float2 *tri_uv0, __global const float2 *tri_uv1,
-             __global const float2 *tri_uv2, __global const float4 *tri_t0, __global const float4 *tri_t1,
-             __global const float4 *tri_t2, __global const u32 *tri_mat_index, const u32 n_tris,
-             __global const float4 *etri_v0, __global const float4 *etri_v1, __global const float4 *etri_v2,
-             __global const float4 *etri_n0, __global const float4 *etri_n1, __global const float4 *etri_n2,
-             __global const float2 *etri_uv0, __global const float2 *etri_uv1, __global const float2 *etri_uv2,
-             __global const float4 *etri_t0, __global const float4 *etri_t1, __global const float4 *etri_t2,
-             __global const u32 *etri_mat_index, __global const Material *materials,
+emit_photons(__global float4 *photon_pos, __global float4 *photon_power, __global float4 *photon_dir,
+             __global float4 *photon_normal, __global u32 *photon_count,
+
+             __global const Light *lights, const u32 n_lights, const u32 max_photons, const u32 offset,
+             const u32 photons_to_emit, const u32 seed, __global const BvhNode *tree, __global const float4 *tri_v0,
+             __global const float4 *tri_v1, __global const float4 *tri_v2, __global const float4 *tri_n0,
+             __global const float4 *tri_n1, __global const float4 *tri_n2, __global const float2 *tri_uv0,
+             __global const float2 *tri_uv1, __global const float2 *tri_uv2, __global const float4 *tri_t0,
+             __global const float4 *tri_t1, __global const float4 *tri_t2, __global const u32 *tri_mat_index,
+             const u32 n_tris, __global const float4 *etri_v0, __global const float4 *etri_v1,
+             __global const float4 *etri_v2, __global const float4 *etri_n0, __global const float4 *etri_n1,
+             __global const float4 *etri_n2, __global const float2 *etri_uv0, __global const float2 *etri_uv1,
+             __global const float2 *etri_uv2, __global const float4 *etri_t0, __global const float4 *etri_t1,
+             __global const float4 *etri_t2, __global const u32 *etri_mat_index, __global const Material *materials,
              __global const TextureMeta *tex_meta, __global const u8 *tex_atlas, __global const f32 *light_pref_sum,
              const f32 total_luminance, const float4 scene_center, const f32 scene_radius) {
     u32 tid = get_global_id(0) + offset;
@@ -269,10 +270,10 @@ emit_photons(__global Photon *photons, __global u32 *photon_count, __global cons
 
             u32 idx = atomic_inc(photon_count);
             if (idx < max_photons) {
-                photons[idx].pos = hit_pos;
-                photons[idx].power = power;
-                photons[idx].dir = -dir;
-                photons[idx].normal = normal;
+                photon_pos[idx] = hit_pos;
+                photon_power[idx] = power;
+                photon_dir[idx] = -dir;
+                photon_normal[idx] = normal;
             } else {
                 return;
             }
@@ -307,10 +308,10 @@ emit_photons(__global Photon *photons, __global u32 *photon_count, __global cons
             } else {
                 u32 idx = atomic_inc(photon_count);
                 if (idx < max_photons) {
-                    photons[idx].pos = hit_pos;
-                    photons[idx].power = power;
-                    photons[idx].dir = -dir;
-                    photons[idx].normal = normal;
+                    photon_pos[idx] = hit_pos;
+                    photon_power[idx] = power;
+                    photon_dir[idx] = -dir;
+                    photon_normal[idx] = normal;
                 } else {
                     return;
                 }
