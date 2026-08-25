@@ -291,7 +291,7 @@ void parse_light(const aiLight *ai_light, SceneData &out_scene, mat4 global_tran
     } else if (ai_light->mType == aiLightSource_DIRECTIONAL) {
         vec3 dir = glm::normalize(global_rotation *
                                   vec3(ai_light->mDirection.x, ai_light->mDirection.y, ai_light->mDirection.z));
-        out_scene.lights.push_back(make_directional_light(dir, power * LUMINOUS_EFFICACY, 0.0f));
+        out_scene.lights.push_back(make_directional_light(dir, power * LUMINOUS_EFFICACY));
     } else {
         LOG_WARN("scene contains an unsupported light type: {}", static_cast<i32>(ai_light->mType));
     }

@@ -167,9 +167,9 @@ inline PhotonHashInfo build_hash_info(const BoundingBox &bbox, u32 grid_res) {
     PhotonHashInfo info;
     info.grid_res = grid_res;
     info.origin = (float4){bbox.bbox_min.x, bbox.bbox_min.y, bbox.bbox_min.z, 0.0f};
-    info.cell_sizes.x = (bbox.bbox_max.x - bbox.bbox_min.x) / grid_res;
-    info.cell_sizes.y = (bbox.bbox_max.y - bbox.bbox_min.y) / grid_res;
-    info.cell_sizes.z = (bbox.bbox_max.z - bbox.bbox_min.z) / grid_res;
+    info.cell_sizes.x = glm::max((bbox.bbox_max.x - bbox.bbox_min.x) / grid_res, MIN_CELL_SIZE);
+    info.cell_sizes.y = glm::max((bbox.bbox_max.y - bbox.bbox_min.y) / grid_res, MIN_CELL_SIZE);
+    info.cell_sizes.z = glm::max((bbox.bbox_max.z - bbox.bbox_min.z) / grid_res, MIN_CELL_SIZE);
     return info;
 }
 

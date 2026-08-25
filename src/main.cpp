@@ -1,3 +1,4 @@
+#include "../include/logger.hpp"
 #include "bvh.hpp"
 #include "camera.hpp"
 #include "cmd_args.hpp"
@@ -48,6 +49,7 @@ void phosphor_main(const ArgsList &args) {
     u32 h_batch_size = 0;
     cl::Buffer d_batch_size(ctx.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(u32), &h_batch_size);
 
+    buffers.print_buffer_sizes();
     std::vector<Photon> h_photons;
     TimerScope timer_scope_photons("emitting photons");
     for (u32 batch_offset = 0; batch_offset < photons_to_emit; batch_offset += photons_per_batch) {
@@ -63,25 +65,23 @@ void phosphor_main(const ArgsList &args) {
         u32 h_final_batch_size = 0;
         ctx.queue.enqueueReadBuffer(d_batch_size, CL_TRUE, 0, sizeof(u32), &h_final_batch_size);
         h_final_batch_size = std::min(h_final_batch_size, max_photons_in_batch);
-
+        if (h_final_batch_size <= 0)
+            LOG_FATAL("no photon hit");
         h_photons.resize(h_photons.size() + h_final_batch_size);
         ctx.queue.enqueueReadBuffer(d_photons, CL_TRUE, 0, h_final_batch_size * sizeof(Photon),
                                     h_photons.data() + h_photons.size() - h_final_batch_size);
     }
     timer_scope_photons.stop();
-
     TimerScope timer_scope_hash("building hash struct for photons");
     PhotonHashInfo info = build_hash_info(bbox, args.grid_res);
     PhotonHash struct_hash = build_hash(h_photons, info);
     timer_scope_hash.stop();
-
     buffers.upload_photons(ctx, struct_hash, h_photons);
     cl::Buffer d_out(ctx.context, CL_MEM_WRITE_ONLY, buffers.n_rays * sizeof(float4));
 
     f32 search_radius = std::min({info.cell_sizes.x, info.cell_sizes.y, info.cell_sizes.z}) / 2.0f;
     buffers.set_trace_rays_args(k_trace_rays, search_radius, args.samples, info, args.seed, d_out);
 
-    buffers.print_buffer_sizes();
     TimerScope timer_scope_image("rendering image");
     ctx.queue.enqueueNDRangeKernel(k_trace_rays, cl::NullRange, cl::NDRange(buffers.n_rays), cl::NullRange);
     ctx.queue.finish();
@@ -101,6 +101,7 @@ i32 main(i32 argc, char **argv) {
         LOG_INFO("chosen parameters:");
         arg_parser.print_values(args);
         phosphor_main(args);
+        arg_parser.write_image_metadata(args);
     } catch (const HelpRequested &) {
         arg_parser.print_help();
         return 0;
