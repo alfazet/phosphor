@@ -46,9 +46,29 @@ Material make_default_material() {
     mat.metal_rough_index = NO_TEXTURE;
     mat.trans_tex_index = NO_TEXTURE;
 
-    mat.uv_offset = float2{{0.0f, 0.0f}};
-    mat.uv_scale = float2{{1.0f, 1.0f}};
-    mat.uv_rotation = 0.0f;
+    mat.diff_transform.uv_offset = float2{{0.0f, 0.0f}};
+    mat.diff_transform.uv_scale = float2{{1.0f, 1.0f}};
+    mat.diff_transform.uv_rotation = 0.0f;
+
+    mat.emis_transform.uv_offset = float2{{0.0f, 0.0f}};
+    mat.emis_transform.uv_scale = float2{{1.0f, 1.0f}};
+    mat.emis_transform.uv_rotation = 0.0f;
+
+    mat.norm_transform.uv_offset = float2{{0.0f, 0.0f}};
+    mat.norm_transform.uv_scale = float2{{1.0f, 1.0f}};
+    mat.norm_transform.uv_rotation = 0.0f;
+
+    mat.occlusion_transform.uv_offset = float2{{0.0f, 0.0f}};
+    mat.occlusion_transform.uv_scale = float2{{1.0f, 1.0f}};
+    mat.occlusion_transform.uv_rotation = 0.0f;
+
+    mat.metal_rough_transform.uv_offset = float2{{0.0f, 0.0f}};
+    mat.metal_rough_transform.uv_scale = float2{{1.0f, 1.0f}};
+    mat.metal_rough_transform.uv_rotation = 0.0f;
+
+    mat.trans_tex_transform.uv_offset = float2{{0.0f, 0.0f}};
+    mat.trans_tex_transform.uv_scale = float2{{1.0f, 1.0f}};
+    mat.trans_tex_transform.uv_rotation = 0.0f;
 
     mat.att_color = float4{{1.0f, 1.0f, 1.0f, 0.0f}};
     mat.att_dist = INF;
@@ -59,21 +79,38 @@ Material make_default_material() {
 
 void parse_pbr_metallic_roughness(aiMaterial *ai_mat, const SceneData &scene, Material &out) {
     const aiTextureType uv_types[] = {
-        aiTextureType_BASE_COLOR,
-        aiTextureType_DIFFUSE,
-        aiTextureType_NORMALS,
-        aiTextureType_EMISSIVE,
-        aiTextureType_METALNESS,
-        aiTextureType_DIFFUSE_ROUGHNESS,
-        aiTextureType_UNKNOWN
-    };
+        aiTextureType_BASE_COLOR, aiTextureType_DIFFUSE,           aiTextureType_NORMALS, aiTextureType_EMISSIVE,
+        aiTextureType_METALNESS,  aiTextureType_DIFFUSE_ROUGHNESS, aiTextureType_UNKNOWN};
     for (auto type : uv_types) {
         aiUVTransform ai_uv{};
+        UvTransform *transform;
         if (ai_mat->Get(AI_MATKEY_UVTRANSFORM(type, 0), ai_uv) == AI_SUCCESS) {
-            out.uv_offset = float2{{ai_uv.mTranslation.x, ai_uv.mTranslation.y}};
-            out.uv_scale = float2{{ai_uv.mScaling.x, ai_uv.mScaling.y}};
-            out.uv_rotation = ai_uv.mRotation;
-            break;
+            switch (type) {
+            case aiTextureType_DIFFUSE:
+                transform = &out.diff_transform;
+                break;
+            case aiTextureType_BASE_COLOR:
+                transform = &out.diff_transform;
+                break;
+            case aiTextureType_NORMALS:
+                transform = &out.norm_transform;
+                break;
+            case aiTextureType_EMISSIVE:
+                transform = &out.emis_transform;
+                break;
+            case aiTextureType_METALNESS:
+                transform = &out.metal_rough_transform;
+                break;
+            case aiTextureType_AMBIENT_OCCLUSION:
+                transform = &out.occlusion_transform;
+                break;
+            default:
+                transform = &out.diff_transform;
+                break;
+            }
+            transform->uv_offset = float2{{ai_uv.mTranslation.x, ai_uv.mTranslation.y}};
+            transform->uv_scale = float2{{ai_uv.mScaling.x, ai_uv.mScaling.y}};
+            transform->uv_rotation = ai_uv.mRotation;
         }
     }
 

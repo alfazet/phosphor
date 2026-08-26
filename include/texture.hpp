@@ -12,10 +12,6 @@
 
 enum TextureChannel { CHANNEL_R, CHANNEL_G, CHANNEL_B };
 
-struct UvTransform {
-    float2 offset;
-};
-
 struct Texture {
     u32 width = 0;
     u32 height = 0;

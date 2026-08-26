@@ -4,15 +4,18 @@
 #include "constants.h"
 #include "typedefs.h"
 
+typedef struct UvTransform {
+    float2 uv_offset;
+    float2 uv_scale;
+    f32 uv_rotation;
+    // 2 * 2 * 4 + 4 = 20
+} UvTransform;
+
 typedef struct GPU_ALIGN Material {
     float4 base_color;
     float4 emissive;
     float4 att_color;
     // 3 * 4 * 4 = 48
-
-    float2 uv_offset;
-    float2 uv_scale;
-    // 2 * 2 * 4 = 16
 
     f32 metallic;
     f32 roughness;
@@ -20,8 +23,7 @@ typedef struct GPU_ALIGN Material {
     f32 ior;
     f32 att_dist;
     f32 thickness;
-    f32 uv_rotation;
-    // 7 * 4 = 28
+    // 6 * 4 = 28
 
     u32 diff_index;
     u32 emis_index;
@@ -31,8 +33,16 @@ typedef struct GPU_ALIGN Material {
     u32 trans_tex_index;
     // 6 * 4 = 24
 
-    // total: 116
-    u8 _padding[12];
+    UvTransform diff_transform;
+    UvTransform emis_transform;
+    UvTransform norm_transform;
+    UvTransform occlusion_transform;
+    UvTransform metal_rough_transform;
+    UvTransform trans_tex_transform;
+    // 6 * 20 = 120
+
+    // total: 220
+    u8 _padding[4];
 } Material;
 
 #ifdef __OPENCL_C_VERSION__
@@ -54,6 +64,7 @@ inline float4 sample_texture(__global const TextureMeta *tex_meta, __global cons
         return WHITE;
 
     TextureMeta meta = tex_meta[index];
+    uv.y = 1 - uv.y;
 
     f32 u_wrapped = uv.x - floor(uv.x);
     f32 v_wrapped = uv.y - floor(uv.y);
@@ -69,8 +80,8 @@ inline float4 sample_texture(__global const TextureMeta *tex_meta, __global cons
 }
 
 inline float4 sample_texture_uv(const Material *mat, __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
-                                u32 index, float2 uv) {
-    float2 transformed = apply_uv_transform(uv, mat->uv_offset, mat->uv_scale, mat->uv_rotation);
+                                u32 index, float2 uv, UvTransform transform) {
+    float2 transformed = apply_uv_transform(uv, transform.uv_offset, transform.uv_scale, transform.uv_rotation);
     return sample_texture(tex_meta, tex_atlas, index, transformed);
 }
 
