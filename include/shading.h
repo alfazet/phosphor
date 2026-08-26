@@ -38,20 +38,20 @@ inline ShadingContext evaluate_material(const Material *mat, float2 uv, float4 g
 
     ctx.base_color = mat->base_color * vol_trans;
     if (mat->diff_index != NO_TEXTURE) {
-        float4 tex = sample_texture_uv(mat, tex_meta, tex_atlas, mat->diff_index, uv);
+        float4 tex = sample_texture_uv(mat, tex_meta, tex_atlas, mat->diff_index, uv, mat->diff_transform);
         ctx.base_color *= srgb_to_linear(tex);
     }
 
     ctx.emissive = mat->emissive;
     if (mat->emis_index != NO_TEXTURE) {
-        float4 tex = sample_texture_uv(mat, tex_meta, tex_atlas, mat->emis_index, uv);
+        float4 tex = sample_texture_uv(mat, tex_meta, tex_atlas, mat->emis_index, uv, mat->emis_transform);
         ctx.emissive *= srgb_to_linear(tex);
     }
 
     ctx.metallic = mat->metallic;
     ctx.roughness = mat->roughness;
     if (mat->metal_rough_index != NO_TEXTURE) {
-        float4 mr = sample_texture_uv(mat, tex_meta, tex_atlas, mat->metal_rough_index, uv);
+        float4 mr = sample_texture_uv(mat, tex_meta, tex_atlas, mat->metal_rough_index, uv, mat->metal_rough_transform);
         ctx.metallic *= mr.z;  // B channel
         ctx.roughness *= mr.y; // G channel
     }
@@ -62,7 +62,7 @@ inline ShadingContext evaluate_material(const Material *mat, float2 uv, float4 g
 
     ctx.shading_normal = geom_normal;
     if (mat->norm_index != NO_TEXTURE) {
-        float4 map_sample = sample_texture_uv(mat, tex_meta, tex_atlas, mat->norm_index, uv);
+        float4 map_sample = sample_texture_uv(mat, tex_meta, tex_atlas, mat->norm_index, uv, mat->norm_transform);
         ctx.shading_normal = apply_normal_map(map_sample, geom_normal, tangent, bitangent);
     }
 
