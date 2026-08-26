@@ -9,11 +9,10 @@
 
 constexpr const char *HELP_FLAG = "--help";
 
-constexpr u32 DEFAULT_WIDTH = 1024;
-constexpr u32 DEFAULT_HEIGHT = 1024;
+constexpr u32 DEFAULT_RES = 1024;
 constexpr u32 DEFAULT_IMAGE_ITERS = 8;
 constexpr u32 DEFAULT_SAMPLES = 64;
-constexpr u32 DEFAULT_PHOTONS_PER_LIGHT = 65536;
+constexpr u32 DEFAULT_PHOTONS_PER_LIGHT = (1 << 18);
 constexpr f32 DEFAULT_RAY_STEP = 0.0001f;
 constexpr u32 DEFAULT_SEED = 2137;
 constexpr u32 DEFAULT_GRID_RES = 128;
@@ -21,8 +20,7 @@ constexpr const char *DEFAULT_MODEL_PATH = "./models/sample/sample.glb";
 constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
 
 #define ARG_TABLE(X)                                                                                                   \
-    X("-w", width, u32, parse_u32, DEFAULT_WIDTH, "image width (px)")                                                  \
-    X("-h", height, u32, parse_u32, DEFAULT_HEIGHT, "image height (px)")                                               \
+    X("-r", res, u32, parse_u32, DEFAULT_RES, "image resolution (px)")                                               \
     X("-i", image_iters, u32, parse_u32, DEFAULT_IMAGE_ITERS, "number of image iterations")                            \
     X("-s", samples, u32, parse_u32, DEFAULT_SAMPLES, "number of samples for photon gathering")                        \
     X("-p", photons, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT,                                                        \

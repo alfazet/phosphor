@@ -38,7 +38,7 @@ void phosphor_main(const ArgsList &args) {
     buffers.upload_scene(ctx, scene, bvh);
 
     RngState rng = pcg_seed(args.seed);
-    auto [h_origin, h_dir] = scene.get_camera().generate_rays(rng, args.width, args.height, args.image_iters);
+    auto [h_origin, h_dir] = scene.get_camera().generate_rays(rng, args.res, args.res, args.image_iters);
     buffers.upload_rays(ctx, h_origin, h_dir);
 
     u32 photons_to_emit = round_up_to_pow2(args.photons);
@@ -108,7 +108,7 @@ void phosphor_main(const ArgsList &args) {
     ctx.queue.enqueueReadBuffer(d_out, CL_TRUE, 0, buffers.n_rays * sizeof(float4), h_out.data());
     timer_scope_image.stop();
 
-    write_png(args.output_path, args.width, args.height, args.image_iters, h_out);
+    write_png(args.output_path, args.res, args.res, args.image_iters, h_out);
 }
 
 i32 main(i32 argc, char **argv) {

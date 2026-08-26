@@ -188,7 +188,9 @@ void SceneBuffers::set_trace_rays_args(cl::Kernel &kernel, f32 search_radius, u3
     set_kernel_args(kernel, ray_origin, ray_dir, n_rays, seed, tri_v0, tri_v1, tri_v2, tri_n0, tri_n1, tri_n2, tri_uv0,
                     tri_uv1, tri_uv2, tri_t0, tri_t1, tri_t2, bvh_nodes, tri_mat_index, n_triangles, materials,
                     tex_meta, tex_atlas, photon_pos, photon_power, photon_dir, photon_normal, n_photons, search_radius,
-                    samples, out_color, tree_index, bucket_tree_offset, bucket_tree_size, info);
+                    samples, out_color, tree_index, bucket_tree_offset, bucket_tree_size, info, lights, n_lights,
+                    light_pref_sum, total_luminance, scene_center, scene_radius, etri_v0, etri_v1, etri_v2, etri_n0,
+                    etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2);
 }
 
 void SceneBuffers::print_buffer_sizes() const {

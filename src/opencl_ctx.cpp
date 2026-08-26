@@ -29,7 +29,7 @@ void ClContext::select_platform_and_device() {
         }
     }
 
-    // Fallback to any available device
+    // fallback to any available device
     for (const auto &p : platforms) {
         std::vector<cl::Device> devices;
         p.getDevices(CL_DEVICE_TYPE_ALL, &devices);

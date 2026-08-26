@@ -32,7 +32,7 @@ void build_mip_chain(Texture &tex, std::vector<u8> pixels, u32 w, u32 h) {
 
         u32 nw = std::max(1u, lw / 2);
         u32 nh = std::max(1u, lh / 2);
-        std::vector<u8> next(nw * nh * 3);
+        std::vector<u8> next(nw * nh * tex.channels);
         for (u32 y = 0; y < nh; y++) {
             for (u32 x = 0; x < nw; x++) {
                 u32 sx0 = std::min(x * 2, lw - 1);
@@ -40,9 +40,9 @@ void build_mip_chain(Texture &tex, std::vector<u8> pixels, u32 w, u32 h) {
                 u32 sx1 = std::min(x * 2 + 1, lw - 1);
                 u32 sy1 = std::min(y * 2 + 1, lh - 1);
                 for (u32 c = 0; c < 3; c++) {
-                    u32 sum = level[(sy0 * lw + sx0) * 3 + c] + level[(sy0 * lw + sx1) * 3 + c] +
-                              level[(sy1 * lw + sx0) * 3 + c] + level[(sy1 * lw + sx1) * 3 + c];
-                    next[(y * nw + x) * 3 + c] = static_cast<u8>(sum / 4);
+                    u32 sum = level[(sy0 * lw + sx0) * tex.channels + c] + level[(sy0 * lw + sx1) * tex.channels + c] +
+                              level[(sy1 * lw + sx0) * tex.channels + c] + level[(sy1 * lw + sx1) * tex.channels + c];
+                    next[(y * nw + x) * tex.channels + c] = static_cast<u8>(sum / (tex.channels + 1));
                 }
             }
         }
@@ -113,6 +113,7 @@ void parse_textures(const aiScene *aiscene, SceneData &out_scene, const char *di
     for (u32 i = 0; i < aiscene->mNumMaterials; i++) {
         aiMaterial *mat = aiscene->mMaterials[i];
         load_texture(aiscene, mat, aiTextureType_DIFFUSE, directory, out_scene);
+        load_texture(aiscene, mat, aiTextureType_BASE_COLOR, directory, out_scene);
         load_texture(aiscene, mat, aiTextureType_EMISSIVE, directory, out_scene);
         load_texture(aiscene, mat, aiTextureType_NORMALS, directory, out_scene);
         load_texture(aiscene, mat, aiTextureType_AMBIENT_OCCLUSION, directory, out_scene);
