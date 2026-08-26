@@ -64,6 +64,7 @@ inline float4 sample_texture(__global const TextureMeta *tex_meta, __global cons
         return WHITE;
 
     TextureMeta meta = tex_meta[index];
+    uv.y = 1 - uv.y;
 
     f32 u_wrapped = uv.x - floor(uv.x);
     f32 v_wrapped = uv.y - floor(uv.y);
