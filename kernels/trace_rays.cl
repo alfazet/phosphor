@@ -32,6 +32,7 @@ __kernel void trace_rays(__global const float4 *ray_origin, __global const float
     float4 stack_diffuse[MAX_RAY_BOUNCES];
     float4 stack_weight[MAX_RAY_BOUNCES];
     float4 stack_emissive[MAX_RAY_BOUNCES];
+    float4 stack_volumetric[MAX_RAY_BOUNCES];
     bool stack_hit[MAX_RAY_BOUNCES];
 
     float4 origin = ray_origin[tid];
@@ -70,7 +71,8 @@ __kernel void trace_rays(__global const float4 *ray_origin, __global const float
             vol_trans.y = exp(-sigma.y * travel);
             vol_trans.z = exp(-sigma.z * travel);
         }
-        float4 base_color = mat.base_color * vol_trans;
+        stack_volumetric[depth] = vol_trans;
+        float4 base_color = mat.base_color;
 
         if (mat.diff_index != NO_TEXTURE) {
             base_color *= sample_texture(tex_meta, tex_atlas, mat.diff_index, uv);
@@ -116,8 +118,9 @@ __kernel void trace_rays(__global const float4 *ray_origin, __global const float
                 depth++;
                 break;
             }
-            stack_diffuse[depth] = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
-            stack_weight[depth] = fresnel4(base_color, -dir, h);
+            float4 fr = fresnel4(base_color, -dir, h);
+            stack_diffuse[depth] *= (float4)(1.0f, 1.0f, 1.0f, 1.0f)-fr;
+            stack_weight[depth] = fr;
 
             origin = hit_pos + normal * EPS;
             dir = reflected;
@@ -168,7 +171,7 @@ __kernel void trace_rays(__global const float4 *ray_origin, __global const float
     for (i32 i = depth - 1; i >= 0; i--) {
         if (!stack_hit[i])
             continue;
-        result = stack_diffuse[i] + stack_weight[i] * result + stack_emissive[i];
+        result = stack_volumetric[i] * (stack_diffuse[i] + stack_weight[i] * result + stack_emissive[i]);
     }
 
     out_color[tid] = result;

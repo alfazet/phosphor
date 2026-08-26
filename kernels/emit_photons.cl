@@ -285,7 +285,7 @@ emit_photons(__global float4 *photon_pos, __global float4 *photon_power, __globa
         }
 
         f32 ior_1 = rec.front_face ? curr_ior : mat_ior;
-        f32 ior_2 = rec.front_face ? mat_ior : curr_ior;
+        f32 ior_2 = rec.front_face ? mat_ior : AIR_IOR;
         f32 fr = fresnel_refracted(ior_1, ior_2, -dir, h);
         if (random_float(&rng) < fr) {
             float4 reflected = reflect(dir, h);
