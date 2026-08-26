@@ -51,7 +51,7 @@ inline float2 apply_uv_transform(float2 uv, float2 offset, float2 scale, f32 rot
 
 inline float4 sample_texture(__global const TextureMeta *tex_meta, __global const u8 *tex_atlas, u32 index, float2 uv) {
     if (index == NO_TEXTURE)
-        return (float4)(1.0f, 1.0f, 1.0f, 1.0f);
+        return WHITE;
 
     TextureMeta meta = tex_meta[index];
 

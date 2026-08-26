@@ -2,9 +2,13 @@
 #include "logger.hpp"
 #include "stb_image_write.h"
 
+#include <cmath>
 #include <vector>
 
-inline f32 tone_map(f32 x) { return x / (1.0f + x); }
+inline f32 tone_map(f32 x) {
+    f32 mapped = x / (1.0f + x);
+    return std::pow(mapped, 1.0f / 2.2f);
+}
 
 void write_png(const std::string &path, u32 width, u32 height, u32 iters, const std::vector<float4> &raw) {
     u32 n_pixels = width * height;

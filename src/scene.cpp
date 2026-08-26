@@ -58,11 +58,23 @@ Material make_default_material() {
 }
 
 void parse_pbr_metallic_roughness(aiMaterial *ai_mat, const SceneData &scene, Material &out) {
-    aiUVTransform ai_uv{};
-    if (ai_mat->Get(AI_MATKEY_UVTRANSFORM(aiTextureType_DIFFUSE, 0), ai_uv) == AI_SUCCESS) {
-        out.uv_offset = float2{{ai_uv.mTranslation.x, ai_uv.mTranslation.y}};
-        out.uv_scale = float2{{ai_uv.mScaling.x, ai_uv.mScaling.y}};
-        out.uv_rotation = ai_uv.mRotation;
+    const aiTextureType uv_types[] = {
+        aiTextureType_BASE_COLOR,
+        aiTextureType_DIFFUSE,
+        aiTextureType_NORMALS,
+        aiTextureType_EMISSIVE,
+        aiTextureType_METALNESS,
+        aiTextureType_DIFFUSE_ROUGHNESS,
+        aiTextureType_UNKNOWN
+    };
+    for (auto type : uv_types) {
+        aiUVTransform ai_uv{};
+        if (ai_mat->Get(AI_MATKEY_UVTRANSFORM(type, 0), ai_uv) == AI_SUCCESS) {
+            out.uv_offset = float2{{ai_uv.mTranslation.x, ai_uv.mTranslation.y}};
+            out.uv_scale = float2{{ai_uv.mScaling.x, ai_uv.mScaling.y}};
+            out.uv_rotation = ai_uv.mRotation;
+            break;
+        }
     }
 
     aiColor4D base_color(1.0f, 1.0f, 1.0f, 1.0f);
@@ -114,6 +126,9 @@ static void parse_material_textures(aiMaterial *ai_mat, const SceneData &scene, 
     };
 
     try_set(aiTextureType_DIFFUSE, out.diff_index);
+    if (out.diff_index == NO_TEXTURE)
+        try_set(aiTextureType_BASE_COLOR, out.diff_index);
+
     try_set(aiTextureType_EMISSIVE, out.emis_index);
     try_set(aiTextureType_NORMALS, out.norm_index);
     try_set(aiTextureType_AMBIENT_OCCLUSION, out.occlusion_index);
