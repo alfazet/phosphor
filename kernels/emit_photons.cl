@@ -239,8 +239,8 @@ emit_photons(__global float4 *photon_pos, __global float4 *photon_power, __globa
         if (curr_ior != AIR_IOR && mat.thickness > 0.0f && mat.att_dist > EPS) {
             f32 travel = rec.t;
             float4 att_color = mat.att_color;
-            float4 sigma = (float4)(-log(fmax(att_color.x, EPS)), -log(fmax(att_color.x, EPS)),
-                                    -log(fmax(att_color.x, EPS)), 0.0f) /
+            float4 sigma = (float4)(-log(fmax(att_color.x, EPS)), -log(fmax(att_color.y, EPS)),
+                                    -log(fmax(att_color.z, EPS)), 0.0f) /
                            mat.att_dist;
             power.x *= exp(-sigma.x * travel);
             power.y *= exp(-sigma.y * travel);
