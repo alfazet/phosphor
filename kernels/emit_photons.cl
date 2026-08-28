@@ -26,7 +26,6 @@ emit_photons(__global float4 *photon_pos, __global float4 *photon_power, __globa
              __global const float4 *etri_v0, __global const float4 *etri_v1, __global const float4 *etri_v2,
              __global const float4 *etri_n0, __global const float4 *etri_n1, __global const float4 *etri_n2,
              __global const float2 *etri_uv0, __global const float2 *etri_uv1, __global const float2 *etri_uv2,
-             __global const float4 *etri_t0, __global const float4 *etri_t1, __global const float4 *etri_t2,
              __global const u32 *etri_mat_index,
 
              __global const Material *materials, __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,

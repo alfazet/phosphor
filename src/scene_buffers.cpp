@@ -74,9 +74,6 @@ void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const Bv
         etn0[i] = t.n0;
         etn1[i] = t.n1;
         etn2[i] = t.n2;
-        ett0[i] = t.t0;
-        ett1[i] = t.t1;
-        ett2[i] = t.t2;
         etmat[i] = t.mat_index;
     }
 
@@ -89,9 +86,6 @@ void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const Bv
     this->etri_n0 = dev_buf(ctx, etn0.data(), en_triangles, sizeof(float4));
     this->etri_n1 = dev_buf(ctx, etn1.data(), en_triangles, sizeof(float4));
     this->etri_n2 = dev_buf(ctx, etn2.data(), en_triangles, sizeof(float4));
-    this->etri_t0 = dev_buf(ctx, ett0.data(), en_triangles, sizeof(float4));
-    this->etri_t1 = dev_buf(ctx, ett1.data(), en_triangles, sizeof(float4));
-    this->etri_t2 = dev_buf(ctx, ett2.data(), en_triangles, sizeof(float4));
     this->etri_mat_index = dev_buf(ctx, etmat.data(), en_triangles, sizeof(u32));
 
     this->bvh_nodes = dev_buf(ctx, bvh.nodes.data(), bvh.nodes.size(), sizeof(BvhNode));
@@ -179,8 +173,8 @@ void SceneBuffers::set_emit_photons_args(cl::Kernel &kernel, u32 batch_offset, u
                     lights, n_lights, batch_max_photons, batch_offset, photons_to_emit, seed, bvh_nodes, tri_v0, tri_v1,
                     tri_v2, tri_n0, tri_n1, tri_n2, tri_uv0, tri_uv1, tri_uv2, tri_t0, tri_t1, tri_t2, tri_mat_index,
                     n_triangles, etri_v0, etri_v1, etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2,
-                    etri_t0, etri_t1, etri_t2, etri_mat_index, materials, tex_meta, tex_atlas, light_pref_sum,
-                    total_luminance, scene_center, scene_radius);
+                    etri_mat_index, materials, tex_meta, tex_atlas, light_pref_sum, total_luminance, scene_center,
+                    scene_radius);
 }
 
 void SceneBuffers::set_trace_rays_args(cl::Kernel &kernel, f32 search_radius, u32 samples, PhotonHashInfo info,
@@ -226,9 +220,6 @@ void SceneBuffers::print_buffer_sizes() const {
     sz("etri_n0", etri_n0);
     sz("etri_n1", etri_n1);
     sz("etri_n2", etri_n2);
-    sz("etri_t0", etri_t0);
-    sz("etri_t1", etri_t1);
-    sz("etri_t2", etri_t2);
     sz("etri_mat_index", etri_mat_index);
 
     sz("bvh_nodes", bvh_nodes);
