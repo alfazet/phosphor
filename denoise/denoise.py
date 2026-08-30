@@ -61,7 +61,7 @@ def mean_filter(arr, kernel_size=3):
 
 def process_pixels(func):
     pixmap = window.left_image.pixmap()
-    if pixmap is None:
+    if pixmap is None or pixmap.isNull():
         return
 
     arr = qimage_to_array(pixmap.toImage())
