@@ -5,11 +5,6 @@
 #include "typedefs.h"
 
 typedef struct GPU_ALIGN TextureMeta {
-    float2 uv_offset;
-    float2 uv_scale;
-    f32 uv_rotation;
-    // 2 * 2 * 4 + 4 = 20
-
     u32 atlas_offset; // offset into the atlas for mip level 0
     u32 width;
     u32 height;
@@ -25,8 +20,8 @@ typedef struct GPU_ALIGN TextureMeta {
     u32 mip_table_offset;
     // 2 * 4 = 8
 
-    // total: 44
-    u8 _padding[4];
+    // total: 24
+    u8 _padding[8];
 } TextureMeta;
 
 #endif // PHOSPHOR_TEXTURE_META_H
