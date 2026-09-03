@@ -117,7 +117,7 @@ static inline void sample_textured_light(RngState *rng, Light *light, __global c
 
     float4 n0 = etri_n0[chosen_idx], n1 = etri_n1[chosen_idx], n2 = etri_n2[chosen_idx];
     float4 normal = w * n0 + u * n1 + v * n2;
-    if (length(normal.xyz) > EPS)
+    if (length(normal) > EPS)
         normal = normalize(normal);
     else
         normal = normalize(cross(v1 - v0, v2 - v0));
@@ -177,6 +177,7 @@ inline void sample_light(RngState *rng, __global const Light *lights, u32 n_ligh
     *power /= scale;
 }
 
+// compute direct lighting by light-source sampling with next-event estimation
 inline float4
 direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32 metallic, __global const Light *lights,
                 u32 n_lights, __global const f32 *light_pref_sum, f32 total_luminance, float4 scene_center,
@@ -203,7 +204,7 @@ direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32
 
     if (light.kind == LIGHT_POINT) {
         float4 to_light = light.position - pos;
-        f32 dist_sq = fmax(dot(to_light.xyz, to_light.xyz), EPS);
+        f32 dist_sq = fmax(dot(to_light, to_light), EPS);
         f32 dist = sqrt(dist_sq);
         shadow_dir = to_light / dist;
         shadow_dist = dist;
@@ -216,7 +217,7 @@ direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32
 
     } else if (light.kind == LIGHT_SPOT) {
         float4 to_light = light.position - pos;
-        f32 dist_sq = fmax(dot(to_light.xyz, to_light.xyz), EPS);
+        f32 dist_sq = fmax(dot(to_light, to_light), EPS);
         f32 dist = sqrt(dist_sq);
         shadow_dir = to_light / dist;
         shadow_dist = dist;
@@ -279,13 +280,13 @@ direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32
         float4 light_pos = bw * etri_v0[chosen] + bu * etri_v1[chosen] + bv * etri_v2[chosen];
 
         float4 ln = bw * etri_n0[chosen] + bu * etri_n1[chosen] + bv * etri_n2[chosen];
-        if (length(ln.xyz) > EPS)
+        if (length(ln) > EPS)
             ln = normalize(ln);
         else
             ln = normalize(cross(etri_v1[chosen] - etri_v0[chosen], etri_v2[chosen] - etri_v0[chosen]));
 
         float4 to_light = light_pos - pos;
-        f32 dist_sq = fmax(dot(to_light.xyz, to_light.xyz), EPS);
+        f32 dist_sq = fmax(dot(to_light, to_light), EPS);
         f32 dist = sqrt(dist_sq);
         shadow_dir = to_light / dist;
         shadow_dist = dist;
@@ -305,7 +306,7 @@ direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32
         irradiance = emissive_flux * cos_i * cos_l / (PI * dist_sq);
     }
 
-    if (dot(irradiance.xyz, irradiance.xyz) < EPS * EPS)
+    if (dot(irradiance, irradiance) < EPS * EPS)
         return BLACK;
 
     HitRecord shadow_hit_rec;
