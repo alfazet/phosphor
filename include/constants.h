@@ -27,7 +27,7 @@
 #define WHITE (float4)(1.0f, 1.0f, 1.0f, 0.0f)
 
 #define MIN_ROUGHNESS 0.001f
-#define GGX_SAMPLING_ATTEMPTS 8u
+#define GGX_SAMPLING_ATTEMPTS 32u
 #define MIN_RAY_RR_DEPTH 2
 #define MIN_PHOTON_RR_DEPTH 2
 

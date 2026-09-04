@@ -112,8 +112,8 @@ inline BsdfSample sample_bsdf(RngState *rng, const ShadingContext *ctx, float4 s
     if (random_float(rng) < ctx->metallic) {
         // metallic reflection
         float4 reflected = reflect(-view, h);
-        if (dot(reflected, geom_normal) <= 0.0f)
-            reflected = reflect(-view, geom_normal);
+        // if (dot(reflected, geom_normal) <= 0.0f)
+        //     reflected = reflect(-view, geom_normal);
         s.dir = reflected;
         s.throughput = fresnel4(ctx->base_color, view, h);
         s.event = BSDF_METALLIC;
