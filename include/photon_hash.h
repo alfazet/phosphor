@@ -111,8 +111,9 @@ inline void locate_bucket_knn(__global const u32 *tree_index, u32 offset, u32 tr
 
 inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __global const u32 *tree_index,
                                __global const u32 *bucket_tree_offset, __global const u32 *bucket_tree_size,
-                               __global const float4 *photon_pos, __global const float4 *photon_power, u32 samples,
-                               f32 max_dist2, float4 *flux, f32 *out_max_dist2) {
+                               __global const float4 *photon_pos, __global const float4 *photon_power,
+                               __global const float4 *photon_dir, u32 samples, f32 max_dist2,
+                               const float4 surf_hit_normal, float4 *flux, f32 *out_max_dist2) {
     u32 result[MAX_PHOTON_SAMPLES];
     f32 dist2[MAX_PHOTON_SAMPLES];
     u32 count = 0;
@@ -141,8 +142,12 @@ inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __gl
 
     f32 worst = 0.0f;
     for (u32 i = 0; i < count; i++) {
-        flux[0] += photon_power[result[i]];
-        worst = fmax(worst, dist2[i]);
+        const float4 dir = photon_dir[result[i]];
+        const f32 c = dot(dir.xyz, surf_hit_normal.xyz);
+        // if (c < -EPS) {
+            *flux += photon_power[result[i]];
+            worst = fmax(worst, dist2[i]);
+        // }
     }
     *out_max_dist2 = worst;
 }
@@ -279,8 +284,8 @@ inline PhotonHash build_hash(std::vector<float4> &photon_pos, std::vector<float4
         u32 count = grid.cell_end[b] - grid.cell_start[b];
         if (count == 0)
             continue;
-        balance(photon_pos, kd_indices, 1, grid.cell_start[b],
-                grid.cell_end[b], grid.tree_index, grid.bucket_tree_offset[b], grid.bucket_tree_size[b]);
+        balance(photon_pos, kd_indices, 1, grid.cell_start[b], grid.cell_end[b], grid.tree_index,
+                grid.bucket_tree_offset[b], grid.bucket_tree_size[b]);
     }
 
     return grid;
