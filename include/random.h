@@ -44,9 +44,9 @@ inline float4 random_unit_vector(RngState *rng) {
         p.y = 2.0f * random_float(rng) - 1.0f;
         p.z = 2.0f * random_float(rng) - 1.0f;
         p.w = 0.0f;
-    } while (dot(p.xyz, p.xyz) >= 1.0f);
+    } while (dot(p, p) >= 1.0f);
 
-    f32 len = sqrt(dot(p.xyz, p.xyz));
+    f32 len = sqrt(dot(p, p));
     p.x /= len;
     p.y /= len;
     p.z /= len;

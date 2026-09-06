@@ -83,7 +83,7 @@ inline void locate_bucket_knn(__global const u32 *tree_index, u32 offset, u32 tr
 
         float4 ph = photon_pos[pidx - 1];
         float4 diff = pos - ph;
-        f32 d2 = dot(diff.xyz, diff.xyz);
+        f32 d2 = dot(diff, diff);
 
         if (d2 < max_dist2)
             try_insert_photon(pidx - 1, d2, grid_res, result, dist2, count);
