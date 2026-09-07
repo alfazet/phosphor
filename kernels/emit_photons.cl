@@ -109,7 +109,9 @@ __kernel void emit_photons(
 
         power *= bsdf.throughput;
         throughput *= bsdf.throughput;
-        origin = surf_hit.position + bsdf.dir * EPS;
+        // origin = surf_hit.position + bsdf.dir * EPS;
+        float4 side = (dot(bsdf.dir, surf_hit.normal) > 0.0f) ? surf_hit.normal : -surf_hit.normal;
+        origin = surf_hit.position + bsdf.dir * EPS + side * EPS;
         dir = bsdf.dir;
     }
 }
