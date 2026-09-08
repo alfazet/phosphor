@@ -12,6 +12,15 @@ inline float4 reflect(float4 incoming, float4 normal) {
     return normalize(incoming - 2.0f * dot(incoming, normal) * normal);
 }
 
+inline float4 safe_reflect(float4 dir, float4 normal, float4 geom_normal) {
+    float4 reflected = reflect(dir, normal);
+    if (dot(reflected, geom_normal) <= 0.0f) {
+        reflected = reflected - dot(reflected, geom_normal) * geom_normal;
+        reflected = normalize(reflected);
+    }
+    return reflected;
+}
+
 // sample a microfacet normal from the GGX Visible Normal Distribution (VNDF)
 // returns the sampled microfacet normal in world space
 // reference: "Sampling the GGX Distribution of Visible Normals", Heitz 2018
@@ -54,13 +63,13 @@ inline float4 ggx_sample_vndf(RngState *rng, float4 normal, float4 geom_normal, 
         ne = normalize(ne_local.x * tangent + ne_local.y * bitangent + ne_local.z * normal);
 
         // reject samples that would produce a reflection going into the surface
-        float4 reflected = reflect(view, ne);
-        if (dot(reflected, normal) >= 0.0f)
+        float4 reflected = reflect(-view, ne);
+        if (dot(reflected, geom_normal) >= 0.0f)
             return ne;
     }
 
     // fallback to the geometric normal if all attempts failed
-    return normal;
+    return geom_normal;
 }
 
 // Smith G1 masking function for the GGX microfacet distribution

@@ -144,11 +144,11 @@ inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __gl
     f32 worst = 0.0f;
     for (u32 i = 0; i < count; i++) {
         const float4 dir = photon_dir[result[i]];
-        const f32 c = dot(dir.xyz, surf_hit_normal.xyz);
-        // if (c < -EPS) {
+        const f32 c = dot(dir, surf_hit_normal);
+        if (c < -EPS) {
             *flux += photon_power[result[i]];
             worst = fmax(worst, dist2[i]);
-        // }
+        }
     }
     *out_max_dist2 = worst;
 }
