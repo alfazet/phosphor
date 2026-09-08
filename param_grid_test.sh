@@ -12,13 +12,13 @@ out_dir=$(mktemp -d)
 
 param1="--defocus-angle"
 start1=1
-end1=3
+end1=10
 step1=1
 
 param2="--focus-distance"
-start2=10
-end2=12
-step2=1
+start2=2
+end2=20
+step2=2
 
 declare -a strips=()
 
