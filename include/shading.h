@@ -112,14 +112,14 @@ inline BsdfSample sample_bsdf(RngState *rng, const ShadingContext *ctx, float4 s
     if (random_float(rng) < ctx->metallic) {
         // metallic reflection
         s.dir = safe_reflect(-view, h, geom_normal);
-        s.throughput = fresnel4(ctx->base_color, view, h);
+        s.throughput = fresnel4(ctx->base_color, -view, h);
         s.event = BSDF_METALLIC;
         return s;
     }
 
     f32 ior_1 = front_face ? *curr_ior : ctx->ior;
     f32 ior_2 = front_face ? ctx->ior : *curr_ior;
-    f32 fr = fresnel_refracted(ior_1, ior_2, view, h);
+    f32 fr = fresnel_refracted(ior_1, ior_2, -view, h);
 
     if (random_float(rng) < fr) {
         // dielectric reflection
