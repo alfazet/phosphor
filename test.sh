@@ -8,8 +8,7 @@ fi
 ./build.sh release
 
 cmd="./build/release/phosphor"
-out_dir="/tmp/renders"
-mkdir -p "$out_dir"
+out_dir=$(mktemp -d)
 
 declare -a strips=()
 
