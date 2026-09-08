@@ -1,40 +1,62 @@
 #include "camera.hpp"
+
+#include "logger.hpp"
 #include "random.h"
 
-Camera::Camera(vec3 position, vec3 look_at, vec3 up, f32 hfov_deg, f32 aspect) {
-    vec3 w_dir = normalize(position - look_at);
+void Camera::recalculate() {
+    vec3 w_dir = normalize(position - this->target);
     vec3 u_dir = normalize(cross(up, w_dir));
     vec3 v_dir = cross(w_dir, u_dir);
-
-    f32 hfov_rad = glm::radians(hfov_deg);
-    f32 half_width = glm::tan(hfov_rad * 0.5f);
-    f32 half_height = half_width / aspect;
-
+    f32 hfov_rad = glm::radians(this->hfov);
+    f32 half_width = glm::tan(hfov_rad * 0.5f) * focus_distance;
+    f32 half_height = half_width / this->aspect_ratio;
     vec3 horizontal = 2.0f * half_width * u_dir;
     vec3 vertical = 2.0f * half_height * v_dir;
-    vec3 lower_left = position - 0.5f * horizontal - 0.5f * vertical - w_dir;
-
-    this->position = vec3_to_float4(position);
-    this->target = vec3_to_float4(look_at);
-    this->up = vec3_to_float4(up);
-    this->lower_left_corner = vec3_to_float4(lower_left);
-    this->horizontal = vec3_to_float4(horizontal);
-    this->vertical = vec3_to_float4(vertical);
-    this->u = vec3_to_float4(u_dir);
-    this->v = vec3_to_float4(v_dir);
-    this->w = vec3_to_float4(w_dir);
-    this->hfov = hfov_deg;
-    this->aspect_ratio = aspect;
+    vec3 lower_left = position - 0.5f * horizontal - 0.5f * vertical - w_dir * focus_distance;
+    this->horizontal = horizontal;
+    this->vertical = vertical;
+    this->lower_left_corner = lower_left;
+    this->u = u_dir;
+    this->v = v_dir;
+    this->w = w_dir;
 }
 
-Ray Camera::get_ray(f32 s, f32 t) const {
-    vec3 position(this->position.x, this->position.y, this->position.z);
-    vec3 lower_left_corner(this->lower_left_corner.x, this->lower_left_corner.y, this->lower_left_corner.z);
-    vec3 horizontal(this->horizontal.x, this->horizontal.y, this->horizontal.z);
-    vec3 vertical(this->vertical.x, this->vertical.y, this->vertical.z);
+Camera::Camera(vec3 position, vec3 look_at, vec3 up, f32 hfov_deg, f32 aspect) {
+    this->position = position;
+    this->target = look_at;
+    this->up = up;
+    this->hfov = hfov_deg;
+    this->aspect_ratio = aspect;
+    this->defocus_angle = 0.0;
+    this->focus_distance = 1.0;
+    recalculate();
+}
+
+void Camera::focus(f32 defocus_angle, f32 focus_distance) {
+    this->defocus_angle = defocus_angle;
+    this->focus_distance = focus_distance;
+    f32 defocus_radius = focus_distance * std::tan(glm::radians(defocus_angle / 2.0f));
+    this->defocus_disk_u = this->u * defocus_radius;
+    this->defocus_disk_v = this->v * defocus_radius;
+    recalculate();
+}
+
+vec3 Camera::get_ray_origin(RngState &rng) const {
+    vec3 disk_offset = vec3{0.0f, 0.0f, 0.0f};
+    if (defocus_angle > 0.0) {
+        f32 r1 = sqrt(random_float(&rng));
+        f32 r2 = 2.0f * PI * random_float(&rng);
+        f32 disk_offset_cos = std::cos(r2);
+        f32 disk_offset_sin = std::sin(r2);
+        disk_offset = r1 * (disk_offset_cos * this->defocus_disk_u + disk_offset_sin * this->defocus_disk_v);
+    }
+    return position + disk_offset;
+}
+
+Ray Camera::get_ray(RngState &rng, f32 s, f32 t) const {
+    vec3 position = get_ray_origin(rng);
     vec3 direction = lower_left_corner + s * horizontal + t * vertical - position;
     vec3 dir_n = normalize(direction);
-
     Ray r{};
     r.origin = float4{{position.x, position.y, position.z, 0.0f}};
     r.dir = float4{{dir_n.x, dir_n.y, dir_n.z, 0.0f}};
@@ -51,7 +73,7 @@ std::pair<std::vector<float4>, std::vector<float4>> Camera::generate_rays(RngSta
             for (u32 j = 0; j < image_iters; j++) {
                 const f32 s = (x + 0.5f + random_float(&rng) - 0.5f) / static_cast<f32>(image_width);
                 const f32 t = 1.0f - (y + 0.5f + random_float(&rng) - 0.5f) / static_cast<f32>(image_height);
-                Ray r = this->get_ray(s, t);
+                Ray r = this->get_ray(rng, s, t);
                 u32 idx = (y * image_width + x) * image_iters + j;
                 origins[idx] = r.origin;
                 dirs[idx] = r.dir;

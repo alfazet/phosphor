@@ -406,7 +406,11 @@ SceneData read_gltf_scene(const char *file_name) {
     return scene;
 }
 
-const Camera &SceneData::get_camera() const { return this->cameras[*this->chosen_camera]; }
+Camera *SceneData::get_camera() const {
+    if (!chosen_camera.has_value() || *chosen_camera >= cameras.size())
+        return nullptr;
+    return const_cast<Camera *>(&cameras[*chosen_camera]);
+}
 
 void SceneData::build_luminance_pref_sum() {
     this->luminance_pref_sum.clear();

@@ -21,7 +21,7 @@ struct SceneData {
     std::vector<Texture> textures;
     std::optional<u32> chosen_camera{};
 
-    const Camera &get_camera() const;
+    Camera *get_camera() const;
 
     void build_luminance_pref_sum();
 };
