@@ -95,7 +95,7 @@ __kernel void emit_photons(
         BsdfSample bsdf =
             sample_bsdf(&rng, &ctx, ctx.shading_normal, surf_hit.normal, view, &curr_ior, surf_hit.front_face);
 
-        if (bsdf.event == BSDF_DIFFUSE) {
+        if (bsdf.event == BSDF_DIFFUSE && dot(dir, surf_hit.normal) < 0.0f) {
             u32 idx = atomic_inc(photon_count);
             if (idx < max_photons) {
                 photon_pos[idx] = surf_hit.position;

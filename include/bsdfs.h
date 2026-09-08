@@ -69,7 +69,7 @@ inline float4 ggx_sample_vndf(RngState *rng, float4 normal, float4 geom_normal, 
     }
 
     // fallback to the geometric normal if all attempts failed
-    return geom_normal;
+    return normal;
 }
 
 // Smith G1 masking function for the GGX microfacet distribution

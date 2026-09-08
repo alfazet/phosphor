@@ -112,8 +112,8 @@ inline void locate_bucket_knn(__global const u32 *tree_index, u32 offset, u32 tr
 inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __global const u32 *tree_index,
                                __global const u32 *bucket_tree_offset, __global const u32 *bucket_tree_size,
                                __global const float4 *photon_pos, __global const float4 *photon_power,
-                               __global const float4 *photon_dir, u32 samples, f32 max_dist2,
-                               const float4 surf_hit_normal, float4 *flux, f32 *out_max_dist2) {
+                               __global const float4 *photon_dir, __global const float4 *photon_normal, u32 samples,
+                               f32 max_dist2, const float4 surf_hit_normal, float4 *flux, f32 *out_max_dist2) {
     u32 k = min(samples, (u32)MAX_PHOTON_SAMPLES);
     u32 result[MAX_PHOTON_SAMPLES];
     f32 dist2[MAX_PHOTON_SAMPLES];
@@ -143,12 +143,15 @@ inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __gl
 
     f32 worst = 0.0f;
     for (u32 i = 0; i < count; i++) {
-        const float4 dir = photon_dir[result[i]];
-        const f32 c = dot(dir, surf_hit_normal);
-        if (c < -EPS) {
-            *flux += photon_power[result[i]];
-            worst = fmax(worst, dist2[i]);
-        }
+        const float4 p_normal = photon_normal[result[i]];
+        const float4 p_dir = photon_dir[result[i]];
+
+        f32 normal_sim = dot(p_normal, surf_hit_normal);
+        if (normal_sim < 0.0f)
+            continue;
+
+        *flux += photon_power[result[i]] * normal_sim;
+        worst = fmax(worst, dist2[i]);
     }
     *out_max_dist2 = worst;
 }

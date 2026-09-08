@@ -109,7 +109,7 @@ __kernel void trace_rays(
             f32 max_dist_sq = 0.0f;
             f32 radius_sq = search_radius * search_radius;
             gather_photon_flux(surf_hit.position, info, tree_index, bucket_tree_offset, bucket_tree_size, photon_pos,
-                               photon_power, photon_dir, samples, radius_sq, ctx.shading_normal, &flux, &max_dist_sq);
+                               photon_power, photon_dir, photon_normal, samples, radius_sq, surf_hit.normal, &flux, &max_dist_sq);
 
             // density estimation: divide gathered flux by the area of the search disk and scale by the Lambertian BRDF
             float4 indirect = (float4)(0.0f);
