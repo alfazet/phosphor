@@ -407,7 +407,8 @@ SceneData read_gltf_scene(const char *file_name) {
 }
 
 Camera *SceneData::get_camera() const {
-    if (!chosen_camera.has_value() || *chosen_camera >= cameras.size())
+    ASSERT(chosen_camera, "no chosen camera");
+    if (*chosen_camera >= cameras.size())
         return nullptr;
     return const_cast<Camera *>(&cameras[*chosen_camera]);
 }
