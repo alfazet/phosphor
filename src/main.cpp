@@ -24,6 +24,7 @@ void phosphor_main(const ArgsList &args) {
     cl::Kernel k_trace_rays = ctx.make_kernel("trace_rays");
 
     SceneData scene = read_gltf_scene(args.model.c_str());
+    scene.get_camera()->focus(args.defocus_angle, args.focus_distance);
     if (scene.triangles.empty()) {
         LOG_ERROR("empty scene, nothing to render");
         return;
@@ -38,7 +39,7 @@ void phosphor_main(const ArgsList &args) {
     buffers.upload_scene(ctx, scene, bvh);
 
     RngState rng = pcg_seed(args.seed);
-    auto [h_origin, h_dir] = scene.get_camera().generate_rays(rng, args.res, args.res, args.image_iters);
+    auto [h_origin, h_dir] = scene.get_camera()->generate_rays(rng, args.res, args.res, args.image_iters);
     buffers.upload_rays(ctx, h_origin, h_dir);
 
     u32 photons_to_emit = round_up_to_pow2(args.photons);
