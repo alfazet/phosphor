@@ -2,6 +2,7 @@
 #define PHOSPHOR_SCENE_BUFFERS_HPP
 
 #include "bvh.hpp"
+#include "camera.h"
 #include "opencl_ctx.hpp"
 #include "photon_hash.h"
 #include "scene.hpp"
@@ -22,7 +23,7 @@ struct SceneBuffers {
     cl::Buffer etri_n0, etri_n1, etri_n2;
     cl::Buffer etri_t0, etri_t1, etri_t2;
     cl::Buffer etri_mat_index;
-    u32 en_triangles = 0;
+    u32 n_etriangles = 0;
 
     cl::Buffer bvh_nodes;
 
@@ -38,8 +39,10 @@ struct SceneBuffers {
     cl::Buffer tex_meta;
     u32 n_textures = 0;
 
-    cl::Buffer ray_origin;
-    cl::Buffer ray_dir;
+    CameraParams camera{};
+    u32 image_width = 0;
+    u32 image_height = 0;
+    u32 image_iters = 0;
     u32 n_rays = 0;
 
     cl::Buffer photon_pos;
@@ -57,7 +60,7 @@ struct SceneBuffers {
 
     void upload_scene(ClContext &ctx, const SceneData &scene, const Bvh &bvh);
 
-    void upload_rays(ClContext &ctx, const std::vector<float4> &origins, const std::vector<float4> &dirs);
+    void set_camera(const CameraParams &cam, u32 width, u32 height, u32 iters);
 
     void upload_photons(ClContext &ctx, PhotonHash &hash, std::vector<float4> &photon_pos,
                         std::vector<float4> &photon_power, std::vector<float4> &photon_dir,

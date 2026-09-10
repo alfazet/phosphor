@@ -303,7 +303,7 @@ direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32
         }
 
         f32 cos_l = fmax(dot(-shadow_dir, ln), 0.0f);
-        irradiance = emissive_flux * cos_i * cos_l / (PI * dist_sq);
+        irradiance = emissive_flux * cos_i * cos_l * total_area / (PI * dist_sq);
     }
 
     if (dot(irradiance, irradiance) < EPS * EPS)

@@ -144,7 +144,6 @@ inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __gl
     f32 worst = 0.0f;
     for (u32 i = 0; i < count; i++) {
         const float4 p_normal = photon_normal[result[i]];
-        const float4 p_dir = photon_dir[result[i]];
 
         f32 normal_sim = dot(p_normal, surf_hit_normal);
         if (normal_sim < 0.0f)

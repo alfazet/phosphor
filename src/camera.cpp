@@ -1,5 +1,4 @@
 #include "camera.hpp"
-#include "random.h"
 
 Camera::Camera(vec3 position, vec3 look_at, vec3 up, f32 hfov_deg, f32 aspect) {
     vec3 w_dir = normalize(position - look_at);
@@ -42,22 +41,12 @@ Ray Camera::get_ray(f32 s, f32 t) const {
     return r;
 }
 
-std::pair<std::vector<float4>, std::vector<float4>> Camera::generate_rays(RngState &rng, u32 image_width,
-                                                                          u32 image_height, u32 image_iters) const {
-    std::vector<float4> origins(image_width * image_height * image_iters);
-    std::vector<float4> dirs(image_width * image_height * image_iters);
-    for (u32 y = 0; y < image_height; y++) {
-        for (u32 x = 0; x < image_width; x++) {
-            for (u32 j = 0; j < image_iters; j++) {
-                const f32 s = (x + 0.5f + random_float(&rng) - 0.5f) / static_cast<f32>(image_width);
-                const f32 t = 1.0f - (y + 0.5f + random_float(&rng) - 0.5f) / static_cast<f32>(image_height);
-                Ray r = this->get_ray(s, t);
-                u32 idx = (y * image_width + x) * image_iters + j;
-                origins[idx] = r.origin;
-                dirs[idx] = r.dir;
-            }
-        }
-    }
+CameraParams Camera::to_params() const {
+    CameraParams p;
+    p.position = this->position;
+    p.lower_left_corner = this->lower_left_corner;
+    p.horizontal = this->horizontal;
+    p.vertical = this->vertical;
 
-    return {origins, dirs};
+    return p;
 }
