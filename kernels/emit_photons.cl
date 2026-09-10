@@ -95,7 +95,7 @@ __kernel void emit_photons(
         BsdfSample bsdf =
             sample_bsdf(&rng, &ctx, ctx.shading_normal, surf_hit.normal, view, &curr_ior, surf_hit.front_face);
 
-        if (bsdf.event == BSDF_DIFFUSE || bsdf.event == BSDF_METALLIC) {
+        if ((bsdf.event == BSDF_DIFFUSE || bsdf.event == BSDF_METALLIC) && dot(dir, surf_hit.normal) < 0.0f) {
             u32 idx = atomic_inc(photon_count);
             if (idx < max_photons) {
                 photon_pos[idx] = surf_hit.position;
@@ -109,7 +109,9 @@ __kernel void emit_photons(
 
         power *= bsdf.throughput;
         throughput *= bsdf.throughput;
-        origin = surf_hit.position + bsdf.dir * EPS;
+        // origin = surf_hit.position + bsdf.dir * EPS;
+        float4 side = (dot(bsdf.dir, surf_hit.normal) > 0.0f) ? surf_hit.normal : -surf_hit.normal;
+        origin = surf_hit.position + bsdf.dir * EPS + side * EPS;
         dir = bsdf.dir;
     }
 }

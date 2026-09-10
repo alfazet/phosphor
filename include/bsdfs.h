@@ -8,10 +8,23 @@
 #include "typedefs.h"
 #include "utils.h"
 
+inline float4 reflect(float4 incoming, float4 normal) {
+    return normalize(incoming - 2.0f * dot(incoming, normal) * normal);
+}
+
+inline float4 safe_reflect(float4 dir, float4 normal, float4 geom_normal) {
+    float4 reflected = reflect(dir, normal);
+    if (dot(reflected, geom_normal) <= 0.0f) {
+        reflected = reflected - dot(reflected, geom_normal) * geom_normal;
+        reflected = normalize(reflected);
+    }
+    return reflected;
+}
+
 // sample a microfacet normal from the GGX Visible Normal Distribution (VNDF)
 // returns the sampled microfacet normal in world space
 // reference: "Sampling the GGX Distribution of Visible Normals", Heitz 2018
-inline float4 ggx_sample_vndf(RngState *rng, float4 normal, float4 view, f32 roughness) {
+inline float4 ggx_sample_vndf(RngState *rng, float4 normal, float4 geom_normal, float4 view, f32 roughness) {
     f32 alpha = roughness * roughness;
 
     float4 tangent, bitangent;
@@ -50,8 +63,8 @@ inline float4 ggx_sample_vndf(RngState *rng, float4 normal, float4 view, f32 rou
         ne = normalize(ne_local.x * tangent + ne_local.y * bitangent + ne_local.z * normal);
 
         // reject samples that would produce a reflection going into the surface
-        float4 reflected = normalize(view - 2.0f * dot(view, ne) * ne);
-        if (dot(reflected, normal) >= 0.0f)
+        float4 reflected = reflect(-view, ne);
+        if (dot(reflected, geom_normal) >= 0.0f)
             return ne;
     }
 
@@ -83,10 +96,6 @@ inline float4 fresnel4(float4 R_0, float4 incoming, float4 normal) {
 inline f32 fresnel_refracted(f32 ior_1, f32 ior_2, float4 incoming, float4 normal) {
     f32 R_0 = pow((ior_1 - ior_2) / (ior_1 + ior_2), 2);
     return fresnel(R_0, incoming, normal);
-}
-
-inline float4 reflect(float4 incoming, float4 normal) {
-    return normalize(incoming - 2.0f * dot(incoming, normal) * normal);
 }
 
 inline float4 refract(float4 incoming, float4 normal, f32 eta1, f32 eta2, bool *is_tir) {

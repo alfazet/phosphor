@@ -40,7 +40,7 @@ __kernel void trace_rays(
     __global const Light *lights, const u32 n_lights, __global const f32 *light_pref_sum, const f32 total_luminance,
     const float4 scene_center, const f32 scene_radius,
 
-    // mmissive triangles
+    // emissive triangles
     __global const float4 *etri_v0, __global const float4 *etri_v1, __global const float4 *etri_v2,
     __global const float4 *etri_n0, __global const float4 *etri_n1, __global const float4 *etri_n2,
     __global const float2 *etri_uv0, __global const float2 *etri_uv1, __global const float2 *etri_uv2) {
@@ -109,7 +109,7 @@ __kernel void trace_rays(
             f32 max_dist_sq = 0.0f;
             f32 radius_sq = search_radius * search_radius;
             gather_photon_flux(surf_hit.position, info, tree_index, bucket_tree_offset, bucket_tree_size, photon_pos,
-                               photon_power, samples, radius_sq, &flux, &max_dist_sq);
+                               photon_power, photon_dir, photon_normal, samples, radius_sq, surf_hit.normal, &flux, &max_dist_sq);
 
             // density estimation: divide gathered flux by the area of the search disk and scale by the Lambertian BRDF
             float4 indirect = (float4)(0.0f);
@@ -144,7 +144,10 @@ __kernel void trace_rays(
         }
         stack_weight[depth] = bsdf.throughput * rr_compensation;
 
-        origin = surf_hit.position + bsdf.dir * EPS;
+        // origin = surf_hit.position + bsdf.dir * EPS;
+        float4 side = (dot(bsdf.dir, surf_hit.normal) > 0.0f) ? surf_hit.normal : -surf_hit.normal;
+        origin = surf_hit.position + bsdf.dir * EPS + side * EPS;
+
         dir = bsdf.dir;
     }
 

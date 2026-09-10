@@ -107,27 +107,23 @@ typedef struct BsdfSample {
 inline BsdfSample sample_bsdf(RngState *rng, const ShadingContext *ctx, float4 shading_normal, float4 geom_normal,
                               float4 view, f32 *curr_ior, bool front_face) {
     BsdfSample s;
-    float4 h = ggx_sample_vndf(rng, shading_normal, view, ctx->roughness);
+    float4 h = ggx_sample_vndf(rng, shading_normal, geom_normal, view, ctx->roughness);
 
     if (random_float(rng) < ctx->metallic) {
         // metallic reflection
-        float4 reflected = reflect(-view, h);
-        if (dot(reflected, geom_normal) <= 0.0f)
-            reflected = reflected - dot(reflected, geom_normal) * geom_normal;
-        s.dir = reflected;
-        s.throughput = fresnel4(ctx->base_color, view, h);
+        s.dir = safe_reflect(-view, h, geom_normal);
+        s.throughput = fresnel4(ctx->base_color, -view, h);
         s.event = BSDF_METALLIC;
         return s;
     }
 
     f32 ior_1 = front_face ? *curr_ior : ctx->ior;
     f32 ior_2 = front_face ? ctx->ior : *curr_ior;
-    f32 fr = fresnel_refracted(ior_1, ior_2, view, h);
+    f32 fr = fresnel_refracted(ior_1, ior_2, -view, h);
 
     if (random_float(rng) < fr) {
         // dielectric reflection
-        float4 reflected = reflect(-view, h);
-        s.dir = reflected;
+        s.dir = safe_reflect(-view, h, geom_normal);
         s.throughput = (float4)(fr, fr, fr, 0.0f);
         s.event = BSDF_FRESNEL;
         return s;
@@ -138,8 +134,7 @@ inline BsdfSample sample_bsdf(RngState *rng, const ShadingContext *ctx, float4 s
         bool tir;
         float4 refracted = refract(-view, shading_normal, ior_1, ior_2, &tir);
         if (tir) {
-            float4 reflected = reflect(-view, shading_normal);
-            s.dir = reflected;
+            s.dir = safe_reflect(-view, shading_normal, geom_normal);
             s.throughput = WHITE;
             s.event = BSDF_FRESNEL;
             return s;
