@@ -20,7 +20,7 @@ for model in ./models/test/*/*.glb; do
     reference_path="screenshot.png"
     strip_path="$out_dir/${name}_strip.png"
 
-    $cmd "$@" -m "$model" -o "$render_path"
+    $cmd "$@" -m "$model" -o "$render_path" -r 1000
 
     if [[ ! -f "$path/$reference_path" ]]; then
         echo "missing reference image: $reference_path" >&2
