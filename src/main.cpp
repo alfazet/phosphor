@@ -1,3 +1,4 @@
+#include "../include/logger.hpp"
 #include "bvh.hpp"
 #include "camera.hpp"
 #include "cmd_args.hpp"
@@ -6,6 +7,7 @@
 #include "logger.hpp"
 #include "opencl_ctx.hpp"
 #include "photon_hash.h"
+#include "random.h"
 #include "scene.hpp"
 #include "scene_buffers.hpp"
 #include "utils.h"
@@ -34,7 +36,10 @@ void phosphor_main(const ArgsList &args) {
 
     SceneBuffers buffers;
     buffers.upload_scene(ctx, scene, bvh);
-    buffers.set_camera(scene.get_camera().to_params(), args.res, args.res, args.image_iters);
+
+    RngState rng = pcg_seed(args.seed);
+    auto [h_origin, h_dir] = scene.get_camera().generate_rays(rng, args.res, args.res, args.image_iters);
+    buffers.upload_rays(ctx, h_origin, h_dir);
 
     u32 photons_to_emit = round_up_to_pow2(args.photons);
     u32 photons_per_batch = std::min(photons_to_emit, MAX_PHOTONS_PER_BATCH);

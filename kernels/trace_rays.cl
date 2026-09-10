@@ -1,6 +1,5 @@
 #include "bsdfs.h"
 #include "bvh_node.h"
-#include "camera.h"
 #include "constants.h"
 #include "hit.h"
 #include "light_sampling.h"
@@ -13,8 +12,8 @@
 #include "typedefs.h"
 
 __kernel void trace_rays(
-    // camera and image params
-    const CameraParams camera, const u32 image_width, const u32 image_height, const u32 image_iters, const u32 seed,
+    // camera rays
+    __global const float4 *ray_origin, __global const float4 *ray_dir, const u32 n_rays, const u32 seed,
 
     // scene geometry
     __global const float4 *tri_v0, __global const float4 *tri_v1, __global const float4 *tri_v2,
@@ -33,7 +32,7 @@ __kernel void trace_rays(
     // output
     __global float4 *out_color,
 
-    // spatial hash structure
+    // spatial hasha structure
     __global const u32 *tree_index, __global const u32 *bucket_tree_offset, __global const u32 *bucket_tree_size,
     const PhotonHashInfo info,
 
@@ -46,21 +45,10 @@ __kernel void trace_rays(
     __global const float4 *etri_n0, __global const float4 *etri_n1, __global const float4 *etri_n2,
     __global const float2 *etri_uv0, __global const float2 *etri_uv1, __global const float2 *etri_uv2) {
 
-    // each thread handles one (pixel, iteration) pair
     u32 tid = get_global_id(0);
-    u32 n_rays = image_width * image_height * image_iters;
     if (tid >= n_rays)
         return;
-
-    u32 iter = tid % image_iters;
-    u32 pxid = tid / image_iters;
-    u32 px = pxid % image_width;
-    u32 py = pxid / image_width;
-
     RngState rng = pcg_seed(seed + tid);
-
-    float4 origin, dir;
-    make_ray(&camera, px, py, image_width, image_height, &rng, &origin, &dir);
 
     // specular bounces form a chain before we reach a diffuse surface
     //
@@ -75,6 +63,8 @@ __kernel void trace_rays(
     float4 stack_emissive[MAX_RAY_BOUNCES];
     bool stack_hit[MAX_RAY_BOUNCES];
 
+    float4 origin = ray_origin[tid];
+    float4 dir = ray_dir[tid];
     f32 curr_ior = AIR_IOR;
     float4 throughput = WHITE;
 
@@ -119,8 +109,7 @@ __kernel void trace_rays(
             f32 max_dist_sq = 0.0f;
             f32 radius_sq = search_radius * search_radius;
             gather_photon_flux(surf_hit.position, info, tree_index, bucket_tree_offset, bucket_tree_size, photon_pos,
-                               photon_power, photon_dir, photon_normal, samples, radius_sq, surf_hit.normal, &flux,
-                               &max_dist_sq);
+                               photon_power, photon_dir, photon_normal, samples, radius_sq, surf_hit.normal, &flux, &max_dist_sq);
 
             // density estimation: divide gathered flux by the area of the search disk and scale by the Lambertian BRDF
             float4 indirect = (float4)(0.0f);
