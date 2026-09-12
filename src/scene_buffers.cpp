@@ -17,7 +17,7 @@ cl::Buffer dev_buf(ClContext &ctx, const void *data, u32 count, u32 item_size) {
 
 void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const Bvh &bvh) {
     this->n_triangles = scene.triangles.size();
-    this->en_triangles = scene.emissive_triangles.size();
+    this->n_e_triangles = scene.emissive_triangles.size();
     this->n_materials = scene.materials.size();
     this->n_lights = scene.lights.size();
     this->n_textures = scene.textures.size();
@@ -58,12 +58,12 @@ void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const Bv
     this->tri_t2 = dev_buf(ctx, tt2.data(), n_triangles, sizeof(float4));
     this->tri_mat_index = dev_buf(ctx, tmat.data(), n_triangles, sizeof(u32));
 
-    std::vector<float4> etv0(en_triangles), etv1(en_triangles), etv2(en_triangles);
-    std::vector<float2> etuv0(en_triangles), etuv1(en_triangles), etuv2(en_triangles);
-    std::vector<float4> etn0(en_triangles), etn1(en_triangles), etn2(en_triangles);
-    std::vector<float4> ett0(en_triangles), ett1(en_triangles), ett2(en_triangles);
-    std::vector<u32> etmat(en_triangles);
-    for (u32 i = 0; i < en_triangles; i++) {
+    std::vector<float4> etv0(n_e_triangles), etv1(n_e_triangles), etv2(n_e_triangles);
+    std::vector<float2> etuv0(n_e_triangles), etuv1(n_e_triangles), etuv2(n_e_triangles);
+    std::vector<float4> etn0(n_e_triangles), etn1(n_e_triangles), etn2(n_e_triangles);
+    std::vector<float4> ett0(n_e_triangles), ett1(n_e_triangles), ett2(n_e_triangles);
+    std::vector<u32> etmat(n_e_triangles);
+    for (u32 i = 0; i < n_e_triangles; i++) {
         const auto &t = scene.emissive_triangles[i];
         etv0[i] = t.v0;
         etv1[i] = t.v1;
@@ -77,16 +77,16 @@ void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const Bv
         etmat[i] = t.mat_index;
     }
 
-    this->etri_v0 = dev_buf(ctx, etv0.data(), en_triangles, sizeof(float4));
-    this->etri_v1 = dev_buf(ctx, etv1.data(), en_triangles, sizeof(float4));
-    this->etri_v2 = dev_buf(ctx, etv2.data(), en_triangles, sizeof(float4));
-    this->etri_uv0 = dev_buf(ctx, etuv0.data(), en_triangles, sizeof(float2));
-    this->etri_uv1 = dev_buf(ctx, etuv1.data(), en_triangles, sizeof(float2));
-    this->etri_uv2 = dev_buf(ctx, etuv2.data(), en_triangles, sizeof(float2));
-    this->etri_n0 = dev_buf(ctx, etn0.data(), en_triangles, sizeof(float4));
-    this->etri_n1 = dev_buf(ctx, etn1.data(), en_triangles, sizeof(float4));
-    this->etri_n2 = dev_buf(ctx, etn2.data(), en_triangles, sizeof(float4));
-    this->etri_mat_index = dev_buf(ctx, etmat.data(), en_triangles, sizeof(u32));
+    this->etri_v0 = dev_buf(ctx, etv0.data(), n_e_triangles, sizeof(float4));
+    this->etri_v1 = dev_buf(ctx, etv1.data(), n_e_triangles, sizeof(float4));
+    this->etri_v2 = dev_buf(ctx, etv2.data(), n_e_triangles, sizeof(float4));
+    this->etri_uv0 = dev_buf(ctx, etuv0.data(), n_e_triangles, sizeof(float2));
+    this->etri_uv1 = dev_buf(ctx, etuv1.data(), n_e_triangles, sizeof(float2));
+    this->etri_uv2 = dev_buf(ctx, etuv2.data(), n_e_triangles, sizeof(float2));
+    this->etri_n0 = dev_buf(ctx, etn0.data(), n_e_triangles, sizeof(float4));
+    this->etri_n1 = dev_buf(ctx, etn1.data(), n_e_triangles, sizeof(float4));
+    this->etri_n2 = dev_buf(ctx, etn2.data(), n_e_triangles, sizeof(float4));
+    this->etri_mat_index = dev_buf(ctx, etmat.data(), n_e_triangles, sizeof(u32));
 
     this->bvh_nodes = dev_buf(ctx, bvh.nodes.data(), bvh.nodes.size(), sizeof(BvhNode));
     this->materials = dev_buf(ctx, scene.materials.data(), n_materials, sizeof(Material));
@@ -144,10 +144,12 @@ void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const Bv
     this->scene_radius = radius;
 }
 
-void SceneBuffers::upload_rays(ClContext &ctx, const std::vector<float4> &origins, const std::vector<float4> &dirs) {
-    this->n_rays = origins.size();
-    this->ray_origin = dev_buf(ctx, origins.data(), n_rays, sizeof(float4));
-    this->ray_dir = dev_buf(ctx, dirs.data(), n_rays, sizeof(float4));
+void SceneBuffers::upload_camera(const CameraParams &cam, u32 width, u32 height, u32 iters) {
+    this->camera = cam;
+    this->image_width = width;
+    this->image_height = height;
+    this->image_iters = iters;
+    this->n_rays = width * height * iters;
 }
 
 void SceneBuffers::upload_photons(ClContext &ctx, PhotonHash &hash, std::vector<float4> &photon_pos,
@@ -179,12 +181,12 @@ void SceneBuffers::set_emit_photons_args(cl::Kernel &kernel, u32 batch_offset, u
 
 void SceneBuffers::set_trace_rays_args(cl::Kernel &kernel, f32 search_radius, u32 samples, PhotonHashInfo info,
                                        u32 seed, cl::Buffer &out_color) const {
-    set_kernel_args(kernel, ray_origin, ray_dir, n_rays, seed, tri_v0, tri_v1, tri_v2, tri_n0, tri_n1, tri_n2, tri_uv0,
-                    tri_uv1, tri_uv2, tri_t0, tri_t1, tri_t2, bvh_nodes, tri_mat_index, n_triangles, materials,
-                    tex_meta, tex_atlas, photon_pos, photon_power, photon_dir, photon_normal, n_photons, search_radius,
-                    samples, out_color, tree_index, bucket_tree_offset, bucket_tree_size, info, lights, n_lights,
-                    light_pref_sum, total_luminance, scene_center, scene_radius, etri_v0, etri_v1, etri_v2, etri_n0,
-                    etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2);
+    set_kernel_args(kernel, camera, image_width, image_height, image_iters, seed, tri_v0, tri_v1, tri_v2, tri_n0,
+                    tri_n1, tri_n2, tri_uv0, tri_uv1, tri_uv2, tri_t0, tri_t1, tri_t2, bvh_nodes, tri_mat_index,
+                    n_triangles, materials, tex_meta, tex_atlas, photon_pos, photon_power, photon_dir, photon_normal,
+                    n_photons, search_radius, samples, out_color, tree_index, bucket_tree_offset, bucket_tree_size,
+                    info, lights, n_lights, light_pref_sum, total_luminance, scene_center, scene_radius, etri_v0,
+                    etri_v1, etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2);
 }
 
 void SceneBuffers::print_buffer_sizes() const {
@@ -229,9 +231,6 @@ void SceneBuffers::print_buffer_sizes() const {
 
     sz("tex_meta", tex_meta);
     sz("tex_atlas", tex_atlas);
-
-    sz("ray_origin", ray_origin);
-    sz("ray_dir", ray_dir);
 
     sz("photon_pos", photon_pos);
     sz("photon_power", photon_power);

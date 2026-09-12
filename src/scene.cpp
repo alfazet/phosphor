@@ -397,7 +397,6 @@ SceneData read_gltf_scene(const char *file_name) {
 
     if (!ai_scene->HasCameras()) {
         LOG_FATAL("scene has no cameras");
-        // TODO: bring back the default camera on the edge of the bbox and change this to a warning
     }
     scene.chosen_camera = 0;
 
@@ -406,11 +405,9 @@ SceneData read_gltf_scene(const char *file_name) {
     return scene;
 }
 
-Camera *SceneData::get_camera() const {
-    ASSERT(chosen_camera, "no chosen camera");
-    if (*chosen_camera >= cameras.size())
-        return nullptr;
-    return const_cast<Camera *>(&cameras[*chosen_camera]);
+Camera &SceneData::get_camera() {
+    ASSERT(chosen_camera, "no cameras loaded");
+    return this->cameras[*chosen_camera];
 }
 
 void SceneData::build_luminance_pref_sum() {
