@@ -20,6 +20,7 @@ typedef struct ShadingContext {
     f32 metallic;
     f32 roughness;
     f32 transmission;
+    f32 occlusion;
     f32 ior;
 } ShadingContext;
 
@@ -39,6 +40,7 @@ inline float4 apply_normal_map(float4 map_sample, float4 geom_normal, float4 tan
 //   metallic       – 0 = dielectric, 1 = metallic
 //   roughness      – roughness
 //   transmission   – fraction of light that passes through
+//   occlusion      - how much area is blocked from lights
 //   ior            – index of refraction
 //   shading_normal – new normal after applying the normal map
 inline ShadingContext evaluate_material(const Material *mat, float2 uv, float4 geom_normal, float4 tangent,
@@ -68,6 +70,17 @@ inline ShadingContext evaluate_material(const Material *mat, float2 uv, float4 g
     ctx.roughness = clamp(ctx.roughness, MIN_ROUGHNESS, 1.0f);
 
     ctx.transmission = mat->transmission;
+    if (mat->trans_tex_index != NO_TEXTURE) {
+        float4 tex = sample_texture_uv(mat, tex_meta, tex_atlas, mat->trans_tex_index, uv, mat->trans_tex_transform);
+        ctx.transmission *= tex.r;
+    }
+
+    ctx.occlusion = 0.0f;
+    if (mat->occlusion_index != NO_TEXTURE) {
+        float4 occ = sample_texture_uv(mat, tex_meta, tex_atlas, mat->occlusion_index, uv, mat->occlusion_transform);
+        ctx.occlusion *= occ.r; // R channel
+    }
+
     ctx.ior = mat->ior;
 
     ctx.shading_normal = geom_normal;
