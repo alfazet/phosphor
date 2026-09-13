@@ -7,9 +7,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include_directories(include)
 file(GLOB SOURCES CONFIGURE_DEPENDS src/*.cpp)
-add_executable(phosphor ${SOURCES}
-        include/photon_hash.h
-)
+add_executable(phosphor ${SOURCES})
 
 find_package(Threads REQUIRED)
 target_link_libraries(phosphor Threads::Threads)

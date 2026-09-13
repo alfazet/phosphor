@@ -4,7 +4,7 @@
 #include "bvh.hpp"
 #include "camera.h"
 #include "opencl_ctx.hpp"
-#include "photon_hash.h"
+#include "photon_hash.hpp"
 #include "scene.hpp"
 #include "typedefs.h"
 
