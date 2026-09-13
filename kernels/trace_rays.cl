@@ -134,7 +134,7 @@ __kernel void trace_rays(
                 etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2, tex_meta, tex_atlas, tree, tri_v0, tri_v1, tri_v2,
                 tri_uv0, tri_uv1, tri_uv2, tri_n0, tri_n1, tri_n2, tri_mat_index, n_triangles);
 
-            stack_diffuse[depth] = indirect + direct;
+            stack_diffuse[depth] = indirect + ctx.occlusion * direct;
             depth++;
             break;
         }

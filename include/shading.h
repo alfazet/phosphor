@@ -20,6 +20,7 @@ typedef struct ShadingContext {
     f32 metallic;
     f32 roughness;
     f32 transmission;
+    f32 occlusion;
     f32 ior;
 } ShadingContext;
 
@@ -39,6 +40,7 @@ inline float4 apply_normal_map(float4 map_sample, float4 geom_normal, float4 tan
 //   metallic       – 0 = dielectric, 1 = metallic
 //   roughness      – roughness
 //   transmission   – fraction of light that passes through
+//   occlusion      - how much area is blocked from lights
 //   ior            – index of refraction
 //   shading_normal – new normal after applying the normal map
 inline ShadingContext evaluate_material(const Material *mat, float2 uv, float4 geom_normal, float4 tangent,
@@ -68,6 +70,17 @@ inline ShadingContext evaluate_material(const Material *mat, float2 uv, float4 g
     ctx.roughness = clamp(ctx.roughness, MIN_ROUGHNESS, 1.0f);
 
     ctx.transmission = mat->transmission;
+    if (mat->trans_tex_index != NO_TEXTURE) {
+        float4 tex = sample_texture_uv(mat, tex_meta, tex_atlas, mat->trans_tex_index, uv, mat->trans_tex_transform);
+        ctx.transmission *= tex.r;
+    }
+
+    ctx.occlusion = 0.0f;
+    if (mat->occlusion_index != NO_TEXTURE) {
+        float4 occ = sample_texture_uv(mat, tex_meta, tex_atlas, mat->occlusion_index, uv, mat->occlusion_transform);
+        ctx.occlusion *= occ.r; // R channel
+    }
+
     ctx.ior = mat->ior;
 
     ctx.shading_normal = geom_normal;
@@ -132,14 +145,14 @@ inline BsdfSample sample_bsdf(RngState *rng, const ShadingContext *ctx, float4 s
     if (random_float(rng) < ctx->transmission) {
         // dielectric transmission
         bool tir;
-        float4 refracted = refract(-view, shading_normal, ior_1, ior_2, &tir);
+        float4 refracted = refract(-view, h, ior_1, ior_2, &tir);
         if (tir) {
-            s.dir = safe_reflect(-view, shading_normal, geom_normal);
+            s.dir = safe_reflect(-view, h, geom_normal);
             s.throughput = WHITE;
             s.event = BSDF_FRESNEL;
             return s;
         }
-        bool transmitted = dot(refracted, shading_normal) < 0.0f;
+        bool transmitted = dot(refracted, h) < 0.0f;
         *curr_ior = transmitted ? (front_face ? ctx->ior : AIR_IOR) : *curr_ior;
         s.dir = refracted;
         s.throughput = (float4)(ctx->transmission, ctx->transmission, ctx->transmission, 0.0f) * ctx->base_color;
@@ -148,7 +161,7 @@ inline BsdfSample sample_bsdf(RngState *rng, const ShadingContext *ctx, float4 s
     }
 
     // diffuse
-    s.dir = random_in_unit_hemisphere(rng, shading_normal);
+    s.dir = random_in_unit_hemisphere(rng, h);
     s.throughput = ctx->base_color;
     s.event = BSDF_DIFFUSE;
 
