@@ -10,7 +10,9 @@ typedef struct BoundingBox {
 } BoundingBox;
 
 #ifndef __OPENCL_C_VERSION__
+
 #include "triangle.h"
+
 inline f32 min_f32(f32 a, f32 b) { return a < b ? a : b; }
 inline f32 max_f32(f32 a, f32 b) { return a > b ? a : b; }
 
@@ -74,5 +76,7 @@ inline BoundingBox merge(const BoundingBox &a, const BoundingBox &b) {
     expand(result);
     return result;
 }
+
 #endif // __OPENCL_C_VERSION__
+
 #endif // PHOSPHOR_GPU_BOUNDING_BOX_H

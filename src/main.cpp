@@ -5,7 +5,7 @@
 #include "image_output.hpp"
 #include "logger.hpp"
 #include "opencl_ctx.hpp"
-#include "photon_hash.h"
+#include "photon_hash.hpp"
 #include "scene.hpp"
 #include "scene_buffers.hpp"
 #include "utils.h"
@@ -86,13 +86,11 @@ void phosphor_main(const ArgsList &args) {
     }
 
     TimerScope timer_scope_hash("building hash struct for photons");
-    PhotonHashInfo info = build_hash_info(bbox, args.grid_res);
-    PhotonHash struct_hash = build_hash(h_photon_pos, h_photon_power, h_photon_dir, h_photon_normal, info);
+    PhotonHashInfo info = build_photon_hash_info(bbox, args.grid_res);
+    PhotonHash struct_hash(h_photon_pos, h_photon_power, h_photon_dir, h_photon_normal, info);
     timer_scope_hash.stop();
 
     buffers.upload_photons(ctx, struct_hash, h_photon_pos, h_photon_power, h_photon_dir, h_photon_normal);
-
-    buffers.print_buffer_sizes();
 
     cl::Buffer d_out(ctx.context, CL_MEM_WRITE_ONLY, buffers.n_rays * sizeof(float4));
     f32 search_radius = std::min({info.cell_sizes.x, info.cell_sizes.y, info.cell_sizes.z}) / 2.0f;
