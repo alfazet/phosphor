@@ -11,6 +11,9 @@ add_executable(phosphor ${SOURCES}
         include/photon_hash.h
 )
 
+find_package(Threads REQUIRED)
+target_link_libraries(phosphor Threads::Threads)
+
 FetchContent_Declare(
         opencl_headers
         GIT_REPOSITORY https://github.com/KhronosGroup/OpenCL-Headers

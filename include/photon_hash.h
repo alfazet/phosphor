@@ -158,8 +158,10 @@ inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __gl
 #endif // __OPENCL_C_VERSION__
 
 #ifndef __OPENCL_C_VERSION__
+
 #include <algorithm>
 #include <numeric>
+#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -284,13 +286,30 @@ inline PhotonHash build_hash(std::vector<float4> &photon_pos, std::vector<float4
     std::vector<u32> kd_indices(n_photons);
     std::iota(kd_indices.begin(), kd_indices.end(), 0);
     grid.tree_index.assign(tree_total, 0);
+
+    std::vector<u32> active_buckets;
     for (u32 b = 0; b < grid.bucket_count; b++) {
-        u32 count = grid.cell_end[b] - grid.cell_start[b];
-        if (count == 0)
-            continue;
-        balance(photon_pos, kd_indices, 1, grid.cell_start[b], grid.cell_end[b], grid.tree_index,
-                grid.bucket_tree_offset[b], grid.bucket_tree_size[b]);
+        if (grid.cell_end[b] > grid.cell_start[b])
+            active_buckets.push_back(b);
     }
+    u32 n_buckets = active_buckets.size();
+
+    u32 n_threads = std::max(1u, std::thread::hardware_concurrency());
+    std::vector<std::thread> threads;
+    threads.reserve(n_threads);
+    for (u32 tid = 0; tid < n_threads; tid++) {
+        u32 part_start = (tid * n_buckets) / n_threads;
+        u32 part_end = ((tid + 1) * n_buckets) / n_threads;
+        threads.emplace_back([&, part_start, part_end]() {
+            for (u32 i = part_start; i < part_end; i++) {
+                u32 b = active_buckets[i];
+                balance(photon_pos, kd_indices, 1, grid.cell_start[b], grid.cell_end[b], grid.tree_index,
+                        grid.bucket_tree_offset[b], grid.bucket_tree_size[b]);
+            }
+        });
+    }
+    for (auto &t : threads)
+        t.join();
 
     return grid;
 }
