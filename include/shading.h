@@ -145,14 +145,14 @@ inline BsdfSample sample_bsdf(RngState *rng, const ShadingContext *ctx, float4 s
     if (random_float(rng) < ctx->transmission) {
         // dielectric transmission
         bool tir;
-        float4 refracted = refract(-view, shading_normal, ior_1, ior_2, &tir);
+        float4 refracted = refract(-view, h, ior_1, ior_2, &tir);
         if (tir) {
-            s.dir = safe_reflect(-view, shading_normal, geom_normal);
+            s.dir = safe_reflect(-view, h, geom_normal);
             s.throughput = WHITE;
             s.event = BSDF_FRESNEL;
             return s;
         }
-        bool transmitted = dot(refracted, shading_normal) < 0.0f;
+        bool transmitted = dot(refracted, h) < 0.0f;
         *curr_ior = transmitted ? (front_face ? ctx->ior : AIR_IOR) : *curr_ior;
         s.dir = refracted;
         s.throughput = (float4)(ctx->transmission, ctx->transmission, ctx->transmission, 0.0f) * ctx->base_color;
@@ -161,7 +161,7 @@ inline BsdfSample sample_bsdf(RngState *rng, const ShadingContext *ctx, float4 s
     }
 
     // diffuse
-    s.dir = random_in_unit_hemisphere(rng, shading_normal);
+    s.dir = random_in_unit_hemisphere(rng, h);
     s.throughput = ctx->base_color;
     s.event = BSDF_DIFFUSE;
 
