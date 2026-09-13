@@ -1,4 +1,3 @@
-#include "../include/logger.hpp"
 #include "bvh.hpp"
 #include "camera.hpp"
 #include "cmd_args.hpp"
@@ -7,7 +6,6 @@
 #include "logger.hpp"
 #include "opencl_ctx.hpp"
 #include "photon_hash.h"
-#include "random.h"
 #include "scene.hpp"
 #include "scene_buffers.hpp"
 #include "utils.h"
@@ -24,11 +22,13 @@ void phosphor_main(const ArgsList &args) {
     cl::Kernel k_trace_rays = ctx.make_kernel("trace_rays");
 
     SceneData scene = read_gltf_scene(args.model.c_str());
-    scene.get_camera()->focus(args.defocus_angle, args.focus_distance);
     if (scene.triangles.empty()) {
         LOG_ERROR("empty scene, nothing to render");
         return;
     }
+
+    Camera &camera = scene.get_camera();
+    camera.focus(args.defocus_angle, args.focus_distance);
 
     TimerScope timer_scope_bvh("building BVH");
     Bvh bvh(scene.triangles);
@@ -37,10 +37,7 @@ void phosphor_main(const ArgsList &args) {
 
     SceneBuffers buffers;
     buffers.upload_scene(ctx, scene, bvh);
-
-    RngState rng = pcg_seed(args.seed);
-    auto [h_origin, h_dir] = scene.get_camera()->generate_rays(rng, args.res, args.res, args.image_iters);
-    buffers.upload_rays(ctx, h_origin, h_dir);
+    buffers.upload_camera(camera.to_params(), args.res, args.res, args.image_iters);
 
     u32 photons_to_emit = round_up_to_pow2(args.photons);
     u32 photons_per_batch = std::min(photons_to_emit, MAX_PHOTONS_PER_BATCH);
