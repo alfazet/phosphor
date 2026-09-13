@@ -1,96 +1,41 @@
 #include "light.hpp"
+#include "logger.hpp"
+#include "utils.h"
 
-LightSample PointLight::sample_light(RngState &rng) const {
-    return {Ray(this->pos, random_unit_vector(rng)), this->power};
+Light make_point_light(vec3 position, vec3 power) {
+    Light l{};
+    l.kind = LIGHT_POINT;
+    l.position = vec3_to_float4(position);
+    l.power = vec3_to_float4(power);
+    return l;
 }
 
-LightSample SpotLight::sample_light(RngState &rng) const {
-    f32 cos_inner = glm::cos(this->inner);
-    f32 cos_outer = glm::cos(this->outer);
-    f32 r1 = random_float(rng);
-    f32 r2 = random_float(rng);
-    f32 cos_theta = 1.0f - r1 * (1.0f - cos_outer);
-    f32 sin_theta = glm::sqrt(1.0f - cos_theta * cos_theta);
-    f32 phi = 2.0f * PI * r2;
-
-    vec3 local_dir(sin_theta * glm::cos(phi), sin_theta * glm::sin(phi), cos_theta);
-    vec3 tangent, bitangent;
-    make_tbn(this->dir, tangent, bitangent);
-    vec3 world_dir = glm::normalize(local_dir.x * tangent + local_dir.y * bitangent + local_dir.z * this->dir);
-
-    f32 t = glm::clamp((cos_theta - cos_outer) / (cos_inner - cos_outer), 0.0f, 1.0f);
-    f32 falloff = t * t * (-2.0f * t + 3.0f); // smoothstep
-
-    return {Ray(this->pos, world_dir), this->power * falloff};
+Light make_spot_light(vec3 position, vec3 power, vec3 direction, f32 inner_rad, f32 outer_rad) {
+    Light l{};
+    l.kind = LIGHT_SPOT;
+    l.position = vec3_to_float4(position);
+    l.power = vec3_to_float4(power);
+    l.direction = vec3_to_float4(direction);
+    l.aux = float4{{inner_rad, outer_rad, 0.0f, 0.0f}};
+    return l;
 }
 
-void DirectionalLight::prepare(const BoundingBox &bbox) {
-    make_tbn(this->dir, this->tangent, this->bitangent);
-    vec3 center((bbox.x.start + bbox.x.end) * 0.5f, (bbox.y.start + bbox.y.end) * 0.5f,
-                (bbox.z.start + bbox.z.end) * 0.5f);
-    const vec3 corners[8] = {
-        {bbox.x.start, bbox.y.start, bbox.z.start}, {bbox.x.end, bbox.y.start, bbox.z.start},
-        {bbox.x.start, bbox.y.end, bbox.z.start},   {bbox.x.end, bbox.y.end, bbox.z.start},
-        {bbox.x.start, bbox.y.start, bbox.z.end},   {bbox.x.end, bbox.y.start, bbox.z.end},
-        {bbox.x.start, bbox.y.end, bbox.z.end},     {bbox.x.end, bbox.y.end, bbox.z.end},
-    };
-
-    this->radius = 0.0f;
-    for (const auto &corner : corners) {
-        vec3 offset = corner - center;
-        vec2 projected(glm::dot(offset, this->tangent), glm::dot(offset, this->bitangent));
-        this->radius = glm::max(this->radius, glm::length(projected));
-    }
-    this->origin = center - this->dir * bbox.longest_size() * 10.0f;
+Light make_directional_light(vec3 direction, vec3 power) {
+    vec3 t, b;
+    make_tbn(direction, t, b);
+    Light l{};
+    l.kind = LIGHT_DIRECTIONAL;
+    l.direction = vec3_to_float4(direction);
+    l.tangent = vec3_to_float4(t);
+    l.bitangent = vec3_to_float4(b);
+    l.power = vec3_to_float4(power);
+    return l;
 }
 
-LightSample DirectionalLight::sample_light(RngState &rng) const {
-    // https://stackoverflow.com/questions/5837572/generate-a-random-point-within-a-circle-uniformly
-    f32 r1 = this->radius * glm::sqrt(random_float(rng));
-    f32 r2 = 2 * PI * random_float(rng);
-    vec3 disk_offset = r1 * (glm::cos(r2) * this->tangent + glm::sin(r2) * this->bitangent);
-
-    return {Ray(origin + disk_offset, this->dir), this->power};
-}
-
-// sample a random triangle from this mesh with importance sampling weighted by area
-LightSample TexturedLight::sample_light(RngState &rng, const Triangles &triangles,
-                                        const std::vector<Texture> &textures) const {
-    auto pref_sum = this->area_pref_sum;
-    f32 total_area = pref_sum.back();
-    usize sample_idx =
-        std::lower_bound(pref_sum.begin(), pref_sum.end(), random_float(rng) * total_area) - pref_sum.begin();
-
-    const Texture &tex = textures[this->tex_index];
-    const Triangle &tri = triangles.at(sample_idx);
-    f32 u = random_float(rng);
-    f32 v = random_float(rng);
-    if (u + v > 1.0f) {
-        u = 1.0f - u;
-        v = 1.0f - v;
-    }
-    vec3 point = tri.point_at(u, v);
-    vec2 uv = tri.uv_at(u, v);
-    vec3 emission = tex.sample(uv) * this->strength;
-    vec3 normal = tri.get_normal(vec2(u, v), textures);
-    point += normal * 0.001f;
-    vec3 dir = random_in_unit_hemisphere(rng, normal);
-    vec3 power = emission * total_area * PI;
-
-    return {Ray(point, dir), power};
-}
-
-// estimate the total power of an emissive light source
-// by sampling in the middle of each triangle - this is only used once
-// to decide how to distribute photons between the light sources so it's
-// fine even if it's not that accurate
-vec3 TexturedLight::total_power(const std::vector<Texture> &textures) const {
-    vec3 total_power = vec3(0.0f);
-    const Texture &tex = textures[this->tex_index];
-    for (const auto &tri : this->triangles) {
-        vec3 emission = tex.sample(tri.uv_at(0.5, 0.5));
-        total_power += emission * tri.area() * glm::pi<f32>();
-    }
-
-    return total_power * this->strength;
+Light make_textured_light(u32 tex_index, u32 tri_start, u32 tri_count, vec3 power) {
+    Light l{};
+    l.kind = LIGHT_TEXTURED;
+    l.power = vec3_to_float4(power);
+    l.aux = float4{{as_float(tex_index), as_float(tri_start), as_float(tri_count), 0.0f}};
+    return l;
 }

@@ -1,57 +1,56 @@
 #include "camera.hpp"
 
-Camera::Camera(vec3 position, vec3 target, vec3 up, f32 hfov_degrees, f32 aspect_ratio)
-    : position(position), target(target), up(up), hfov(hfov_degrees), aspect_ratio(aspect_ratio) {
-    update();
+Camera::Camera(vec3 position, vec3 look_at, vec3 up, f32 hfov_deg, f32 aspect) {
+    this->position = position;
+    this->target = look_at;
+    this->up = up;
+    this->hfov = hfov_deg;
+    this->aspect_ratio = aspect;
+    this->defocus_angle = 0.0;
+    this->focus_distance = 1.0;
+
+    this->recalculate();
 }
 
-Camera::Camera(const vec3 &minp, const vec3 &maxp, f32 hfov_degrees, f32 aspect_ratio)
-    : hfov(hfov_degrees), aspect_ratio(aspect_ratio) {
-    const vec3 center = (minp + maxp) * 0.5f;
-    const vec3 size = maxp - minp;
+void Camera::focus(f32 defocus_angle, f32 focus_distance) {
+    this->defocus_angle = defocus_angle;
+    this->focus_distance = focus_distance;
+    f32 defocus_radius = focus_distance * std::tan(glm::radians(defocus_angle / 2.0f));
+    this->defocus_disk_u = this->u * defocus_radius;
+    this->defocus_disk_v = this->v * defocus_radius;
 
-    // inset fraction from the corner so we don't sit exactly on a wall
-    constexpr f32 inset_fraction = 0.05f;
-    const vec3 inset = size * inset_fraction;
-
-    // clamp inset so tiny scenes don't put the camera on top of the target
-    const f32 min_size = glm::max(glm::max(size.x, size.y), size.z) * 0.01f + 0.001f;
-    const vec3 safe_inset = glm::max(inset, vec3(min_size));
-
-    target = center;
-    position = maxp - safe_inset;
-    up = vec3(0, 1, 0);
-
-    update();
+    this->recalculate();
 }
 
-void Camera::update() {
-    ASSERT(hfov > 0 && hfov < 180, "hfov must be between 0 and 180 degrees exclusive");
-    ASSERT(aspect_ratio > 0, "aspect_ratio must be positive");
+void Camera::recalculate() {
+    vec3 w_dir = glm::normalize(position - this->target);
+    vec3 u_dir = glm::normalize(cross(up, w_dir));
+    vec3 v_dir = glm::cross(w_dir, u_dir);
+    f32 hfov_rad = glm::radians(this->hfov);
+    f32 half_width = glm::tan(hfov_rad * 0.5f) * this->focus_distance;
+    f32 half_height = half_width / this->aspect_ratio;
+    vec3 horizontal = 2.0f * half_width * u_dir;
+    vec3 vertical = 2.0f * half_height * v_dir;
+    vec3 lower_left = this->position - 0.5f * horizontal - 0.5f * vertical - w_dir * this->focus_distance;
 
-    const f32 w2 = glm::tan(glm::radians(hfov) / 2.0f);
-    const f32 viewport_width = 2.0f * w2;
-    const f32 viewport_height = viewport_width / aspect_ratio;
-
-    w = glm::normalize(position - target);
-    u = glm::normalize(glm::cross(up, w));
-    v = glm::cross(w, u);
-
-    horizontal = viewport_width * u;
-    vertical = viewport_height * v;
-    lower_left_corner = position - horizontal / 2.0f - vertical / 2.0f - w;
+    this->horizontal = horizontal;
+    this->vertical = vertical;
+    this->lower_left_corner = lower_left;
+    this->u = u_dir;
+    this->v = v_dir;
+    this->w = w_dir;
 }
 
-Ray Camera::get_ray(RngState &rng, f32 s, f32 t, f32 inv_w, f32 inv_h) const {
-    vec3 direction = lower_left_corner + s * horizontal + t * vertical - position;
-    Ray r;
-    r.origin = position;
-    r.direction = glm::normalize(direction);
+CameraParams Camera::to_params() const {
+    CameraParams p;
+    p.position = vec3_to_float4(this->position);
+    p.lower_left_corner = vec3_to_float4(this->lower_left_corner);
+    p.horizontal = vec3_to_float4(this->horizontal);
+    p.vertical = vec3_to_float4(this->vertical);
+    p.defocus_disk_u = vec3_to_float4(this->defocus_disk_u);
+    p.defocus_disk_v = vec3_to_float4(this->defocus_disk_v);
+    p.defocus_angle = this->defocus_angle;
+    p.focus_distance = this->focus_distance;
 
-    vec3 dir_dx = lower_left_corner + (s + inv_w) * horizontal + t * vertical - position;
-    vec3 dir_dy = lower_left_corner + s * horizontal + (t + inv_h) * vertical - position;
-    r.dd_dx = glm::normalize(dir_dx) - r.direction;
-    r.dd_dy = glm::normalize(dir_dy) - r.direction;
-
-    return r;
+    return p;
 }

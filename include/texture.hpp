@@ -1,49 +1,36 @@
 #ifndef PHOSPHOR_TEXTURE_HPP
 #define PHOSPHOR_TEXTURE_HPP
 
-#include "common.hpp"
-#include "glm/gtx/raw_data.hpp"
-#include "stb_image.h"
+#include "typedefs.h"
+
+#include <assimp/material.h>
+#include <assimp/scene.h>
 
 #include <optional>
+#include <string>
+#include <vector>
 
 enum TextureChannel { CHANNEL_R, CHANNEL_G, CHANNEL_B };
 
-struct UVTransform {
-    vec2 offset{0.0f, 0.0f};
-    f32 rotation = 0.0f;
-    vec2 scale{1.0f, 1.0f};
-};
-
 struct Texture {
-    i32 width;
-    i32 height;
-    i32 channels;
+    u32 width = 0;
+    u32 height = 0;
+    u32 channels = 3;
     std::string name;
-    std::vector<u8> data; // original (mipmap level 0)
-    std::vector<std::vector<u8>> mip_levels;
-    std::vector<i32> mip_widths;
-    std::vector<i32> mip_heights;
-
-    std::optional<UVTransform> uv_transform;
-
-    void build_mipmaps();
-
-    vec2 transformed_uv(vec2 uv) const;
-
-    vec3 naive_sample(vec2 uv) const;
-
-    vec3 sample_mip(vec2 uv, i32 level) const;
-
-    vec3 sample(vec2 uv) const;
-
-    f32 sample(vec2 uv, TextureChannel ch) const;
-
-    vec3 sample_trilinear(vec2 uv, f32 lod) const;
-
-    f32 sample_trilinear(vec2 uv, f32 lod, TextureChannel ch) const;
-
-    vec3 sample_normal_vec(vec2 uv) const;
+    std::vector<u8> tex_atlas; // all mipmap levels packed
+    std::vector<u32> tex_offsets;
+    std::vector<u32> tex_widths;
+    std::vector<u32> tex_heights;
 };
+
+struct SceneData;
+
+std::optional<u32> find_texture(const std::string &name, const std::vector<Texture> &textures);
+
+void build_mip_chain(Texture &tex, std::vector<u8> pixels, u32 w, u32 h);
+
+void load_texture(const aiScene *scene, aiMaterial *mat, aiTextureType type, const char *dir, SceneData &out_scene);
+
+void parse_textures(const aiScene *scene, SceneData &out_scene, const char *dir);
 
 #endif // PHOSPHOR_TEXTURE_HPP

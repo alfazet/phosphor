@@ -15,7 +15,7 @@
 #include <thread>
 #include <vector>
 
-#include "common.hpp"
+#include "typedefs.h"
 
 namespace logger {
 
@@ -169,7 +169,8 @@ class Logger {
         // of copying, while passing an lvalue string is forwarded as an lvalue and not moved from.
         std::string message = std::format(fmt, std::forward<Args>(args)...);
         std::string filename = std::filesystem::path(loc.file_name()).filename().string();
-        std::string record = std::format("[{} {}:{}] {}\n", level_to_string(level), filename, loc.line(), message);
+        std::string prefix = std::format("[{} {}:{}]", level_to_string(level), filename, loc.line());
+        std::string record = std::format("{:<32} {}\n", prefix, message);
 
         std::lock_guard<std::mutex> lock(mutex_);
         sink_->write(record);
@@ -284,12 +285,12 @@ class ProgressScope {
         last_render_ = now;
 
         auto elapsed = now - start_;
-        f64 fraction = total_ > 0 ? static_cast<f64>(current) / static_cast<f64>(total_) : 0.0;
-        fraction = std::clamp(fraction, 0.0, 1.0);
+        f32 fraction = total_ > 0 ? static_cast<f32>(current) / static_cast<f32>(total_) : 0.0f;
+        fraction = std::clamp(fraction, 0.0f, 1.0f);
 
-        i32 percent = static_cast<i32>(fraction * 100.0);
+        i32 percent = static_cast<i32>(fraction * 100.0f);
         constexpr i32 width = 40;
-        i32 filled = static_cast<i32>(fraction * static_cast<f64>(width));
+        i32 filled = static_cast<i32>(fraction * static_cast<f32>(width));
         filled = std::clamp(filled, 0, width);
 
         std::string bar;
@@ -393,5 +394,7 @@ class TimerScope {
     std::atomic<bool> stopped_{false};
     std::thread thread_;
 };
+
+void init_logger();
 
 #endif // PHOSPHOR_LOGGER_HPP

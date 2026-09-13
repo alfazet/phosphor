@@ -1,35 +1,42 @@
 #ifndef PHOSPHOR_CMD_ARGS_HPP
 #define PHOSPHOR_CMD_ARGS_HPP
 
-#include "common.hpp"
+#include "constants.h"
+#include "typedefs.h"
 
 #include <ostream>
 #include <string>
 #include <unordered_map>
 
-constexpr u32 DEFAULT_RESOLUTION = 256;
-constexpr u32 DEFAULT_SAMPLES = 50;
-constexpr u32 DEFAULT_PHOTONS_PER_LIGHT = 10000;
+constexpr const char *HELP_FLAG = "--help";
+
+constexpr u32 DEFAULT_RES = 1024;
+constexpr u32 DEFAULT_IMAGE_ITERS = 8;
+constexpr u32 DEFAULT_SAMPLES = 64;
+constexpr u32 DEFAULT_PHOTONS_PER_LIGHT = (1 << 18);
 constexpr f32 DEFAULT_RAY_STEP = 0.0001f;
-constexpr const char *DEFAULT_MODEL = "./models/cornell/smooth_sphere.glb";
-constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
 constexpr u32 DEFAULT_SEED = 2137;
-constexpr u32 DEFAULT_N_THREADS = 6;
-constexpr u32 DEFAULT_IMAGE_ITERS = 1;
-constexpr f32 DEFAULT_SEARCH_RADIUS = 0.2f;
+constexpr u32 DEFAULT_GRID_RES = 128;
+constexpr f32 DEFAULT_DEFOCUS_ANGLE = 0.0;
+constexpr f32 DEFAULT_FOCUS_DISTANCE = 1.0;
+constexpr const char *DEFAULT_MODEL_PATH = "./models/sample/sample.glb";
+constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
 
 #define ARG_TABLE(X)                                                                                                   \
-    X("-r", resolution, u32, parse_u32, DEFAULT_RESOLUTION, "resolution")                                              \
-    X("-s", samples, u32, parse_u32, DEFAULT_SAMPLES, "number of samples")                                             \
-    X("-p", photons_per_light, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT, "average photons per light source")          \
-    X("-m", model, std::string, parse_string, DEFAULT_MODEL, "model name")                                             \
+    X("-r", res, u32, parse_u32, DEFAULT_RES, "image resolution (px)")                                                 \
+    X("-i", image_iters, u32, parse_u32, DEFAULT_IMAGE_ITERS, "number of image iterations")                            \
+    X("-s", samples, u32, u32_range(1, MAX_PHOTON_SAMPLES), DEFAULT_SAMPLES, "number of samples for photon gathering") \
+    X("-p", photons, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT,                                                        \
+      "number of photons to emit (will be rounded up to power of 2)")                                                  \
+    X("-m", model, std::string, parse_string, DEFAULT_MODEL_PATH, "gltf model path")                                   \
     X("-o", output_path, std::string, parse_string, DEFAULT_OUTPUT_PATH, "output image path")                          \
-    X("-t", n_threads, u32, parse_u32, DEFAULT_N_THREADS, "number of CPU threads")                                     \
-    X("-i", image_iters, u32, parse_u32, DEFAULT_IMAGE_ITERS, "image iterations")                                      \
+    X("-k", grid_res, u32, parse_u32, DEFAULT_GRID_RES, "spatial hash resolution")                                     \
     X("--ray-step", ray_step, f32, parse_f32, DEFAULT_RAY_STEP, "ray step as a fraction of scene diagonal")            \
-    X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")                                                        \
-    X("--search-radius", search_radius, f32, parse_f32, DEFAULT_SEARCH_RADIUS,                                         \
-      "photon search radius as a fraction of scene diagonal")
+    X("--defocus-angle", defocus_angle, f32, parse_f32, DEFAULT_DEFOCUS_ANGLE,                                         \
+      "variation angle of rays through each pixel")                                                                    \
+    X("--focus-distance", focus_distance, f32, parse_f32, DEFAULT_FOCUS_DISTANCE,                                      \
+      "where is the object perfectly in focus")                                                                        \
+    X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")
 
 struct ArgsList {
     std::string dataset_path;
@@ -52,6 +59,7 @@ class ArgParser {
 
     void print_help() const;
     void print_values(const ArgsList &args) const;
+    void write_image_metadata(const ArgsList &args) const;
 
   private:
     static std::unordered_map<std::string, void (ArgParser::*)(ArgsList &) const> flag_parsers;

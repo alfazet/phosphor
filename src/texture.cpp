@@ -1,147 +1,124 @@
 #include "texture.hpp"
+#include "logger.hpp"
+#include "scene.hpp"
+#include "stb_image.h"
 
-vec2 apply_uv_transform(vec2 uv, const UVTransform &t) {
-    vec2 scaled = uv * t.scale;
-    f32 c = glm::cos(t.rotation);
-    f32 s = glm::sin(t.rotation);
-    vec2 rotated(c * scaled.x - s * scaled.y, s * scaled.x + c * scaled.y);
+#include <assimp/material.h>
+#include <assimp/scene.h>
+#include <filesystem>
 
-    return rotated + t.offset;
+std::optional<u32> find_texture(const std::string &name, const std::vector<Texture> &textures) {
+    for (u32 i = 0; i < textures.size(); i++) {
+        if (textures[i].name == name)
+            return i;
+    }
+    return std::nullopt;
 }
 
-void Texture::build_mipmaps() {
-    const u8 *src_data = this->data.data();
-    i32 w = this->width;
-    i32 h = this->height;
+void build_mip_chain(Texture &tex, std::vector<u8> pixels, u32 w, u32 h) {
+    tex.width = w;
+    tex.height = h;
+    tex.channels = 3;
 
-    while (w > 1 || h > 1) {
-        i32 dest_w = glm::max(w / 2, 1);
-        i32 dest_h = glm::max(h / 2, 1);
-        std::vector<u8> dest(dest_w * dest_h * this->channels);
+    std::vector<u8> level = std::move(pixels);
+    u32 lw = w, lh = h;
+    while (true) {
+        tex.tex_offsets.push_back(static_cast<u32>(tex.tex_atlas.size()));
+        tex.tex_widths.push_back(lw);
+        tex.tex_heights.push_back(lh);
+        tex.tex_atlas.insert(tex.tex_atlas.end(), level.begin(), level.end());
+        if (lw == 1 && lh == 1)
+            break;
 
-        for (i32 y = 0; y < dest_h; y++) {
-            for (i32 x = 0; x < dest_w; x++) {
-                i32 sx0 = glm::min(x * 2, w - 1);
-                i32 sx1 = glm::min(x * 2 + 1, w - 1);
-                i32 sy0 = glm::min(y * 2, h - 1);
-                i32 sy1 = glm::min(y * 2 + 1, h - 1);
-
-                for (i32 chan = 0; chan < this->channels; chan++) {
-                    u32 s = static_cast<u32>(src_data[(sy0 * w + sx0) * this->channels + chan]) +
-                            static_cast<u32>(src_data[(sy0 * w + sx1) * this->channels + chan]) +
-                            static_cast<u32>(src_data[(sy1 * w + sx0) * this->channels + chan]) +
-                            static_cast<u32>(src_data[(sy1 * w + sx1) * this->channels + chan]);
-                    dest[(y * dest_w + x) * this->channels + chan] = static_cast<u8>(s / 4);
+        u32 nw = std::max(1u, lw / 2);
+        u32 nh = std::max(1u, lh / 2);
+        std::vector<u8> next(nw * nh * tex.channels);
+        for (u32 y = 0; y < nh; y++) {
+            for (u32 x = 0; x < nw; x++) {
+                u32 sx0 = std::min(x * 2, lw - 1);
+                u32 sy0 = std::min(y * 2, lh - 1);
+                u32 sx1 = std::min(x * 2 + 1, lw - 1);
+                u32 sy1 = std::min(y * 2 + 1, lh - 1);
+                for (u32 c = 0; c < 3; c++) {
+                    u32 sum = level[(sy0 * lw + sx0) * tex.channels + c] + level[(sy0 * lw + sx1) * tex.channels + c] +
+                              level[(sy1 * lw + sx0) * tex.channels + c] + level[(sy1 * lw + sx1) * tex.channels + c];
+                    next[(y * nw + x) * tex.channels + c] = static_cast<u8>(sum / (tex.channels + 1));
                 }
             }
         }
-        this->mip_levels.push_back(dest);
-        this->mip_widths.push_back(dest_w);
-        this->mip_heights.push_back(dest_h);
-
-        src_data = this->mip_levels.back().data();
-        w = dest_w;
-        h = dest_h;
+        level = std::move(next);
+        lw = nw;
+        lh = nh;
     }
 }
 
-vec2 Texture::transformed_uv(vec2 uv) const {
-    return this->uv_transform.has_value() ? apply_uv_transform(uv, *this->uv_transform) : uv;
-}
+void load_texture(const aiScene *aiscene, aiMaterial *mat, aiTextureType type, const char *directory,
+                  SceneData &out_scene) {
+    aiString path;
+    if (mat->GetTexture(type, 0, &path) != AI_SUCCESS)
+        return;
 
-vec3 Texture::naive_sample(vec2 uv) const {
-    uv.x = uv.x - glm::floor(uv.x);
-    uv.y = uv.y - glm::floor(uv.y);
-    uv.y = 1.0f - uv.y;
-    i32 x = glm::min(static_cast<i32>(uv.x * this->width), this->width - 1);
-    i32 y = glm::min(static_cast<i32>(uv.y * this->height), this->height - 1);
-    i32 idx = (y * this->width + x) * this->channels;
+    std::string name = std::filesystem::path(path.C_Str()).filename().string();
+    if (find_texture(name, out_scene.textures).has_value())
+        return;
 
-    return vec3(this->data[idx], this->data[idx + 1], this->data[idx + 2]) / 255.0f;
-}
+    LOG_INFO("loading texture from {} of type {}", path.C_Str(), aiTextureTypeToString(type));
 
-vec3 Texture::sample_mip(vec2 uv, i32 level) const {
-    uv = this->transformed_uv(uv);
-    const u8 *data;
-    i32 w, h;
-    if (level <= 0 || this->mip_levels.empty()) {
-        data = this->data.data();
-        w = this->width;
-        h = this->height;
+    Texture t;
+    t.name = name;
+    const aiTexture *embedded_tex = aiscene->GetEmbeddedTexture(path.C_Str());
+    i32 w = 0, h = 0, c = 0;
+    u8 *raw = nullptr;
+    std::vector<u8> pixels;
+
+    if (embedded_tex) {
+        if (embedded_tex->mHeight == 0) {
+            // compressed
+            const u8 *buf = reinterpret_cast<const u8 *>(embedded_tex->pcData);
+            raw = stbi_load_from_memory(buf, static_cast<i32>(embedded_tex->mWidth), &w, &h, &c, 3);
+            if (!raw) {
+                LOG_ERROR("failed to decode embedded texture {}", path.C_Str());
+                return;
+            }
+            pixels.assign(raw, raw + (static_cast<u32>(w) * h * 3));
+            stbi_image_free(raw);
+        } else {
+            // uncompressed ARGB8888
+            w = static_cast<i32>(embedded_tex->mWidth);
+            h = static_cast<i32>(embedded_tex->mHeight);
+            pixels.resize(static_cast<u32>(w) * h * 3);
+            const aiTexel *texels = embedded_tex->pcData;
+            for (i32 i = 0; i < w * h; ++i) {
+                pixels[i * 3 + 0] = texels[i].r;
+                pixels[i * 3 + 1] = texels[i].g;
+                pixels[i * 3 + 2] = texels[i].b;
+            }
+        }
     } else {
-        i32 clamped = glm::min(level - 1, static_cast<i32>(this->mip_levels.size()) - 1);
-        data = this->mip_levels[clamped].data();
-        w = this->mip_widths[clamped];
-        h = this->mip_heights[clamped];
+        std::string full_path = std::string(directory) + "/" + path.C_Str();
+        raw = stbi_load(full_path.c_str(), &w, &h, &c, 3);
+        if (!raw) {
+            LOG_ERROR("failed to load texture from {}", full_path);
+            return;
+        }
+        pixels.assign(raw, raw + (static_cast<u32>(w) * h * 3));
+        stbi_image_free(raw);
     }
 
-    uv.x = uv.x - glm::floor(uv.x);
-    uv.y = uv.y - glm::floor(uv.y);
-    uv.y = 1.0f - uv.y;
+    build_mip_chain(t, std::move(pixels), static_cast<u32>(w), static_cast<u32>(h));
+    out_scene.textures.push_back(std::move(t));
+}
 
-    f32 x = glm::min(uv.x * w, static_cast<f32>(w - 1));
-    f32 y = glm::min(uv.y * h, static_cast<f32>(h - 1));
-    i32 x1 = glm::min(static_cast<i32>(x), w - 1);
-    i32 x2 = glm::min(static_cast<i32>(glm::ceil(x)), w - 1);
-    i32 y1 = glm::min(static_cast<i32>(y), h - 1);
-    i32 y2 = glm::min(static_cast<i32>(glm::ceil(y)), h - 1);
-
-    i32 idx11 = (y1 * w + x1) * this->channels;
-    i32 idx12 = (y2 * w + x1) * this->channels;
-    i32 idx21 = (y1 * w + x2) * this->channels;
-    i32 idx22 = (y2 * w + x2) * this->channels;
-
-    vec3 Q11 = vec3(data[idx11], data[idx11 + 1], data[idx11 + 2]) / 255.0f;
-    vec3 Q12 = vec3(data[idx12], data[idx12 + 1], data[idx12 + 2]) / 255.0f;
-    vec3 Q21 = vec3(data[idx21], data[idx21 + 1], data[idx21 + 2]) / 255.0f;
-    vec3 Q22 = vec3(data[idx22], data[idx22 + 1], data[idx22 + 2]) / 255.0f;
-
-    f32 w11, w12, w21, w22;
-    if (x2 == x1 && y2 == y1) {
-        return this->naive_sample(uv);
-    } else if (x2 == x1) {
-        return glm::mix(Q11, Q12, y - y1);
-    } else if (y2 == y1) {
-        return glm::mix(Q11, Q21, x - x1);
-    } else {
-        f32 denom = (x2 - x1) * (y2 - y1);
-        w11 = (x2 - x) * (y2 - y) / denom;
-        w12 = (x2 - x) * (y - y1) / denom;
-        w21 = (x - x1) * (y2 - y) / denom;
-        w22 = (x - x1) * (y - y1) / denom;
+void parse_textures(const aiScene *aiscene, SceneData &out_scene, const char *directory) {
+    for (u32 i = 0; i < aiscene->mNumMaterials; i++) {
+        aiMaterial *mat = aiscene->mMaterials[i];
+        load_texture(aiscene, mat, aiTextureType_DIFFUSE, directory, out_scene);
+        load_texture(aiscene, mat, aiTextureType_BASE_COLOR, directory, out_scene);
+        load_texture(aiscene, mat, aiTextureType_EMISSIVE, directory, out_scene);
+        load_texture(aiscene, mat, aiTextureType_NORMALS, directory, out_scene);
+        load_texture(aiscene, mat, aiTextureType_AMBIENT_OCCLUSION, directory, out_scene);
+        load_texture(aiscene, mat, aiTextureType_METALNESS, directory, out_scene);
+        load_texture(aiscene, mat, aiTextureType_DIFFUSE_ROUGHNESS, directory, out_scene);
+        load_texture(aiscene, mat, aiTextureType_TRANSMISSION, directory, out_scene);
     }
-
-    return w11 * Q11 + w12 * Q12 + w21 * Q21 + w22 * Q22;
 }
-
-vec3 Texture::sample(vec2 uv) const { return this->sample_mip(uv, 0); }
-
-f32 Texture::sample(vec2 uv, TextureChannel ch) const {
-    auto sample_all = this->sample_mip(uv, 0);
-    return sample_all[ch];
-}
-
-vec3 Texture::sample_normal_vec(vec2 uv) const {
-    vec3 raw = this->sample_mip(uv, 0);
-    return glm::normalize(raw * 2.0f - 1.0f);
-}
-
-vec3 Texture::sample_trilinear(vec2 uv, f32 lod) const {
-    if (this->mip_levels.empty() || lod <= 0.0f)
-        return this->sample_mip(uv, 0);
-
-    i32 max_level = static_cast<i32>(this->mip_levels.size());
-    lod = glm::clamp(lod, 0.0f, static_cast<f32>(max_level));
-
-    i32 low = static_cast<i32>(glm::floor(lod));
-    i32 high = static_cast<i32>(glm::ceil(lod));
-    f32 frac = lod - static_cast<f32>(low);
-    if (low == high)
-        return this->sample_mip(uv, low);
-
-    vec3 color_low = this->sample_mip(uv, low);
-    vec3 color_high = this->sample_mip(uv, high);
-    return glm::mix(color_low, color_high, frac);
-}
-
-f32 Texture::sample_trilinear(vec2 uv, f32 lod, TextureChannel ch) const { return this->sample_trilinear(uv, lod)[ch]; }

@@ -1,5 +1,6 @@
 #include "cmd_args.hpp"
 #include "logger.hpp"
+#include "typedefs.h"
 
 #include <cstring>
 #include <iomanip>
@@ -34,6 +35,17 @@ std::string parse_string(const char *s, const char *arg_name) {
     return s;
 }
 
+auto u32_range(u32 min, u32 max) {
+    return [min, max](const char *s, const char *arg_name) {
+        u32 value = parse_u32(s, arg_name);
+        if (value < min || value > max) {
+            throw InvalidValueError(std::string(arg_name) + " (expected " + std::to_string(min) + "..=" +
+                                    std::to_string(max) + ")");
+        }
+        return value;
+    };
+}
+
 using ParserFn = void (ArgParser::*)(ArgsList &) const;
 std::unordered_map<std::string, ParserFn> ArgParser::flag_parsers = {
 #define X(flag, field, type, parser, default_val, help) {flag, &ArgParser::parse_##field},
@@ -55,7 +67,7 @@ ARG_TABLE(X)
 void ArgParser::print_help() const {
     this->out << "usage: " << this->prog_name << " [flags]\nwhere:\n";
 #define X(flag, field, type, parser, default_val, help)                                                                \
-    this->out << "  " << std::left << std::setw(16) << flag << std::setw(48) << help << "(default: " << default_val    \
+    this->out << "  " << std::left << std::setw(32) << flag << std::setw(64) << help << "(default: " << default_val    \
               << ")\n";
     ARG_TABLE(X)
 #undef X
@@ -65,6 +77,21 @@ void ArgParser::print_values(const ArgsList &args) const {
 #define X(flag, field, type, parser, default_val, help) LOG_INFO("{:<30} : {}", help, args.field);
     ARG_TABLE(X)
 #undef X
+}
+
+void ArgParser::write_image_metadata(const ArgsList &args) const {
+    std::ostringstream comment;
+#define X(flag, field, type, parser, default_val, help) comment << std::format("{}={} ", flag, args.field);
+    ARG_TABLE(X)
+#undef X
+    std::ostringstream cmd;
+    cmd << "exiftool -q -overwrite_original "
+        << "-Comment=\"" << comment.str() << "\" "
+        << "\'" << args.output_path << "\'";
+
+    u32 ret = std::system(cmd.str().c_str());
+    if (ret != 0)
+        LOG_ERROR("exiftool failed to write metadata (exit code {})", ret);
 }
 
 ArgParser::ArgParser(usize n_args_, char **values_, std::ostream &out_)
@@ -78,7 +105,7 @@ ArgsList ArgParser::parse_all() {
 
     while (this->arg_i < this->n_args) {
         const char *flag = this->values[this->arg_i];
-        if (strcmp(flag, "-h") == 0 || strcmp(flag, "--help") == 0)
+        if (strcmp(flag, HELP_FLAG) == 0)
             throw HelpRequested{};
 
         auto iter = flag_parsers.find(flag);
