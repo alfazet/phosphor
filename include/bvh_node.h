@@ -11,8 +11,11 @@ typedef struct GPU_ALIGN BvhNode {
     i32 triangle_index;
     // 4
 
-    // total: 36
-    u8 _padding[12];
+    u32 right_child;
+    // 4
+
+    // total: 40
+    u8 _padding[8];
 } BvhNode;
 
 #endif // PHOSPHOR_BVH_NODE_H

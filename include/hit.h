@@ -145,7 +145,7 @@ inline bool scene_intersect(__global const BvhNode *tree, __global const float4 
     i32 p = 0;
     u32 stack[BVH_STACK_SIZE];
 
-    stack[0] = 1; // 0 was left blank
+    stack[0] = 0;
     bool found = false;
     f32 closest = t_max;
 
@@ -169,8 +169,8 @@ inline bool scene_intersect(__global const BvhNode *tree, __global const float4 
         }
         if (p + 2 >= BVH_STACK_SIZE)
             continue;
-        stack[++p] = 2 * index;
-        stack[++p] = 2 * index + 1;
+        stack[++p] = node.right_child;
+        stack[++p] = index + 1;
     }
 
     return found;
