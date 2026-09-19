@@ -6,6 +6,7 @@
 #define EPS 1e-4f
 #define INF 1e9f
 #define PI 3.141592654f
+#define U32_MAX 4294967296.0f
 
 #define NO_TEXTURE 0xFFFFFFFFu
 #define LUMINOUS_EFFICACY 683.0f // cd * sr / W

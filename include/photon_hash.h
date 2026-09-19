@@ -128,7 +128,7 @@ inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __gl
                                __global const u32 *bucket_tree_offset, __global const u32 *bucket_tree_size,
                                __global const float4 *photon_pos, __global const float4 *photon_power,
                                __global const float4 *photon_dir, __global const float4 *photon_normal, u32 samples,
-                               f32 max_dist2, const float4 surf_hit_normal, float4 *flux, f32 *out_max_dist2) {
+                               f32 max_dist2, const float4 surf_hit_normal, float4 *flux, f32 *out_max_dist2, f32 *out_count) {
     u32 k = min(samples, (u32)MAX_PHOTON_SAMPLES);
     u32 result[MAX_PHOTON_SAMPLES];
     f32 dist2[MAX_PHOTON_SAMPLES];
@@ -168,7 +168,9 @@ inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __gl
         *flux += photon_power[result[i]] * normal_sim;
         worst = fmax(worst, dist2[i]);
     }
+
     *out_max_dist2 = worst;
+    *out_count = count;
 }
 #endif // __OPENCL_C_VERSION__
 

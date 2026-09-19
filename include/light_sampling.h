@@ -197,7 +197,7 @@ direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32
     Light light = lights[light_idx];
     float4 flux = (float4)(light.power.x, light.power.y, light.power.z, 0.0f) / scale;
 
-    float4 shadow_origin = pos + normal * EPS;
+    float4 shadow_origin = pos;
     float4 shadow_dir;
     f32 shadow_dist;
     float4 irradiance;

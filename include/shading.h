@@ -121,11 +121,14 @@ inline BsdfSample sample_bsdf(RngState *rng, const ShadingContext *ctx, float4 s
                               float4 view, f32 *curr_ior, bool front_face) {
     BsdfSample s;
     float4 h = ggx_sample_vndf(rng, shading_normal, geom_normal, view, ctx->roughness);
+    f32 alpha = ctx->roughness * ctx->roughness;
 
     if (random_float(rng) < ctx->metallic) {
         // metallic reflection
         s.dir = safe_reflect(-view, h, geom_normal);
-        s.throughput = fresnel4(ctx->base_color, -view, h);
+        f32 cos_l = fmax(0.0f, dot(s.dir, shading_normal));
+        f32 g1_l = smith_g1_ggx(cos_l, alpha);
+        s.throughput = fresnel4(ctx->base_color, -view, h) * g1_l;
         s.event = BSDF_METALLIC;
         return s;
     }
@@ -134,34 +137,44 @@ inline BsdfSample sample_bsdf(RngState *rng, const ShadingContext *ctx, float4 s
     f32 ior_2 = front_face ? ctx->ior : *curr_ior;
     f32 fr = fresnel_refracted(ior_1, ior_2, -view, h);
 
-    if (random_float(rng) < fr) {
+    f32 r_diel = random_float(rng);
+    if (r_diel < fr) {
         // dielectric reflection
         s.dir = safe_reflect(-view, h, geom_normal);
-        s.throughput = (float4)(fr, fr, fr, 0.0f);
+        f32 cos_l = fmax(0.0f, dot(s.dir, shading_normal));
+        f32 g1_l = smith_g1_ggx(cos_l, alpha);
+        s.throughput = (float4)(g1_l, g1_l, g1_l, 0.0f);
         s.event = BSDF_FRESNEL;
         return s;
     }
 
-    if (random_float(rng) < ctx->transmission) {
+    f32 r_trans = (r_diel - fr) / fmax(1.0f - fr, EPS);
+    if (r_trans < ctx->transmission) {
         // dielectric transmission
         bool tir;
         float4 refracted = refract(-view, h, ior_1, ior_2, &tir);
         if (tir) {
             s.dir = safe_reflect(-view, h, geom_normal);
-            s.throughput = WHITE;
+            f32 cos_l = fmax(0.0f, dot(s.dir, shading_normal));
+            f32 g1_l = smith_g1_ggx(cos_l, alpha);
+            s.throughput = (float4)(g1_l, g1_l, g1_l, 0.0f);
             s.event = BSDF_FRESNEL;
             return s;
         }
         bool transmitted = dot(refracted, h) < 0.0f;
         *curr_ior = transmitted ? (front_face ? ctx->ior : AIR_IOR) : *curr_ior;
         s.dir = refracted;
-        s.throughput = (float4)(ctx->transmission, ctx->transmission, ctx->transmission, 0.0f) * ctx->base_color;
+        f32 cos_l = fmax(0.0f, fabs(dot(refracted, shading_normal)));
+        f32 g1_l = smith_g1_ggx(cos_l, alpha);
+        s.throughput = ctx->base_color * g1_l;
         s.event = BSDF_TRANSMIT;
         return s;
     }
 
     // diffuse
-    s.dir = random_in_unit_hemisphere(rng, h);
+    s.dir = random_in_unit_hemisphere(rng, shading_normal);
+    if (dot(s.dir, geom_normal) <= 0.0f)
+        s.dir = random_in_unit_hemisphere(rng, geom_normal);
     s.throughput = ctx->base_color;
     s.event = BSDF_DIFFUSE;
 

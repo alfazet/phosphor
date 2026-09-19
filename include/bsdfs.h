@@ -75,11 +75,12 @@ inline float4 ggx_sample_vndf(RngState *rng, float4 normal, float4 geom_normal, 
 // Smith G1 masking function for the GGX microfacet distribution
 // G1 gives the fraction of microfacets visible from a given direction
 // reference: "Microfacet Models for Refraction through Rough Surfaces", Walter et al., eq. 34
-inline f32 smith_g1_ggx(f32 theta, f32 alpha) {
-    if (theta <= 0.0f)
+inline f32 smith_g1_ggx(f32 cos_theta, f32 alpha) {
+    if (cos_theta <= 0.0f)
         return 0.0f;
-    f32 tan_theta = tan(theta);
-    return 2.0f / (1.0f + sqrt(1.0f + alpha * alpha * tan_theta * tan_theta));
+    f32 alpha_sq = alpha * alpha;
+
+    return 2.0f * cos_theta / (cos_theta + sqrt(alpha_sq + (1.0f - alpha_sq) * cos_theta * cos_theta));
 }
 
 // Schlick's approximation for the Fresnel reflectance of a dielectric

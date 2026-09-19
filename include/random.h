@@ -18,7 +18,7 @@ inline u32 pcg_random(RngState *rng) {
     u32 oldstate = rng->state;
     rng->state = rng->state * 747796405u + 2891336453u;
 
-    return (((oldstate >> ((oldstate >> 28u) + 4u)) ^ oldstate) * 277803737u) >> 16u;
+    return (((oldstate >> ((oldstate >> 28u) + 4u)) ^ oldstate) * 277803737u) & 0xFFFFFFFF;
 }
 
 inline RngState pcg_seed(u32 seed) {
@@ -33,25 +33,22 @@ inline RngState pcg_seed(u32 seed) {
 
 inline RngState make_thread_rng(RngState base, u32 thread_index) { return pcg_seed(base.state + thread_index); }
 
-inline f32 random_float(RngState *rng) { return (f32)pcg_random(rng) / 65536.0f; }
+inline f32 random_float(RngState *rng) { return (f32)pcg_random(rng) / U32_MAX; }
 
 #ifdef __OPENCL_C_VERSION__
 
 inline float4 random_unit_vector(RngState *rng) {
     float4 p;
+    f32 len;
     do {
         p.x = 2.0f * random_float(rng) - 1.0f;
         p.y = 2.0f * random_float(rng) - 1.0f;
         p.z = 2.0f * random_float(rng) - 1.0f;
         p.w = 0.0f;
-    } while (dot(p, p) >= 1.0f);
+        len = dot(p, p);
+    } while (len >= 1.0f || len <= EPS);
 
-    f32 len = sqrt(dot(p, p));
-    p.x /= len;
-    p.y /= len;
-    p.z /= len;
-
-    return p;
+    return p * rsqrt(len);
 }
 
 inline float4 random_in_unit_hemisphere(RngState *rng, float4 normal) {
