@@ -123,10 +123,8 @@ __kernel void trace_rays(
                                &max_dist_sq);
 
             // density estimation: divide gathered flux by the area of the search disk and scale by the Lambertian BRDF
-            float4 indirect = (float4)(0.0f);
-            f32 area = PI * max_dist_sq;
-            if (area > EPS)
-                indirect = flux * ((1.0f - ctx.metallic) / area) * (ctx.base_color / PI);
+            f32 area = fmax(PI * max_dist_sq, EPS);
+            float4 indirect = flux * ((1.0f - ctx.metallic) / area) * (ctx.base_color / PI);
 
             float4 direct = direct_lighting(
                 &rng, surf_hit.position, ctx.shading_normal, ctx.base_color, ctx.metallic, lights, n_lights,

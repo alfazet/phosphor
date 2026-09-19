@@ -26,8 +26,7 @@ constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
     X("-r", res, u32, parse_u32, DEFAULT_RES, "image resolution (px)")                                                 \
     X("-i", image_iters, u32, parse_u32, DEFAULT_IMAGE_ITERS, "number of image iterations")                            \
     X("-s", samples, u32, u32_range(1, MAX_PHOTON_SAMPLES), DEFAULT_SAMPLES, "number of samples for photon gathering") \
-    X("-p", photons, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT,                                                        \
-      "number of photons to emit (will be rounded up to power of 2)")                                                  \
+    X("-p", photons, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT, "number of photons to emit")                           \
     X("-m", model, std::string, parse_string, DEFAULT_MODEL_PATH, "gltf model path")                                   \
     X("-o", output_path, std::string, parse_string, DEFAULT_OUTPUT_PATH, "output image path")                          \
     X("-k", grid_res, u32, parse_u32, DEFAULT_GRID_RES, "spatial hash resolution")                                     \

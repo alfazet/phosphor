@@ -39,7 +39,7 @@ void phosphor_main(const ArgsList &args) {
     buffers.upload_scene(ctx, scene, bvh);
     buffers.upload_camera(camera.to_params(), args.res, args.res, args.image_iters);
 
-    u32 photons_to_emit = round_up_to_pow2(args.photons);
+    u32 photons_to_emit = args.photons;
     u32 photons_per_batch = std::min(photons_to_emit, MAX_PHOTONS_PER_BATCH);
     u32 max_photons_in_batch = photons_per_batch * MAX_PHOTON_BOUNCES;
 
