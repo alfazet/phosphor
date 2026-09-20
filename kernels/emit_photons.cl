@@ -12,8 +12,7 @@
 
 __kernel void emit_photons(
     // output photon arrays
-    __global float4 *photon_pos, __global float4 *photon_power, __global float4 *photon_dir,
-    __global float4 *photon_normal, __global u32 *photon_count,
+    __global float4 *photon_pos, __global float4 *photon_power, __global float4 *photon_dir, __global u32 *photon_count,
 
     // light sources
     __global const Light *lights, const u32 n_lights, const u32 max_photons, const u32 offset,
@@ -101,7 +100,6 @@ __kernel void emit_photons(
                 photon_pos[idx] = surf_hit.position;
                 photon_power[idx] = power;
                 photon_dir[idx] = dir;
-                photon_normal[idx] = surf_hit.normal;
             } else {
                 return;
             }

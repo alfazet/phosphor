@@ -15,7 +15,7 @@ typedef struct PhotonHash {
     u32 bucket_count;
 
     PhotonHash(std::vector<float4> &photon_pos, std::vector<float4> &photon_power, std::vector<float4> &photon_dir,
-               std::vector<float4> &photon_normal, PhotonHashInfo info);
+               PhotonHashInfo info);
 } PhotonHash;
 
 #endif // PHOSPHOR_PHOTON_HASH_HPP

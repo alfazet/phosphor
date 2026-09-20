@@ -28,7 +28,7 @@ __kernel void trace_rays(
 
     // photon map buffers
     __global const float4 *photon_pos, __global const float4 *photon_power, __global const float4 *photon_dir,
-    __global const float4 *photon_normal, const u32 n_photons, const f32 search_radius, const u32 samples,
+    const u32 n_photons, const f32 search_radius, const u32 samples,
 
     // output
     __global float4 *out_color,
@@ -120,8 +120,8 @@ __kernel void trace_rays(
             f32 radius_sq = search_radius * search_radius;
             f32 count;
             gather_photon_flux(surf_hit.position, info, tree_index, bucket_tree_offset, bucket_tree_size, photon_pos,
-                               photon_power, photon_dir, photon_normal, samples, radius_sq, surf_hit.normal, &flux,
-                               &max_dist_sq, &count);
+                               photon_power, photon_dir, samples, radius_sq, surf_hit.normal, &flux, &max_dist_sq,
+                               &count);
 
             // density estimation: divide gathered flux by the area of the search disk and scale by the Lambertian BRDF
             f32 area = fmax(PI * max_dist_sq, EPS);

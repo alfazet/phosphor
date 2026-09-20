@@ -47,7 +47,7 @@ void balance(std::vector<float4> &photon_pos, std::vector<u32> &indices, u32 ind
 }
 
 PhotonHash::PhotonHash(std::vector<float4> &photon_pos, std::vector<float4> &photon_power,
-                       std::vector<float4> &photon_dir, std::vector<float4> &photon_normal, PhotonHashInfo info) {
+                       std::vector<float4> &photon_dir, PhotonHashInfo info) {
     u32 n_photons = photon_pos.size();
     this->bucket_count = info.grid_res * info.grid_res * info.grid_res + 1;
 
@@ -74,12 +74,10 @@ PhotonHash::PhotonHash(std::vector<float4> &photon_pos, std::vector<float4> &pho
         sorted_pos[i] = photon_pos[src];
         sorted_power[i] = photon_power[src];
         sorted_dir[i] = photon_dir[src];
-        sorted_normal[i] = photon_normal[src];
     }
     photon_pos = std::move(sorted_pos);
     photon_power = std::move(sorted_power);
     photon_dir = std::move(sorted_dir);
-    photon_normal = std::move(sorted_normal);
 
     this->cell_start.assign(this->bucket_count, 0);
     this->cell_end.assign(this->bucket_count, 0);

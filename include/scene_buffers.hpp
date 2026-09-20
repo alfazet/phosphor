@@ -48,7 +48,6 @@ struct SceneBuffers {
     cl::Buffer photon_pos;
     cl::Buffer photon_power;
     cl::Buffer photon_dir;
-    cl::Buffer photon_normal;
 
     cl::Buffer tree_index;
     cl::Buffer bucket_tree_offset;
@@ -63,13 +62,11 @@ struct SceneBuffers {
     void upload_camera(const CameraParams &cam, u32 width, u32 height, u32 iters);
 
     void upload_photons(ClContext &ctx, PhotonHash &hash, std::vector<float4> &photon_pos,
-                        std::vector<float4> &photon_power, std::vector<float4> &photon_dir,
-                        std::vector<float4> &photon_normal);
+                        std::vector<float4> &photon_power, std::vector<float4> &photon_dir);
 
     void set_emit_photons_args(cl::Kernel &kernel, u32 batch_offset, u32 photons_to_emit, u32 seed,
                                u32 batch_max_photons, cl::Buffer &out_photon_pos, cl::Buffer &out_photon_power,
-                               cl::Buffer &out_photon_dir, cl::Buffer &out_photon_normal,
-                               cl::Buffer &out_photon_count) const;
+                               cl::Buffer &out_photon_dir, cl::Buffer &out_photon_count) const;
 
     void set_trace_rays_args(cl::Kernel &kernel, f32 search_radius, u32 samples, PhotonHashInfo info, u32 seed,
                              cl::Buffer &out_color) const;
