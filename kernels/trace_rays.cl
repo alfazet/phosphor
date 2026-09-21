@@ -27,7 +27,7 @@ __kernel void trace_rays(
     __global const Material *materials, __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
 
     // photon map buffers
-    __global const float4 *photon_pos, __global const float4 *photon_power, __global const float4 *photon_dir,
+    __global const float4 *photon_pos, __global const u32 *photon_power, __global const float4 *photon_dir,
     const u32 n_photons, const f32 search_radius, const u32 samples,
 
     // output

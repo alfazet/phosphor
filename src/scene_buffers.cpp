@@ -153,11 +153,11 @@ void SceneBuffers::upload_camera(const CameraParams &cam, u32 width, u32 height,
 }
 
 void SceneBuffers::upload_photons(ClContext &ctx, PhotonHash &hash, std::vector<float4> &photon_pos,
-                                  std::vector<float4> &photon_power, std::vector<float4> &photon_dir) {
+                                  std::vector<u32> &photon_power, std::vector<float4> &photon_dir) {
     this->n_photons = static_cast<u32>(photon_pos.size());
 
     this->photon_pos = dev_buf(ctx, photon_pos.data(), n_photons, sizeof(float4));
-    this->photon_power = dev_buf(ctx, photon_power.data(), n_photons, sizeof(float4));
+    this->photon_power = dev_buf(ctx, photon_power.data(), n_photons, sizeof(u32));
     this->photon_dir = dev_buf(ctx, photon_dir.data(), n_photons, sizeof(float4));
 
     tree_index = dev_buf(ctx, hash.tree_index.data(), hash.tree_index.size(), sizeof(u32));
