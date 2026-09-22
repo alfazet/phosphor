@@ -126,6 +126,8 @@ static inline void sample_textured_light(RngState *rng, Light *light, __global c
     float2 uv = (float2)(w * uv0_.x + u * uv1_.x + v * uv2_.x, w * uv0_.y + u * uv1_.y + v * uv2_.y);
 
     *dir = random_in_unit_hemisphere(rng, normal);
+    *origin += EPS * *dir;
+
     float4 emissive_power = light->power;
     if (tex_index != NO_TEXTURE) {
         float4 tex_color = sample_texture(tex_meta, tex_atlas, tex_index, uv);
