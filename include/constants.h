@@ -13,23 +13,30 @@
 #define DEFAULT_TRANSMISSION 0.0f
 #define DEFAULT_IOR 1.5f
 #define AIR_IOR 1.0f
-#define MAX_PHOTON_BOUNCES 50
-#define MAX_RAY_BOUNCES 5
+#define MAX_PHOTON_BOUNCES 50u
+#define MAX_RAY_BOUNCES 5u
 #define MIN_CELL_SIZE 0.1f
 
-#define BVH_STACK_SIZE 24
-#define KD_STACK_SIZE 24
-#define MAX_PHOTON_SAMPLES 256
+#define BVH_STACK_SIZE 24u
+#define KD_STACK_SIZE 24u
 
 #define MAX_PHOTONS_PER_BATCH (1u << 15)
 #define DEFAULT_CAMERA_ASPECT (16.0f / 9.0f)
 
+#define ZERO (float4)(0.0f, 0.0f, 0.0f, 0.0f)
 #define BLACK (float4)(0.0f, 0.0f, 0.0f, 0.0f)
 #define WHITE (float4)(1.0f, 1.0f, 1.0f, 0.0f)
 
 #define MIN_ROUGHNESS 0.001f
 #define GGX_SAMPLING_ATTEMPTS 8u
-#define MIN_RAY_RR_DEPTH 2
-#define MIN_PHOTON_RR_DEPTH 2
+
+#define RR_MIN_RAY_DEPTH 2u
+#define RR_MIN_PHOTON_DEPTH 2u
+#define RR_MIN_Q 0.05f
+#define RR_MAX_Q 1.0f
+
+// values from Jensen's book (7.4.2)
+#define GAUSS_ALPHA 1.818f
+#define GAUSS_BETA 1.953f
 
 #endif // PHOSPHOR_CONSTANTS_H

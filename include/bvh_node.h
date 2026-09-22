@@ -9,10 +9,10 @@ typedef struct GPU_ALIGN BvhNode {
     // 2 * 4 * 4 = 32
 
     i32 triangle_index;
-    // 4
+    // 1 * 4 = 4
 
     u32 right_child;
-    // 4
+    // 1 * 4 = 4
 
     // total: 40
     u8 _padding[8];

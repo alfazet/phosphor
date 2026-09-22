@@ -11,7 +11,6 @@
 constexpr const char *HELP_FLAG = "--help";
 
 constexpr u32 DEFAULT_RES = 1024;
-constexpr u32 DEFAULT_IMAGE_ITERS = 8;
 constexpr u32 DEFAULT_SAMPLES = 64;
 constexpr u32 DEFAULT_PHOTONS_PER_LIGHT = (1 << 18);
 constexpr f32 DEFAULT_RAY_STEP = 0.0001f;
@@ -19,22 +18,27 @@ constexpr u32 DEFAULT_SEED = 2137;
 constexpr u32 DEFAULT_GRID_RES = 128;
 constexpr f32 DEFAULT_DEFOCUS_ANGLE = 0.0;
 constexpr f32 DEFAULT_FOCUS_DISTANCE = 1.0;
+constexpr u32 DEFAULT_SPPM_ROUNDS = 64;
+constexpr f32 DEFAULT_SPPM_ALPHA = 0.7f;
+constexpr u32 DEFAULT_DIRECT_SAMPLES = 8;
 constexpr const char *DEFAULT_MODEL_PATH = "./models/sample/sample.glb";
 constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
 
 #define ARG_TABLE(X)                                                                                                   \
     X("-r", res, u32, parse_u32, DEFAULT_RES, "image resolution (px)")                                                 \
-    X("-i", image_iters, u32, parse_u32, DEFAULT_IMAGE_ITERS, "number of image iterations")                            \
-    X("-s", samples, u32, u32_range(1, MAX_PHOTON_SAMPLES), DEFAULT_SAMPLES, "number of samples for photon gathering") \
-    X("-p", photons, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT, "number of photons to emit")                           \
+    X("-p", photons, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT, "number of photons to emit per round")                 \
     X("-m", model, std::string, parse_string, DEFAULT_MODEL_PATH, "gltf model path")                                   \
     X("-o", output_path, std::string, parse_string, DEFAULT_OUTPUT_PATH, "output image path")                          \
-    X("-k", grid_res, u32, parse_u32, DEFAULT_GRID_RES, "spatial hash resolution")                                     \
+    X("--grid-res", grid_res, u32, parse_u32, DEFAULT_GRID_RES, "spatial hash resolution")                             \
+    X("--sppm-rounds", sppm_rounds, u32, parse_u32, DEFAULT_SPPM_ROUNDS, "number of SPPM rounds")                      \
+    X("--sppm-alpha", sppm_alpha, f32, parse_f32, DEFAULT_SPPM_ALPHA, "SPPM radius reduction factor")                  \
+    X("--direct-samples", direct_samples, u32, parse_u32, DEFAULT_DIRECT_SAMPLES,                                      \
+      "number of direct lighting rays per pixel per camera pass")                                                      \
     X("--ray-step", ray_step, f32, parse_f32, DEFAULT_RAY_STEP, "ray step as a fraction of scene diagonal")            \
     X("--defocus-angle", defocus_angle, f32, parse_f32, DEFAULT_DEFOCUS_ANGLE,                                         \
       "variation angle of rays through each pixel")                                                                    \
     X("--focus-distance", focus_distance, f32, parse_f32, DEFAULT_FOCUS_DISTANCE,                                      \
-      "where is the object perfectly in focus")                                                                        \
+      "distance from the camera where an object is perfectly in focus")                                                \
     X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")
 
 struct ArgsList {

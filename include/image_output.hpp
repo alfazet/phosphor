@@ -1,11 +1,13 @@
 #ifndef PHOSPHOR_IMAGE_OUTPUT_HPP
 #define PHOSPHOR_IMAGE_OUTPUT_HPP
 
+#include "sppm_pixel.h"
 #include "typedefs.h"
 
 #include <string>
 #include <vector>
 
-void write_png(const std::string &path, u32 width, u32 height, u32 iters, const std::vector<float4> &raw);
+void write_png(const std::string &path, u32 width, u32 height, const std::vector<SppmPixel> &sppm_pixels,
+               const std::vector<float4> &total_irradiance, u64 total_photons, u32 sppm_rounds);
 
 #endif // PHOSPHOR_IMAGE_OUTPUT_HPP

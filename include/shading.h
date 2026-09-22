@@ -75,10 +75,10 @@ inline ShadingContext evaluate_material(const Material *mat, float2 uv, float4 g
         ctx.transmission *= tex.r;
     }
 
-    ctx.occlusion = 0.0f;
+    ctx.occlusion = 1.0f;
     if (mat->occlusion_index != NO_TEXTURE) {
         float4 occ = sample_texture_uv(mat, tex_meta, tex_atlas, mat->occlusion_index, uv, mat->occlusion_transform);
-        ctx.occlusion *= occ.r; // R channel
+        ctx.occlusion = occ.r; // R channel
     }
 
     ctx.ior = mat->ior;

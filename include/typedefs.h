@@ -23,6 +23,7 @@ typedef cl_float4 float4;
 typedef cl_uchar u8;
 typedef cl_int i32;
 typedef cl_uint u32;
+typedef cl_ulong u64;
 typedef cl_ulong usize;
 
 #else
