@@ -32,9 +32,12 @@ void phosphor_main(const ArgsList &args) {
         return;
     }
 
-    auto now = std::chrono::system_clock::now();
-    std::string timestamp = std::format("{:%Y_%m_%d-%H_%M_%S}", std::chrono::floor<std::chrono::seconds>(now));
-    std::filesystem::path output_dir(args.output_dir + "_" + timestamp);
+    std::filesystem::path output_dir(args.output_dir);
+    if (std::strcmp(args.output_dir.c_str(), DEFAULT_OUTPUT_DIR) == 0) {
+        auto now = std::chrono::system_clock::now();
+        std::string timestamp = std::format("{:%Y_%m_%d-%H_%M_%S}", std::chrono::floor<std::chrono::seconds>(now));
+        output_dir = std::filesystem::path(args.output_dir + "_" + timestamp);
+    }
     std::filesystem::create_directory(output_dir);
 
     Camera &camera = scene.get_camera();
