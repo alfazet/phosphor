@@ -6,6 +6,7 @@
 #include <ostream>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 constexpr const char *HELP_FLAG = "--help";
 
@@ -22,7 +23,6 @@ constexpr f32 DEFAULT_SPPM_ALPHA = 0.7f;
 constexpr u32 DEFAULT_DIRECT_SAMPLES = 32;
 constexpr const char *DEFAULT_MODEL_PATH = "./models/sample/sample.glb";
 constexpr const char *DEFAULT_OUTPUT_DIR = "./phosphor_output";
-constexpr u32 DEFAULT_SAVE_SNAPSHOTS = 1;
 
 #define ARG_TABLE(X)                                                                                                   \
     X("-r", res, u32, parse_u32, DEFAULT_RES, "image resolution (px)")                                                 \
@@ -40,10 +40,14 @@ constexpr u32 DEFAULT_SAVE_SNAPSHOTS = 1;
     X("--focus-distance", focus_distance, f32, parse_f32, DEFAULT_FOCUS_DISTANCE,                                      \
       "distance from the camera where an object is perfectly in focus")                                                \
     X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")                                                        \
-    X("--snapshots", save_snapshots, u32, parse_u32, DEFAULT_SAVE_SNAPSHOTS, "should rendering snapshots be saved?")
+    X("--snapshots", save_snapshots, bool, parse_bool, false, "should rendering snapshots be saved?")
 
 struct ArgsList {
     std::string dataset_path;
+
+    std::unordered_set<std::string> provided_flags;
+    bool was_provided(const char *flag) const { return provided_flags.contains(flag); }
+
 #define X(flag, field, type, parser, default_val, help) type field = default_val;
     ARG_TABLE(X)
 #undef X
@@ -66,9 +70,9 @@ class ArgParser {
     void write_image_metadata(const ArgsList &args) const;
 
   private:
-    static std::unordered_map<std::string, void (ArgParser::*)(ArgsList &) const> flag_parsers;
+    static std::unordered_map<std::string, void (ArgParser::*)(ArgsList &)> flag_parsers;
 
-#define X(flag, field, type, parser, default_val, help) void parse_##field(ArgsList &list) const;
+#define X(flag, field, type, parser, default_val, help) void parse_##field(ArgsList &list);
     ARG_TABLE(X)
 #undef X
 };
