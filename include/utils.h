@@ -18,7 +18,14 @@ inline u32 round_up_to_pow2(u32 x) {
     return x;
 }
 
+inline bool is_pow2(u32 x) {
+    if (x == 0)
+        return false;
+    return ((x - 1) & x) == 0;
+}
+
 #ifndef __OPENCL_C_VERSION__
+
 #include <bit>
 
 inline f32 as_float(u32 x) { return std::bit_cast<f32>(x); }
@@ -27,7 +34,9 @@ inline u32 as_uint(f32 x) { return std::bit_cast<u32>(x); }
 #endif // __OPENCL_C_VERSION__
 
 #ifndef __OPENCL_C_VERSION__
+
 #include "glm_bundle.hpp"
+
 inline void make_tbn(const vec3 &n, vec3 &t, vec3 &b) {
     if (glm::abs(n.x) > glm::abs(n.y)) {
         // n crossed with (0, 1, 0)
@@ -38,6 +47,7 @@ inline void make_tbn(const vec3 &n, vec3 &t, vec3 &b) {
     }
     b = glm::cross(n, t);
 }
+
 #endif // __OPENCL_C_VERSION__
 
 #ifdef __OPENCL_C_VERSION__

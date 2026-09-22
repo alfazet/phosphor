@@ -11,6 +11,9 @@
 #include "sppm_pixel.h"
 #include "utils.h"
 
+#include <chrono>
+#include <filesystem>
+#include <format>
 #include <iostream>
 #include <vector>
 
@@ -28,6 +31,11 @@ void phosphor_main(const ArgsList &args) {
         LOG_ERROR("empty scene, nothing to render");
         return;
     }
+
+    auto now = std::chrono::system_clock::now();
+    std::string timestamp = std::format("{:%Y_%m_%d-%H_%M_%S}", std::chrono::floor<std::chrono::seconds>(now));
+    std::filesystem::path output_dir(args.output_dir + "_" + timestamp);
+    std::filesystem::create_directory(output_dir);
 
     Camera &camera = scene.get_camera();
     camera.focus(args.defocus_angle, args.focus_distance);
@@ -53,9 +61,11 @@ void phosphor_main(const ArgsList &args) {
     u64 total_photons_emitted = 0;
     RngState rng = pcg_seed(args.seed);
     PhotonHashInfo photon_hash_info = build_photon_hash_info(bbox, args.grid_res);
-    ProgressScope progress_rounds("SPPM rounds", args.sppm_rounds);
-    for (u32 round = 0; round < args.sppm_rounds; round++) {
-        progress_rounds.increase(1);
+
+    std::vector<SppmPixel> h_sppm(buffers.n_pixels);
+    std::vector<float4> h_total_irradiance(buffers.n_pixels);
+
+    for (u32 round = 1; round <= args.sppm_rounds; round++) {
         u32 round_seed = random_u32(&rng);
 
         // camera pass (trace rays and record their first diffuse hit)
@@ -111,16 +121,20 @@ void phosphor_main(const ArgsList &args) {
         buffers.set_gather_pass_args(k_gather_pass, photon_hash_info, args.sppm_alpha);
         ctx.queue.enqueueNDRangeKernel(k_gather_pass, cl::NullRange, cl::NDRange(buffers.n_pixels), cl::NullRange);
         ctx.queue.finish();
+
+        // save snapshots once in a while if enabled
+        if ((args.save_snapshots && is_pow2(round)) || round == args.sppm_rounds) {
+            ctx.queue.enqueueReadBuffer(buffers.sppm_pixels, CL_TRUE, 0, buffers.n_pixels * sizeof(SppmPixel),
+                                        h_sppm.data());
+            ctx.queue.enqueueReadBuffer(buffers.total_irradiance, CL_TRUE, 0, buffers.n_pixels * sizeof(float4),
+                                        h_total_irradiance.data());
+
+            std::filesystem::path image_path = output_dir / std::format("{:0>6}.png", std::to_string(round));
+            write_png(image_path, args.res, args.res, h_sppm, h_total_irradiance, total_photons_emitted,
+                      args.sppm_rounds);
+            LOG_INFO("rendered image after {} SPPM rounds written to {}", round, image_path.c_str());
+        }
     }
-
-    std::vector<SppmPixel> h_sppm(buffers.n_pixels);
-    ctx.queue.enqueueReadBuffer(buffers.sppm_pixels, CL_TRUE, 0, buffers.n_pixels * sizeof(SppmPixel), h_sppm.data());
-
-    std::vector<float4> h_total_irradiance(buffers.n_pixels);
-    ctx.queue.enqueueReadBuffer(buffers.total_irradiance, CL_TRUE, 0, buffers.n_pixels * sizeof(float4),
-                                h_total_irradiance.data());
-    write_png(args.output_path, args.res, args.res, h_sppm, h_total_irradiance, total_photons_emitted,
-              args.sppm_rounds);
 }
 
 i32 main(i32 argc, char **argv) {
@@ -131,7 +145,8 @@ i32 main(i32 argc, char **argv) {
         LOG_INFO("chosen parameters:");
         arg_parser.print_values(args);
         phosphor_main(args);
-        arg_parser.write_image_metadata(args);
+        // TODO: rewrite this if we even care
+        // arg_parser.write_image_metadata(args);
     } catch (const HelpRequested &) {
         arg_parser.print_help();
         return 0;

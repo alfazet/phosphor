@@ -1,7 +1,6 @@
 #ifndef PHOSPHOR_CMD_ARGS_HPP
 #define PHOSPHOR_CMD_ARGS_HPP
 
-#include "constants.h"
 #include "typedefs.h"
 
 #include <ostream>
@@ -12,7 +11,7 @@ constexpr const char *HELP_FLAG = "--help";
 
 constexpr u32 DEFAULT_RES = 1024;
 constexpr u32 DEFAULT_SAMPLES = 64;
-constexpr u32 DEFAULT_PHOTONS_PER_LIGHT = (1 << 18);
+constexpr u32 DEFAULT_PHOTONS = 1000000;
 constexpr f32 DEFAULT_RAY_STEP = 0.0001f;
 constexpr u32 DEFAULT_SEED = 2137;
 constexpr u32 DEFAULT_GRID_RES = 128;
@@ -20,15 +19,16 @@ constexpr f32 DEFAULT_DEFOCUS_ANGLE = 0.0;
 constexpr f32 DEFAULT_FOCUS_DISTANCE = 1.0;
 constexpr u32 DEFAULT_SPPM_ROUNDS = 64;
 constexpr f32 DEFAULT_SPPM_ALPHA = 0.7f;
-constexpr u32 DEFAULT_DIRECT_SAMPLES = 8;
+constexpr u32 DEFAULT_DIRECT_SAMPLES = 32;
 constexpr const char *DEFAULT_MODEL_PATH = "./models/sample/sample.glb";
-constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
+constexpr const char *DEFAULT_OUTPUT_DIR = "./phosphor_output";
+constexpr u32 DEFAULT_SAVE_SNAPSHOTS = 1;
 
 #define ARG_TABLE(X)                                                                                                   \
     X("-r", res, u32, parse_u32, DEFAULT_RES, "image resolution (px)")                                                 \
-    X("-p", photons, u32, parse_u32, DEFAULT_PHOTONS_PER_LIGHT, "number of photons to emit per round")                 \
+    X("-p", photons, u32, parse_u32, DEFAULT_PHOTONS, "number of photons to emit per SPPM round")                      \
     X("-m", model, std::string, parse_string, DEFAULT_MODEL_PATH, "gltf model path")                                   \
-    X("-o", output_path, std::string, parse_string, DEFAULT_OUTPUT_PATH, "output image path")                          \
+    X("-o", output_dir, std::string, parse_string, DEFAULT_OUTPUT_DIR, "output directory prefix")                      \
     X("--grid-res", grid_res, u32, parse_u32, DEFAULT_GRID_RES, "spatial hash resolution")                             \
     X("--sppm-rounds", sppm_rounds, u32, parse_u32, DEFAULT_SPPM_ROUNDS, "number of SPPM rounds")                      \
     X("--sppm-alpha", sppm_alpha, f32, parse_f32, DEFAULT_SPPM_ALPHA, "SPPM radius reduction factor")                  \
@@ -39,7 +39,8 @@ constexpr const char *DEFAULT_OUTPUT_PATH = "output.png";
       "variation angle of rays through each pixel")                                                                    \
     X("--focus-distance", focus_distance, f32, parse_f32, DEFAULT_FOCUS_DISTANCE,                                      \
       "distance from the camera where an object is perfectly in focus")                                                \
-    X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")
+    X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")                                                        \
+    X("--snapshots", save_snapshots, u32, parse_u32, DEFAULT_SAVE_SNAPSHOTS, "should rendering snapshots be saved?")
 
 struct ArgsList {
     std::string dataset_path;
