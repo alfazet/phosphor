@@ -66,7 +66,7 @@ class ArgParser {
 
     void print_help() const;
     void print_values(const ArgsList &args) const;
-    void write_image_metadata(const ArgsList &args) const;
+    std::string build_image_metadata(const ArgsList &args) const;
 
   private:
     static std::unordered_map<std::string, void (ArgParser::*)(ArgsList &)> flag_parsers;

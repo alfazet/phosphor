@@ -85,19 +85,12 @@ void ArgParser::print_values(const ArgsList &args) const {
 #undef X
 }
 
-void ArgParser::write_image_metadata(const ArgsList &args) const {
+std::string ArgParser::build_image_metadata(const ArgsList &args) const {
     std::ostringstream comment;
 #define X(flag, field, type, parser, default_val, help) comment << std::format("{}={} ", flag, args.field);
     ARG_TABLE(X)
 #undef X
-    std::ostringstream cmd;
-    cmd << "exiftool -q -overwrite_original "
-        << "-Comment=\"" << comment.str() << "\" "
-        << "\'" << args.output_dir << "\'";
-
-    u32 ret = std::system(cmd.str().c_str());
-    if (ret != 0)
-        LOG_ERROR("exiftool failed to write metadata (exit code {})", ret);
+    return comment.str();
 }
 
 ArgParser::ArgParser(usize n_args_, char **values_, std::ostream &out_)
