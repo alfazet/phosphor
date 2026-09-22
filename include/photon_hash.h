@@ -53,86 +53,13 @@ inline PhotonHashInfo build_photon_hash_info(const BoundingBox &bbox, u32 grid_r
 
 #ifdef __OPENCL_C_VERSION__
 
-inline void try_insert_photon(u32 pidx, f32 d2, u32 samples, u32 *result, f32 *dist2, u32 *count) {
-    if (*count < samples) {
-        result[*count] = pidx;
-        dist2[*count] = d2;
-        (*count)++;
-        return;
-    }
-
-    u32 worst = 0;
-    for (u32 i = 1; i < samples; i++)
-        if (dist2[i] > dist2[worst])
-            worst = i;
-
-    if (d2 < dist2[worst]) {
-        result[worst] = pidx;
-        dist2[worst] = d2;
-    }
-}
-
-inline f32 get_axis(float4 v, u32 axis) {
-    if (axis == 0)
-        return v.x;
-    if (axis == 1)
-        return v.y;
-    return v.z;
-}
-
-inline void locate_bucket_knn(__global const u32 *tree_index, u32 offset, u32 tree_size,
-                              __global const float4 *photon_pos, float4 pos, u32 samples, f32 max_dist2, u32 *result,
-                              f32 *dist2, u32 *count) {
-    u32 stack[KD_STACK_SIZE];
-    i32 sp = 0;
-    stack[0] = 1;
-
-    while (sp >= 0) {
-        u32 index = stack[sp--];
-        if (index == 0 || index >= tree_size)
-            continue;
-
-        u32 pidx = tree_index[offset + index];
-        if (pidx == 0)
-            continue;
-
-        float4 ph = photon_pos[pidx - 1];
-        float4 diff = pos - ph;
-        f32 d2 = dot(diff, diff);
-
-        if (d2 < max_dist2)
-            try_insert_photon(pidx - 1, d2, samples, result, dist2, count);
-
-        u32 axis = as_uint(ph.w);
-        f32 delta = get_axis(pos, axis) - get_axis(ph, axis);
-        f32 delta_sq = delta * delta;
-
-        u32 near = (delta < 0.0f) ? index * 2 : index * 2 + 1;
-        u32 far = (delta < 0.0f) ? index * 2 + 1 : index * 2;
-
-        f32 current_max = max_dist2;
-        if (*count >= samples) {
-            current_max = dist2[0];
-            for (u32 i = 1; i < samples; i++)
-                current_max = fmax(current_max, dist2[i]);
-        }
-
-        if (delta_sq < current_max && far < tree_size && sp < KD_STACK_SIZE - 1)
-            stack[++sp] = far;
-        if (near < tree_size && sp < KD_STACK_SIZE - 1)
-            stack[++sp] = near;
-    }
-}
-
 inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __global const u32 *tree_index,
                                __global const u32 *bucket_tree_offset, __global const u32 *bucket_tree_size,
                                __global const float4 *photon_pos, __global const float4 *photon_power,
-                               __global const float4 *photon_dir, __global const float4 *photon_normal, u32 samples,
-                               f32 max_dist2, const float4 surf_hit_normal, float4 *flux, f32 *out_max_dist2, f32 *out_count) {
-    u32 k = min(samples, (u32)MAX_PHOTON_SAMPLES);
-    u32 result[MAX_PHOTON_SAMPLES];
-    f32 dist2[MAX_PHOTON_SAMPLES];
-    u32 count = 0;
+                               __global const float4 *photon_dir, __global const float4 *photon_normal,
+                               f32 max_dist2, const float4 surf_hit_normal, float4 *flux, f32 *out_max_dist2, f32 *out_found) {
+    f32 worst = 0.0f;
+    f32 found = 0.0f;
 
     for (u32 i = 0; i < 27; i++) {
         i32 dx = (i32)(i % 3) - 1;
@@ -148,29 +75,37 @@ inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __gl
         if (h == 0)
             continue;
 
+        u32 offset = bucket_tree_offset[h];
         u32 size = bucket_tree_size[h];
         if (size == 0)
             continue;
 
-        locate_bucket_knn(tree_index, bucket_tree_offset[h], size, photon_pos, pos, k, max_dist2, result, dist2,
-                          &count);
-    }
+        for (u32 j = 0; j < size; j++) {
+            u32 pidx = tree_index[offset + j];
+            if (pidx == 0)
+                continue;
+            pidx -= 1;
 
-    f32 worst = 0.0f;
-    for (u32 i = 0; i < count; i++) {
-        const float4 p_normal = photon_normal[result[i]];
-        const float4 p_dir = photon_dir[result[i]];
+            float4 diff = pos - photon_pos[pidx];
+            f32 d2 = dot(diff, diff);
+            if (d2 >= max_dist2)
+                continue;
 
-        f32 normal_sim = dot(p_normal, surf_hit_normal);
-        if (normal_sim < 0.0f)
-            continue;
+            f32 normal_sim = dot(photon_normal[pidx], surf_hit_normal);
+            if (normal_sim < 0.0f)
+                continue;
 
-        *flux += photon_power[result[i]] * normal_sim;
-        worst = fmax(worst, dist2[i]);
+            worst = fmax(worst, d2);
+
+            // gaussian filter, see constants definition for reference
+            f32 w = GAUSS_ALPHA * (1.0f - (1.0f - exp(-GAUSS_BETA * d2 / (2.0f * max_dist2))) / (1 - exp(-GAUSS_BETA)));
+            *flux += w * photon_power[pidx];
+            found += w;
+        }
     }
 
     *out_max_dist2 = worst;
-    *out_count = count;
+    *out_found = found;
 }
 #endif // __OPENCL_C_VERSION__
 
