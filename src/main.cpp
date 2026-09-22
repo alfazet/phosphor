@@ -33,7 +33,7 @@ void phosphor_main(const ArgsList &args) {
     }
 
     std::filesystem::path output_dir(args.output_dir);
-    if (std::strcmp(args.output_dir.c_str(), DEFAULT_OUTPUT_DIR) == 0) {
+    if (!args.was_provided("-o")) {
         auto now = std::chrono::system_clock::now();
         std::string timestamp = std::format("{:%Y_%m_%d-%H_%M_%S}", std::chrono::floor<std::chrono::seconds>(now));
         output_dir = std::filesystem::path(args.output_dir + "_" + timestamp);
@@ -145,14 +145,16 @@ i32 main(i32 argc, char **argv) {
     ArgParser arg_parser(argc, argv, std::cout);
     try {
         auto args = arg_parser.parse_all();
+        if (args.was_provided("--help")) {
+            arg_parser.print_help();
+            return 1;
+        }
         LOG_INFO("chosen parameters:");
         arg_parser.print_values(args);
         phosphor_main(args);
+
         // TODO: rewrite this if we even care
         // arg_parser.write_image_metadata(args);
-    } catch (const HelpRequested &) {
-        arg_parser.print_help();
-        return 0;
     } catch (const ArgParseError &e) {
         LOG_ERROR("parsing arguments: {}", e.what());
         arg_parser.print_help();

@@ -65,6 +65,7 @@ std::unordered_map<std::string, ParserFn> ArgParser::flag_parsers = {
             throw std::runtime_error("expected a string value for " #field);                                           \
         }                                                                                                              \
         list.field = parser(this->values[this->arg_i], #field);                                                        \
+        list.provided_flags.insert(flag);                                                                              \
     }
 ARG_TABLE(X)
 #undef X
@@ -110,8 +111,6 @@ ArgsList ArgParser::parse_all() {
 
     while (this->arg_i < this->n_args) {
         const char *flag = this->values[this->arg_i];
-        if (strcmp(flag, HELP_FLAG) == 0)
-            throw HelpRequested{};
 
         auto iter = flag_parsers.find(flag);
         if (iter == flag_parsers.end()) {
