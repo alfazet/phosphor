@@ -21,6 +21,9 @@ for model in ./models/test/*/*.glb; do
 
     i=$((i+1))
     $cmd "$@" -m "${model}" -o "${out_dir}" -r 1000 --snapshots 0
+    if [ $? -ne 0 ]; then	
+	exit 1
+    fi	
 
     render_path="${out_dir}/$(ls -t "${out_dir}" | head -n1)"
     if [[ ! -f "$path/$reference_path" ]]; then
