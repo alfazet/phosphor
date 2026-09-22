@@ -56,38 +56,6 @@ inline void make_tbn(float4 normal, float4 *tangent, float4 *bitangent) {
     *bitangent = cross(normal, *tangent);
 }
 
-// https://www.graphics.cornell.edu/%7Ebjw/rgbe/rgbe.c
-u32 encodeRGBE(float4 power) {
-    f32 m = fmax(power.x, fmax(power.y, power.z));
-    if (m <= 0.0f)
-        return 0u;
-
-    i32 e;
-    frexp(m, &e);               // m = frac * 2^e, frac in [0.5, 1)
-    f32 scale = ldexp(1.0f, e); // 2^e
-
-    uint r = (uint)(power.x / scale * 256.0f);
-    uint g = (uint)(power.y / scale * 256.0f);
-    uint b = (uint)(power.z / scale * 256.0f);
-    uint E = (uint)(e + 128);
-
-    r = min(r, 255u);
-    g = min(g, 255u);
-    b = min(b, 255u);
-
-    return r | (g << 8) | (b << 16) | (E << 24);
-}
-
-float4 decodeRGBE(u32 rgbe) {
-    u32 E = rgbe >> 24;
-    if (E == 0)
-        return (float4)(0.0f);
-
-    f32 scale = ldexp(1.0f, (i32)E - 128 - 8); // 2^(E-128) / 256
-
-    return (float4)((rgbe & 0xFF) * scale, ((rgbe >> 8) & 0xFF) * scale, ((rgbe >> 16) & 0xFF) * scale, 0.0f);
-}
-
 #endif // __OPENCL_C_VERSION__
 
 #endif // PHOSPHOR_UTILS_H

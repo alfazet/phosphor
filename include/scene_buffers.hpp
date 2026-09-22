@@ -62,7 +62,7 @@ struct SceneBuffers {
     void upload_camera(const CameraParams &cam, u32 width, u32 height, u32 iters);
 
     void upload_photons(ClContext &ctx, PhotonHash &hash, std::vector<float4> &photon_pos,
-                        std::vector<u32> &photon_power, std::vector<float4> &photon_dir);
+                        std::vector<u32> &photon_power, std::vector<u32> &photon_dir);
 
     void set_emit_photons_args(cl::Kernel &kernel, u32 batch_offset, u32 photons_to_emit, u32 seed,
                                u32 batch_max_photons, cl::Buffer &out_photon_pos, cl::Buffer &out_photon_power,

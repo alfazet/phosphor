@@ -3,6 +3,7 @@
 
 #include "bounding_box.h"
 #include "constants.h"
+#include "photon.h"
 #include "typedefs.h"
 #include "utils.h"
 
@@ -127,7 +128,7 @@ inline void locate_bucket_knn(__global const u32 *tree_index, u32 offset, u32 tr
 inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __global const u32 *tree_index,
                                __global const u32 *bucket_tree_offset, __global const u32 *bucket_tree_size,
                                __global const float4 *photon_pos, __global const u32 *photon_power,
-                               __global const float4 *photon_dir, u32 samples, f32 max_dist2,
+                               __global const u32 *photon_dir, u32 samples, f32 max_dist2,
                                const float4 surf_hit_normal, float4 *flux, f32 *out_max_dist2, f32 *out_count) {
     u32 k = min(samples, (u32)MAX_PHOTON_SAMPLES);
     u32 result[MAX_PHOTON_SAMPLES];
@@ -158,12 +159,12 @@ inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __gl
 
     f32 worst = 0.0f;
     for (u32 i = 0; i < count; i++) {
-        const float4 p_dir = photon_dir[result[i]];
+        float4 p_dir = decode_oct(photon_dir[result[i]]);
 
         if (dot(p_dir, surf_hit_normal) > 0.0f)
             continue;
 
-        *flux += decodeRGBE(photon_power[result[i]]);
+        *flux += decode_rgbe(photon_power[result[i]]);
         worst = fmax(worst, dist2[i]);
     }
 

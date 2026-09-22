@@ -3,6 +3,7 @@
 #include "hit.h"
 #include "light_sampling.h"
 #include "material.h"
+#include "photon.h"
 #include "random.h"
 #include "shading.h"
 #include "surface_hit.h"
@@ -12,7 +13,7 @@
 
 __kernel void emit_photons(
     // output photon arrays
-    __global float4 *photon_pos, __global u32 *photon_power, __global float4 *photon_dir, __global u32 *photon_count,
+    __global float4 *photon_pos, __global u32 *photon_power, __global u32 *photon_dir, __global u32 *photon_count,
 
     // light sources
     __global const Light *lights, const u32 n_lights, const u32 max_photons, const u32 offset,
@@ -98,8 +99,8 @@ __kernel void emit_photons(
             u32 idx = atomic_inc(photon_count);
             if (idx < max_photons) {
                 photon_pos[idx] = surf_hit.position;
-                photon_power[idx] = encodeRGBE(power);
-                photon_dir[idx] = dir;
+                photon_power[idx] = encode_rgbe(power);
+                photon_dir[idx] = encode_oct(dir);
             } else {
                 return;
             }

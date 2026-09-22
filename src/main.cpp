@@ -45,11 +45,11 @@ void phosphor_main(const ArgsList &args) {
 
     cl::Buffer d_photon_pos(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(float4));
     cl::Buffer d_photon_power(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(u32));
-    cl::Buffer d_photon_dir(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(float4));
+    cl::Buffer d_photon_dir(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(u32));
     u32 h_batch_size = 0;
     cl::Buffer d_batch_size(ctx.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(u32), &h_batch_size);
-    std::vector<float4> h_photon_pos, h_photon_dir;
-    std::vector<u32> h_photon_power;
+    std::vector<float4> h_photon_pos;
+    std::vector<u32> h_photon_power, h_photon_dir;
 
     ProgressScope progress_scope_photons("emitting photons", photons_to_emit);
     for (u32 batch_offset = 0; batch_offset < photons_to_emit; batch_offset += photons_per_batch) {
@@ -78,7 +78,7 @@ void phosphor_main(const ArgsList &args) {
                                     h_photon_pos.data() + old_size);
         ctx.queue.enqueueReadBuffer(d_photon_power, CL_TRUE, 0, h_final_batch_size * sizeof(u32),
                                     h_photon_power.data() + old_size);
-        ctx.queue.enqueueReadBuffer(d_photon_dir, CL_TRUE, 0, h_final_batch_size * sizeof(float4),
+        ctx.queue.enqueueReadBuffer(d_photon_dir, CL_TRUE, 0, h_final_batch_size * sizeof(u32),
                                     h_photon_dir.data() + old_size);
     }
 
