@@ -46,8 +46,6 @@ __kernel void emit_photons(
                  etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2, tex_meta, tex_atlas, &origin, &dir,
                  &power);
 
-    // normalize the power by total photon count
-    power /= (f32)photons_to_emit;
     f32 curr_ior = AIR_IOR;
 
     // the fraction of the original power that survives to the current bounce
@@ -81,9 +79,9 @@ __kernel void emit_photons(
 
         // russian roulette: after a minimum number of bounces, randomly terminate low-energy photons
         // survivors' power is boosted by 1/q to compensate for the terminated ones
-        if (depth >= MIN_PHOTON_RR_DEPTH) {
+        if (depth >= RR_MIN_PHOTON_DEPTH) {
             f32 q = fmax(throughput.x, fmax(throughput.y, throughput.z));
-            q = clamp(q, 0.05f, 1.0f);
+            q = clamp(q, RR_MIN_Q, RR_MAX_Q);
             if (random_float(&rng) > q)
                 return;
             f32 inv_q = 1.0f / q;
@@ -108,7 +106,6 @@ __kernel void emit_photons(
 
         power *= bsdf.throughput;
         throughput *= bsdf.throughput;
-        // origin = surf_hit.position + bsdf.dir * EPS;
         float4 side = (dot(bsdf.dir, surf_hit.normal) > 0.0f) ? surf_hit.normal : -surf_hit.normal;
         origin = surf_hit.position + bsdf.dir * EPS + side * EPS;
         dir = bsdf.dir;

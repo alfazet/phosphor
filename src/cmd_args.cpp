@@ -39,8 +39,8 @@ auto u32_range(u32 min, u32 max) {
     return [min, max](const char *s, const char *arg_name) {
         u32 value = parse_u32(s, arg_name);
         if (value < min || value > max) {
-            throw InvalidValueError(std::string(arg_name) + " (expected " + std::to_string(min) + "..=" +
-                                    std::to_string(max) + ")");
+            throw InvalidValueError(std::string(arg_name) + " (expected " + std::to_string(min) +
+                                    "..=" + std::to_string(max) + ")");
         }
         return value;
     };
@@ -87,7 +87,7 @@ void ArgParser::write_image_metadata(const ArgsList &args) const {
     std::ostringstream cmd;
     cmd << "exiftool -q -overwrite_original "
         << "-Comment=\"" << comment.str() << "\" "
-        << "\'" << args.output_path << "\'";
+        << "\'" << args.output_dir << "\'";
 
     u32 ret = std::system(cmd.str().c_str());
     if (ret != 0)

@@ -1,13 +1,18 @@
 #include "scene_buffers.hpp"
 #include "bounding_box.h"
 #include "glm_bundle.hpp"
+#include "hitpoint.h"
 #include "logger.hpp"
 #include "opencl_ctx.hpp"
+#include "sppm_pixel.h"
 #include "texture_meta.h"
 
-cl::Buffer dev_buf(ClContext &ctx, const void *data, u32 count, u32 item_size) {
+cl::Buffer copy_to_dev_buf(ClContext &ctx, const void *data, u32 count, u32 item_size) {
     if (count == 0) {
-        static const u8 dummy[16] = {};
+        // OpenCL doesn't like empty buffers, and, even worse
+        // signals it with the same error code that's used when an allocation
+        // exceeds the maximum allowed size
+        u8 dummy[16] = {};
         return cl::Buffer(ctx.context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, item_size, (void *)(dummy));
     }
 
@@ -15,7 +20,22 @@ cl::Buffer dev_buf(ClContext &ctx, const void *data, u32 count, u32 item_size) {
                       const_cast<void *>(data));
 }
 
-void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const Bvh &bvh) {
+cl::Buffer init_filled_dev_buf(ClContext &ctx, u8 init_byte, u32 count, u32 item_size) {
+    cl::Buffer buf = cl::Buffer(ctx.context, CL_MEM_READ_WRITE, count * item_size);
+    ctx.queue.enqueueFillBuffer(buf, init_byte, 0, count * item_size);
+    ctx.queue.finish();
+
+    return buf;
+}
+
+void SceneBuffers::set_camera(const CameraParams &cam, u32 width, u32 height) {
+    this->camera = cam;
+    this->image_width = width;
+    this->image_height = height;
+    this->n_pixels = width * height;
+}
+
+void SceneBuffers::copy_scene(ClContext &ctx, const SceneData &scene, const Bvh &bvh) {
     this->n_triangles = scene.triangles.size();
     this->n_e_triangles = scene.emissive_triangles.size();
     this->n_materials = scene.materials.size();
@@ -44,19 +64,19 @@ void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const Bv
         tmat[i] = t.mat_index;
     }
 
-    this->tri_v0 = dev_buf(ctx, tv0.data(), n_triangles, sizeof(float4));
-    this->tri_v1 = dev_buf(ctx, tv1.data(), n_triangles, sizeof(float4));
-    this->tri_v2 = dev_buf(ctx, tv2.data(), n_triangles, sizeof(float4));
-    this->tri_uv0 = dev_buf(ctx, tuv0.data(), n_triangles, sizeof(float2));
-    this->tri_uv1 = dev_buf(ctx, tuv1.data(), n_triangles, sizeof(float2));
-    this->tri_uv2 = dev_buf(ctx, tuv2.data(), n_triangles, sizeof(float2));
-    this->tri_n0 = dev_buf(ctx, tn0.data(), n_triangles, sizeof(float4));
-    this->tri_n1 = dev_buf(ctx, tn1.data(), n_triangles, sizeof(float4));
-    this->tri_n2 = dev_buf(ctx, tn2.data(), n_triangles, sizeof(float4));
-    this->tri_t0 = dev_buf(ctx, tt0.data(), n_triangles, sizeof(float4));
-    this->tri_t1 = dev_buf(ctx, tt1.data(), n_triangles, sizeof(float4));
-    this->tri_t2 = dev_buf(ctx, tt2.data(), n_triangles, sizeof(float4));
-    this->tri_mat_index = dev_buf(ctx, tmat.data(), n_triangles, sizeof(u32));
+    this->tri_v0 = copy_to_dev_buf(ctx, tv0.data(), n_triangles, sizeof(float4));
+    this->tri_v1 = copy_to_dev_buf(ctx, tv1.data(), n_triangles, sizeof(float4));
+    this->tri_v2 = copy_to_dev_buf(ctx, tv2.data(), n_triangles, sizeof(float4));
+    this->tri_uv0 = copy_to_dev_buf(ctx, tuv0.data(), n_triangles, sizeof(float2));
+    this->tri_uv1 = copy_to_dev_buf(ctx, tuv1.data(), n_triangles, sizeof(float2));
+    this->tri_uv2 = copy_to_dev_buf(ctx, tuv2.data(), n_triangles, sizeof(float2));
+    this->tri_n0 = copy_to_dev_buf(ctx, tn0.data(), n_triangles, sizeof(float4));
+    this->tri_n1 = copy_to_dev_buf(ctx, tn1.data(), n_triangles, sizeof(float4));
+    this->tri_n2 = copy_to_dev_buf(ctx, tn2.data(), n_triangles, sizeof(float4));
+    this->tri_t0 = copy_to_dev_buf(ctx, tt0.data(), n_triangles, sizeof(float4));
+    this->tri_t1 = copy_to_dev_buf(ctx, tt1.data(), n_triangles, sizeof(float4));
+    this->tri_t2 = copy_to_dev_buf(ctx, tt2.data(), n_triangles, sizeof(float4));
+    this->tri_mat_index = copy_to_dev_buf(ctx, tmat.data(), n_triangles, sizeof(u32));
 
     std::vector<float4> etv0(n_e_triangles), etv1(n_e_triangles), etv2(n_e_triangles);
     std::vector<float2> etuv0(n_e_triangles), etuv1(n_e_triangles), etuv2(n_e_triangles);
@@ -77,23 +97,23 @@ void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const Bv
         etmat[i] = t.mat_index;
     }
 
-    this->etri_v0 = dev_buf(ctx, etv0.data(), n_e_triangles, sizeof(float4));
-    this->etri_v1 = dev_buf(ctx, etv1.data(), n_e_triangles, sizeof(float4));
-    this->etri_v2 = dev_buf(ctx, etv2.data(), n_e_triangles, sizeof(float4));
-    this->etri_uv0 = dev_buf(ctx, etuv0.data(), n_e_triangles, sizeof(float2));
-    this->etri_uv1 = dev_buf(ctx, etuv1.data(), n_e_triangles, sizeof(float2));
-    this->etri_uv2 = dev_buf(ctx, etuv2.data(), n_e_triangles, sizeof(float2));
-    this->etri_n0 = dev_buf(ctx, etn0.data(), n_e_triangles, sizeof(float4));
-    this->etri_n1 = dev_buf(ctx, etn1.data(), n_e_triangles, sizeof(float4));
-    this->etri_n2 = dev_buf(ctx, etn2.data(), n_e_triangles, sizeof(float4));
-    this->etri_mat_index = dev_buf(ctx, etmat.data(), n_e_triangles, sizeof(u32));
+    this->etri_v0 = copy_to_dev_buf(ctx, etv0.data(), n_e_triangles, sizeof(float4));
+    this->etri_v1 = copy_to_dev_buf(ctx, etv1.data(), n_e_triangles, sizeof(float4));
+    this->etri_v2 = copy_to_dev_buf(ctx, etv2.data(), n_e_triangles, sizeof(float4));
+    this->etri_uv0 = copy_to_dev_buf(ctx, etuv0.data(), n_e_triangles, sizeof(float2));
+    this->etri_uv1 = copy_to_dev_buf(ctx, etuv1.data(), n_e_triangles, sizeof(float2));
+    this->etri_uv2 = copy_to_dev_buf(ctx, etuv2.data(), n_e_triangles, sizeof(float2));
+    this->etri_n0 = copy_to_dev_buf(ctx, etn0.data(), n_e_triangles, sizeof(float4));
+    this->etri_n1 = copy_to_dev_buf(ctx, etn1.data(), n_e_triangles, sizeof(float4));
+    this->etri_n2 = copy_to_dev_buf(ctx, etn2.data(), n_e_triangles, sizeof(float4));
+    this->etri_mat_index = copy_to_dev_buf(ctx, etmat.data(), n_e_triangles, sizeof(u32));
 
-    this->bvh_nodes = dev_buf(ctx, bvh.nodes.data(), bvh.nodes.size(), sizeof(BvhNode));
-    this->materials = dev_buf(ctx, scene.materials.data(), n_materials, sizeof(Material));
-    this->lights = dev_buf(ctx, scene.lights.data(), n_lights, sizeof(Light));
+    this->bvh_nodes = copy_to_dev_buf(ctx, bvh.nodes.data(), bvh.nodes.size(), sizeof(BvhNode));
+    this->materials = copy_to_dev_buf(ctx, scene.materials.data(), n_materials, sizeof(Material));
+    this->lights = copy_to_dev_buf(ctx, scene.lights.data(), n_lights, sizeof(Light));
 
     const std::vector<f32> &luminance_pref_sum = scene.luminance_pref_sum;
-    this->light_pref_sum = dev_buf(ctx, luminance_pref_sum.data(), luminance_pref_sum.size(), sizeof(f32));
+    this->light_pref_sum = copy_to_dev_buf(ctx, luminance_pref_sum.data(), luminance_pref_sum.size(), sizeof(f32));
     this->total_luminance = luminance_pref_sum.empty() ? 0.0f : luminance_pref_sum.back();
 
     std::vector<TextureMeta> tex_meta(n_textures);
@@ -117,8 +137,8 @@ void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const Bv
     if (atlas.empty())
         atlas.push_back(0);
 
-    this->tex_meta = dev_buf(ctx, tex_meta.data(), tex_meta.size(), sizeof(TextureMeta));
-    this->tex_atlas = dev_buf(ctx, atlas.data(), atlas.size(), sizeof(u8));
+    this->tex_meta = copy_to_dev_buf(ctx, tex_meta.data(), tex_meta.size(), sizeof(TextureMeta));
+    this->tex_atlas = copy_to_dev_buf(ctx, atlas.data(), atlas.size(), sizeof(u8));
 
     BoundingBox scene_bbox = bvh.get_bbox();
     vec3 bbox_min(scene_bbox.bbox_min.x, scene_bbox.bbox_min.y, scene_bbox.bbox_min.z);
@@ -144,25 +164,24 @@ void SceneBuffers::upload_scene(ClContext &ctx, const SceneData &scene, const Bv
     this->scene_radius = radius;
 }
 
-void SceneBuffers::upload_camera(const CameraParams &cam, u32 width, u32 height, u32 iters) {
-    this->camera = cam;
-    this->image_width = width;
-    this->image_height = height;
-    this->image_iters = iters;
-    this->n_rays = width * height * iters;
-}
-
-void SceneBuffers::upload_photons(ClContext &ctx, PhotonHash &hash, std::vector<float4> &photon_pos,
-                                  std::vector<u32> &photon_power, std::vector<u32> &photon_dir) {
+void SceneBuffers::copy_photons(ClContext &ctx, PhotonHash &hash, std::vector<float4> &photon_pos,
+                                std::vector<u32> &photon_power, std::vector<u32> &photon_dir) {
     this->n_photons = static_cast<u32>(photon_pos.size());
 
-    this->photon_pos = dev_buf(ctx, photon_pos.data(), n_photons, sizeof(float4));
-    this->photon_power = dev_buf(ctx, photon_power.data(), n_photons, sizeof(u32));
-    this->photon_dir = dev_buf(ctx, photon_dir.data(), n_photons, sizeof(u32));
+    this->photon_pos = copy_to_dev_buf(ctx, photon_pos.data(), n_photons, sizeof(float4));
+    this->photon_power = copy_to_dev_buf(ctx, photon_power.data(), n_photons, sizeof(u32));
+    this->photon_dir = copy_to_dev_buf(ctx, photon_dir.data(), n_photons, sizeof(u32));
 
-    tree_index = dev_buf(ctx, hash.tree_index.data(), hash.tree_index.size(), sizeof(u32));
-    bucket_tree_offset = dev_buf(ctx, hash.bucket_tree_offset.data(), hash.bucket_tree_offset.size(), sizeof(u32));
-    bucket_tree_size = dev_buf(ctx, hash.bucket_tree_size.data(), hash.bucket_tree_size.size(), sizeof(u32));
+    tree_index = copy_to_dev_buf(ctx, hash.tree_index.data(), hash.tree_index.size(), sizeof(u32));
+    bucket_tree_offset =
+        copy_to_dev_buf(ctx, hash.bucket_tree_offset.data(), hash.bucket_tree_offset.size(), sizeof(u32));
+    bucket_tree_size = copy_to_dev_buf(ctx, hash.bucket_tree_size.data(), hash.bucket_tree_size.size(), sizeof(u32));
+}
+
+void SceneBuffers::alloc_sppm_buffers(ClContext &ctx) {
+    this->hit_points = init_filled_dev_buf(ctx, 0, n_pixels, sizeof(HitPoint));
+    this->sppm_pixels = init_filled_dev_buf(ctx, 0, n_pixels, sizeof(SppmPixel));
+    this->total_irradiance = init_filled_dev_buf(ctx, 0, n_pixels, sizeof(float4));
 }
 
 void SceneBuffers::set_emit_photons_args(cl::Kernel &kernel, u32 batch_offset, u32 photons_to_emit, u32 seed,
@@ -176,14 +195,17 @@ void SceneBuffers::set_emit_photons_args(cl::Kernel &kernel, u32 batch_offset, u
                     materials, tex_meta, tex_atlas, light_pref_sum, total_luminance, scene_center, scene_radius);
 }
 
-void SceneBuffers::set_trace_rays_args(cl::Kernel &kernel, f32 search_radius, u32 samples, PhotonHashInfo info,
-                                       u32 seed, cl::Buffer &out_color) const {
-    set_kernel_args(kernel, camera, image_width, image_height, image_iters, seed, tri_v0, tri_v1, tri_v2, tri_n0,
+void SceneBuffers::set_camera_pass_args(cl::Kernel &kernel, u32 seed, u32 direct_samples) const {
+    set_kernel_args(kernel, camera, image_width, image_height, seed, direct_samples, tri_v0, tri_v1, tri_v2, tri_n0,
                     tri_n1, tri_n2, tri_uv0, tri_uv1, tri_uv2, tri_t0, tri_t1, tri_t2, bvh_nodes, tri_mat_index,
-                    n_triangles, materials, tex_meta, tex_atlas, photon_pos, photon_power, photon_dir, n_photons,
-                    search_radius, samples, out_color, tree_index, bucket_tree_offset, bucket_tree_size, info, lights,
-                    n_lights, light_pref_sum, total_luminance, scene_center, scene_radius, etri_v0, etri_v1, etri_v2,
-                    etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2);
+                    n_triangles, materials, tex_meta, tex_atlas, lights, n_lights, light_pref_sum, total_luminance,
+                    scene_center, scene_radius, etri_v0, etri_v1, etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0,
+                    etri_uv1, etri_uv2, hit_points);
+}
+
+void SceneBuffers::set_gather_pass_args(cl::Kernel &kernel, PhotonHashInfo info, f32 sppm_alpha) const {
+    set_kernel_args(kernel, hit_points, sppm_pixels, total_irradiance, n_pixels, photon_pos, photon_power, photon_dir,
+                    n_photons, tree_index, bucket_tree_offset, bucket_tree_size, info, sppm_alpha);
 }
 
 void SceneBuffers::print_buffer_sizes() const {
@@ -235,4 +257,8 @@ void SceneBuffers::print_buffer_sizes() const {
     sz("tree_index", tree_index);
     sz("bucket_tree_offset", bucket_tree_offset);
     sz("bucket_tree_size", bucket_tree_size);
+
+    sz("hit_points", hit_points);
+    sz("sppm_pixels", sppm_pixels);
+    sz("total_irradiance", total_irradiance);
 }

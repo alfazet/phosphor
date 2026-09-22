@@ -37,7 +37,7 @@ inline float4 ggx_sample_vndf(RngState *rng, float4 normal, float4 geom_normal, 
     f32 len_sq = vh.x * vh.x + vh.y * vh.y;
     // build an orthonormal basis in the projected plane perpendicular to vh
     float4 T1 =
-        (len_sq > 0.0f) ? (float4)(-vh.y, vh.x, 0.0f, 0.0f) * (1.0f / sqrt(len_sq)) : (float4)(1.0f, 0.0f, 0.0f, 0.0f);
+        (len_sq > 0.0f) ? (float4)(-vh.y, vh.x, 0.0f, 0.0f) * rsqrt(len_sq) : (float4)(1.0f, 0.0f, 0.0f, 0.0f);
     float4 T2 = cross(vh, T1);
     f32 s = 0.5f * (1.0f + vh.z);
 
