@@ -17,7 +17,7 @@
 #include <iostream>
 #include <vector>
 
-void phosphor_main(const ArgsList &args) {
+void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
     ClContext ctx;
     LOG_INFO("OpenCL platform/device: {}/{} with max. alloc size {} bytes", ctx.platform_name(), ctx.device_name(),
              ctx.max_alloc_size());
@@ -33,7 +33,7 @@ void phosphor_main(const ArgsList &args) {
     }
 
     std::filesystem::path output_dir(args.output_dir);
-    if (std::strcmp(args.output_dir.c_str(), DEFAULT_OUTPUT_DIR) == 0) {
+    if (!args.was_provided("-o")) {
         auto now = std::chrono::system_clock::now();
         std::string timestamp = std::format("{:%Y_%m_%d-%H_%M_%S}", std::chrono::floor<std::chrono::seconds>(now));
         output_dir = std::filesystem::path(args.output_dir + "_" + timestamp);
@@ -55,9 +55,8 @@ void phosphor_main(const ArgsList &args) {
     u32 photons_per_batch = std::min(photons_per_round, MAX_PHOTONS_PER_BATCH);
     u32 max_photons_in_batch = photons_per_batch * MAX_PHOTON_BOUNCES;
     cl::Buffer d_photon_pos(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(float4));
-    cl::Buffer d_photon_power(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(float4));
-    cl::Buffer d_photon_dir(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(float4));
-    cl::Buffer d_photon_normal(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(float4));
+    cl::Buffer d_photon_power(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(u32));
+    cl::Buffer d_photon_dir(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(u32));
     u32 h_batch_size = 0;
     cl::Buffer d_batch_size(ctx.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(u32), &h_batch_size);
 
@@ -77,7 +76,8 @@ void phosphor_main(const ArgsList &args) {
         ctx.queue.finish();
 
         // photon emission
-        std::vector<float4> h_photon_pos, h_photon_power, h_photon_dir, h_photon_normal;
+        std::vector<float4> h_photon_pos;
+        std::vector<u32> h_photon_power, h_photon_dir;
         ProgressScope progress_scope_photons("emitting photons", photons_per_round);
         for (u32 batch_offset = 0; batch_offset < photons_per_round; batch_offset += photons_per_batch) {
             u32 to_emit = std::min(photons_per_batch, photons_per_round - batch_offset);
@@ -88,7 +88,7 @@ void phosphor_main(const ArgsList &args) {
             u32 emission_seed = random_u32(&rng);
             buffers.set_emit_photons_args(k_emit_photons, batch_offset, photons_per_round, emission_seed,
                                           max_photons_in_batch, d_photon_pos, d_photon_power, d_photon_dir,
-                                          d_photon_normal, d_batch_size);
+                                          d_batch_size);
             ctx.queue.enqueueNDRangeKernel(k_emit_photons, cl::NullRange, cl::NDRange(to_emit), cl::NullRange);
             ctx.queue.finish();
 
@@ -102,22 +102,19 @@ void phosphor_main(const ArgsList &args) {
             h_photon_pos.resize(old_size + h_final_batch_size);
             h_photon_power.resize(old_size + h_final_batch_size);
             h_photon_dir.resize(old_size + h_final_batch_size);
-            h_photon_normal.resize(old_size + h_final_batch_size);
 
             ctx.queue.enqueueReadBuffer(d_photon_pos, CL_TRUE, 0, h_final_batch_size * sizeof(float4),
                                         h_photon_pos.data() + old_size);
-            ctx.queue.enqueueReadBuffer(d_photon_power, CL_TRUE, 0, h_final_batch_size * sizeof(float4),
+            ctx.queue.enqueueReadBuffer(d_photon_power, CL_TRUE, 0, h_final_batch_size * sizeof(u32),
                                         h_photon_power.data() + old_size);
-            ctx.queue.enqueueReadBuffer(d_photon_dir, CL_TRUE, 0, h_final_batch_size * sizeof(float4),
+            ctx.queue.enqueueReadBuffer(d_photon_dir, CL_TRUE, 0, h_final_batch_size * sizeof(u32),
                                         h_photon_dir.data() + old_size);
-            ctx.queue.enqueueReadBuffer(d_photon_normal, CL_TRUE, 0, h_final_batch_size * sizeof(float4),
-                                        h_photon_normal.data() + old_size);
         }
         total_photons_emitted += photons_per_round;
 
         TimerScope timer_scope_hash("building spatial hash");
-        PhotonHash photon_hash(h_photon_pos, h_photon_power, h_photon_dir, h_photon_normal, photon_hash_info);
-        buffers.copy_photons(ctx, photon_hash, h_photon_pos, h_photon_power, h_photon_dir, h_photon_normal);
+        PhotonHash photon_hash(h_photon_pos, h_photon_power, h_photon_dir, photon_hash_info);
+        buffers.copy_photons(ctx, photon_hash, h_photon_pos, h_photon_power, h_photon_dir);
         timer_scope_hash.stop();
 
         // gather pass (add up irradiance and do the SPPM update)
@@ -134,7 +131,7 @@ void phosphor_main(const ArgsList &args) {
 
             std::filesystem::path image_path = output_dir / std::format("{:0>6}.png", std::to_string(round));
             write_png(image_path, args.res, args.res, h_sppm, h_total_irradiance, total_photons_emitted,
-                      args.sppm_rounds);
+                      args.sppm_rounds, image_metadata);
             LOG_INFO("rendered image after {} SPPM rounds written to {}", round, image_path.c_str());
         }
     }
@@ -145,14 +142,14 @@ i32 main(i32 argc, char **argv) {
     ArgParser arg_parser(argc, argv, std::cout);
     try {
         auto args = arg_parser.parse_all();
+        if (args.help) {
+            arg_parser.print_help();
+            return 1;
+        }
         LOG_INFO("chosen parameters:");
         arg_parser.print_values(args);
-        phosphor_main(args);
-        // TODO: rewrite this if we even care
-        // arg_parser.write_image_metadata(args);
-    } catch (const HelpRequested &) {
-        arg_parser.print_help();
-        return 0;
+        std::string metadata = arg_parser.build_image_metadata(args);
+        phosphor_main(args, metadata);
     } catch (const ArgParseError &e) {
         LOG_ERROR("parsing arguments: {}", e.what());
         arg_parser.print_help();

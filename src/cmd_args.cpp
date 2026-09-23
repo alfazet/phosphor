@@ -6,6 +6,8 @@
 #include <iomanip>
 #include <stdexcept>
 
+bool parse_bool(const char *s, const char *arg_name) { return true; }
+
 u32 parse_u32(const char *s, const char *arg_name) {
     u32 value;
     auto [ptr, ec] = std::from_chars(s, s + std::strlen(s), value);
@@ -46,7 +48,7 @@ auto u32_range(u32 min, u32 max) {
     };
 }
 
-using ParserFn = void (ArgParser::*)(ArgsList &) const;
+using ParserFn = void (ArgParser::*)(ArgsList &);
 std::unordered_map<std::string, ParserFn> ArgParser::flag_parsers = {
 #define X(flag, field, type, parser, default_val, help) {flag, &ArgParser::parse_##field},
     ARG_TABLE(X)
@@ -54,12 +56,16 @@ std::unordered_map<std::string, ParserFn> ArgParser::flag_parsers = {
 };
 
 #define X(flag, field, type, parser, default_val, help)                                                                \
-    void ArgParser::parse_##field(ArgsList &list) const {                                                              \
-        if (this->arg_i >= this->n_args) {                                                                             \
+    void ArgParser::parse_##field(ArgsList &list) {                                                                    \
+        if constexpr (std::is_same_v<type, bool>) {                                                                    \
+            list.field = true;                                                                                         \
+            this->arg_i--; /* no value follows */                                                                      \
+        } else if (this->arg_i >= this->n_args) {                                                                      \
             this->print_help();                                                                                        \
             throw std::runtime_error("expected a string value for " #field);                                           \
         }                                                                                                              \
         list.field = parser(this->values[this->arg_i], #field);                                                        \
+        list.provided_flags.insert(flag);                                                                              \
     }
 ARG_TABLE(X)
 #undef X
@@ -79,19 +85,12 @@ void ArgParser::print_values(const ArgsList &args) const {
 #undef X
 }
 
-void ArgParser::write_image_metadata(const ArgsList &args) const {
+std::string ArgParser::build_image_metadata(const ArgsList &args) const {
     std::ostringstream comment;
 #define X(flag, field, type, parser, default_val, help) comment << std::format("{}={} ", flag, args.field);
     ARG_TABLE(X)
 #undef X
-    std::ostringstream cmd;
-    cmd << "exiftool -q -overwrite_original "
-        << "-Comment=\"" << comment.str() << "\" "
-        << "\'" << args.output_dir << "\'";
-
-    u32 ret = std::system(cmd.str().c_str());
-    if (ret != 0)
-        LOG_ERROR("exiftool failed to write metadata (exit code {})", ret);
+    return comment.str();
 }
 
 ArgParser::ArgParser(usize n_args_, char **values_, std::ostream &out_)
@@ -105,8 +104,6 @@ ArgsList ArgParser::parse_all() {
 
     while (this->arg_i < this->n_args) {
         const char *flag = this->values[this->arg_i];
-        if (strcmp(flag, HELP_FLAG) == 0)
-            throw HelpRequested{};
 
         auto iter = flag_parsers.find(flag);
         if (iter == flag_parsers.end()) {

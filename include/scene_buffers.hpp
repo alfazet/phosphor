@@ -53,7 +53,6 @@ struct SceneBuffers {
     cl::Buffer photon_pos;
     cl::Buffer photon_power;
     cl::Buffer photon_dir;
-    cl::Buffer photon_normal;
 
     cl::Buffer tree_index;
     cl::Buffer bucket_tree_offset;
@@ -67,16 +66,14 @@ struct SceneBuffers {
 
     void copy_scene(ClContext &ctx, const SceneData &scene, const Bvh &bvh);
 
-    void copy_photons(ClContext &ctx, PhotonHash &hash, std::vector<float4> &photon_pos,
-                      std::vector<float4> &photon_power, std::vector<float4> &photon_dir,
-                      std::vector<float4> &photon_normal);
+    void copy_photons(ClContext &ctx, PhotonHash &hash, std::vector<float4> &photon_pos, std::vector<u32> &photon_power,
+                      std::vector<u32> &photon_dir);
 
     void alloc_sppm_buffers(ClContext &ctx);
 
     void set_emit_photons_args(cl::Kernel &kernel, u32 batch_offset, u32 photons_to_emit, u32 seed,
                                u32 batch_max_photons, cl::Buffer &out_photon_pos, cl::Buffer &out_photon_power,
-                               cl::Buffer &out_photon_dir, cl::Buffer &out_photon_normal,
-                               cl::Buffer &out_photon_count) const;
+                               cl::Buffer &out_photon_dir, cl::Buffer &out_photon_count) const;
 
     void set_camera_pass_args(cl::Kernel &kernel, u32 seed, u32 direct_samples) const;
 

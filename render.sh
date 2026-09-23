@@ -16,6 +16,6 @@ render_phosphor() {
     local model_path="$1"
     local out_dir="$2"
     shift 2
-    "${PHOSPHOR_BIN}" "$@" -m "${model_path}" -o "${out_dir}" -r "${RES}" --snapshots 0 1>&2
+    "${PHOSPHOR_BIN}" "$@" -m "${model_path}" -o "${out_dir}" -r "${RES}" 1>&2
     echo "${out_dir}/$(ls -t "${out_dir}" | head -n1)"
 }
