@@ -17,17 +17,12 @@ struct Texture {
     u32 height = 0;
     u32 channels = 3;
     std::string name;
-    std::vector<u8> tex_atlas; // all mipmap levels packed
-    std::vector<u32> tex_offsets;
-    std::vector<u32> tex_widths;
-    std::vector<u32> tex_heights;
+    std::vector<u8> tex_atlas;
 };
 
 struct SceneData;
 
 std::optional<u32> find_texture(const std::string &name, const std::vector<Texture> &textures);
-
-void build_mip_chain(Texture &tex, std::vector<u8> pixels, u32 w, u32 h);
 
 void load_texture(const aiScene *scene, aiMaterial *mat, aiTextureType type, const char *dir, SceneData &out_scene);
 

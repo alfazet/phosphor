@@ -125,8 +125,6 @@ void SceneBuffers::copy_scene(ClContext &ctx, const SceneData &scene, const Bvh 
         m.width = tex.width;
         m.height = tex.height;
         m.channels = 3;
-        m.mip_levels_count = static_cast<u32>(tex.tex_offsets.size());
-        m.mip_table_offset = 0;
         tex_meta[i] = m;
         atlas.insert(atlas.end(), tex.tex_atlas.begin(), tex.tex_atlas.end());
     }

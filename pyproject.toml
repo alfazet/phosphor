@@ -1,0 +1,19 @@
+[project]
+name = "phosphor"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Antoni Zasada", email = "zsd.antoni@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "bpy>=5.2.2",
+]
+
+[project.scripts]
+phosphor = "phosphor:main"
+
+[build-system]
+requires = ["uv_build>=0.12.15,<0.13.0"]
+build-backend = "uv_build"
