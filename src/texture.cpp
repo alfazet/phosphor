@@ -15,43 +15,6 @@ std::optional<u32> find_texture(const std::string &name, const std::vector<Textu
     return std::nullopt;
 }
 
-void build_mip_chain(Texture &tex, std::vector<u8> pixels, u32 w, u32 h) {
-    tex.width = w;
-    tex.height = h;
-    tex.channels = 3;
-
-    std::vector<u8> level = std::move(pixels);
-    u32 lw = w, lh = h;
-    while (true) {
-        tex.tex_offsets.push_back(static_cast<u32>(tex.tex_atlas.size()));
-        tex.tex_widths.push_back(lw);
-        tex.tex_heights.push_back(lh);
-        tex.tex_atlas.insert(tex.tex_atlas.end(), level.begin(), level.end());
-        if (lw == 1 && lh == 1)
-            break;
-
-        u32 nw = std::max(1u, lw / 2);
-        u32 nh = std::max(1u, lh / 2);
-        std::vector<u8> next(nw * nh * tex.channels);
-        for (u32 y = 0; y < nh; y++) {
-            for (u32 x = 0; x < nw; x++) {
-                u32 sx0 = std::min(x * 2, lw - 1);
-                u32 sy0 = std::min(y * 2, lh - 1);
-                u32 sx1 = std::min(x * 2 + 1, lw - 1);
-                u32 sy1 = std::min(y * 2 + 1, lh - 1);
-                for (u32 c = 0; c < 3; c++) {
-                    u32 sum = level[(sy0 * lw + sx0) * tex.channels + c] + level[(sy0 * lw + sx1) * tex.channels + c] +
-                              level[(sy1 * lw + sx0) * tex.channels + c] + level[(sy1 * lw + sx1) * tex.channels + c];
-                    next[(y * nw + x) * tex.channels + c] = static_cast<u8>(sum / (tex.channels + 1));
-                }
-            }
-        }
-        level = std::move(next);
-        lw = nw;
-        lh = nh;
-    }
-}
-
 void load_texture(const aiScene *aiscene, aiMaterial *mat, aiTextureType type, const char *directory,
                   SceneData &out_scene) {
     aiString path;
@@ -105,7 +68,10 @@ void load_texture(const aiScene *aiscene, aiMaterial *mat, aiTextureType type, c
         stbi_image_free(raw);
     }
 
-    build_mip_chain(t, std::move(pixels), static_cast<u32>(w), static_cast<u32>(h));
+    t.height = static_cast<u32>(h);
+    t.width = static_cast<u32>(w);
+    t.channels = 3;
+    t.tex_atlas = std::move(pixels);
     out_scene.textures.push_back(std::move(t));
 }
 
