@@ -20,7 +20,7 @@ for model in ./models/test/*/*.glb; do
     strip_path="${out_dir}/${name}_${i}_strip.png"
 
     i=$((i+1))
-    $cmd "$@" -m "${model}" -o "${out_dir}" -r 1000 --snapshots 0
+    $cmd "$@" -m "${model}" -o "${out_dir}" -r 1000
     if [ $? -ne 0 ]; then	
 	exit 1
     fi	

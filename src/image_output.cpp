@@ -13,7 +13,7 @@ inline f32 tone_map(f32 x) {
 }
 
 void write_png(const std::filesystem::path &path, u32 width, u32 height, const std::vector<SppmPixel> &sppm_pixels,
-               const std::vector<float4> &total_irradiance, u64 total_photons, u32 sppm_rounds) {
+               const std::vector<float4> &total_irradiance, u64 total_photons, u32 sppm_rounds, const std::string &metadata) {
     u32 n_pixels = width * height;
     std::vector<u8> ldr(n_pixels * 3);
 
@@ -42,4 +42,13 @@ void write_png(const std::filesystem::path &path, u32 width, u32 height, const s
 
     stbi_write_png(path.c_str(), static_cast<i32>(width), static_cast<i32>(height), 3, ldr.data(),
                    static_cast<i32>(width) * 3);
+
+    std::ostringstream cmd;
+    cmd << "exiftool -q -overwrite_original "
+        << "-Comment=\"" << metadata << "\" "
+        << "\'" << path.string() << "\'";
+
+    u32 ret = std::system(cmd.str().c_str());
+    if (ret != 0)
+        LOG_ERROR("exiftool failed to write metadata for {} (exit code {})", path.c_str(), ret);
 }

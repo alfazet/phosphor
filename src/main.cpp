@@ -17,7 +17,7 @@
 #include <iostream>
 #include <vector>
 
-void phosphor_main(const ArgsList &args) {
+void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
     ClContext ctx;
     LOG_INFO("OpenCL platform/device: {}/{} with max. alloc size {} bytes", ctx.platform_name(), ctx.device_name(),
              ctx.max_alloc_size());
@@ -33,7 +33,7 @@ void phosphor_main(const ArgsList &args) {
     }
 
     std::filesystem::path output_dir(args.output_dir);
-    if (std::strcmp(args.output_dir.c_str(), DEFAULT_OUTPUT_DIR) == 0) {
+    if (!args.was_provided("-o")) {
         auto now = std::chrono::system_clock::now();
         std::string timestamp = std::format("{:%Y_%m_%d-%H_%M_%S}", std::chrono::floor<std::chrono::seconds>(now));
         output_dir = std::filesystem::path(args.output_dir + "_" + timestamp);
@@ -131,7 +131,7 @@ void phosphor_main(const ArgsList &args) {
 
             std::filesystem::path image_path = output_dir / std::format("{:0>6}.png", std::to_string(round));
             write_png(image_path, args.res, args.res, h_sppm, h_total_irradiance, total_photons_emitted,
-                      args.sppm_rounds);
+                      args.sppm_rounds, image_metadata);
             LOG_INFO("rendered image after {} SPPM rounds written to {}", round, image_path.c_str());
         }
     }
@@ -142,14 +142,14 @@ i32 main(i32 argc, char **argv) {
     ArgParser arg_parser(argc, argv, std::cout);
     try {
         auto args = arg_parser.parse_all();
+        if (args.help) {
+            arg_parser.print_help();
+            return 1;
+        }
         LOG_INFO("chosen parameters:");
         arg_parser.print_values(args);
-        phosphor_main(args);
-        // TODO: rewrite this if we even care
-        // arg_parser.write_image_metadata(args);
-    } catch (const HelpRequested &) {
-        arg_parser.print_help();
-        return 0;
+        std::string metadata = arg_parser.build_image_metadata(args);
+        phosphor_main(args, metadata);
     } catch (const ArgParseError &e) {
         LOG_ERROR("parsing arguments: {}", e.what());
         arg_parser.print_help();
