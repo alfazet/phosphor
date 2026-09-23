@@ -8,6 +8,7 @@ argv = sys.argv
 argv = argv[argv.index("--") + 1:]
 glb_path = os.path.abspath(argv[0])
 out_path = os.path.abspath(argv[1])
+res = int(argv[2])
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=glb_path)
@@ -24,8 +25,8 @@ if scene.camera is None:
 
 scene.render.engine = 'CYCLES'
 scene.cycles.samples = 64
-scene.render.resolution_x = 1024
-scene.render.resolution_y = 1024
+scene.render.resolution_x = res
+scene.render.resolution_y = res
 scene.render.image_settings.file_format = 'PNG'
 scene.render.filepath = out_path
 
