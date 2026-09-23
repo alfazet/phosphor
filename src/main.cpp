@@ -55,9 +55,8 @@ void phosphor_main(const ArgsList &args) {
     u32 photons_per_batch = std::min(photons_per_round, MAX_PHOTONS_PER_BATCH);
     u32 max_photons_in_batch = photons_per_batch * MAX_PHOTON_BOUNCES;
     cl::Buffer d_photon_pos(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(float4));
-    cl::Buffer d_photon_power(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(float4));
-    cl::Buffer d_photon_dir(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(float4));
-    cl::Buffer d_photon_normal(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(float4));
+    cl::Buffer d_photon_power(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(u32));
+    cl::Buffer d_photon_dir(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(u32));
     u32 h_batch_size = 0;
     cl::Buffer d_batch_size(ctx.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(u32), &h_batch_size);
 
@@ -77,7 +76,8 @@ void phosphor_main(const ArgsList &args) {
         ctx.queue.finish();
 
         // photon emission
-        std::vector<float4> h_photon_pos, h_photon_power, h_photon_dir, h_photon_normal;
+        std::vector<float4> h_photon_pos;
+        std::vector<u32> h_photon_power, h_photon_dir;
         ProgressScope progress_scope_photons("emitting photons", photons_per_round);
         for (u32 batch_offset = 0; batch_offset < photons_per_round; batch_offset += photons_per_batch) {
             u32 to_emit = std::min(photons_per_batch, photons_per_round - batch_offset);
@@ -88,7 +88,7 @@ void phosphor_main(const ArgsList &args) {
             u32 emission_seed = random_u32(&rng);
             buffers.set_emit_photons_args(k_emit_photons, batch_offset, photons_per_round, emission_seed,
                                           max_photons_in_batch, d_photon_pos, d_photon_power, d_photon_dir,
-                                          d_photon_normal, d_batch_size);
+                                          d_batch_size);
             ctx.queue.enqueueNDRangeKernel(k_emit_photons, cl::NullRange, cl::NDRange(to_emit), cl::NullRange);
             ctx.queue.finish();
 
@@ -102,22 +102,19 @@ void phosphor_main(const ArgsList &args) {
             h_photon_pos.resize(old_size + h_final_batch_size);
             h_photon_power.resize(old_size + h_final_batch_size);
             h_photon_dir.resize(old_size + h_final_batch_size);
-            h_photon_normal.resize(old_size + h_final_batch_size);
 
             ctx.queue.enqueueReadBuffer(d_photon_pos, CL_TRUE, 0, h_final_batch_size * sizeof(float4),
                                         h_photon_pos.data() + old_size);
-            ctx.queue.enqueueReadBuffer(d_photon_power, CL_TRUE, 0, h_final_batch_size * sizeof(float4),
+            ctx.queue.enqueueReadBuffer(d_photon_power, CL_TRUE, 0, h_final_batch_size * sizeof(u32),
                                         h_photon_power.data() + old_size);
-            ctx.queue.enqueueReadBuffer(d_photon_dir, CL_TRUE, 0, h_final_batch_size * sizeof(float4),
+            ctx.queue.enqueueReadBuffer(d_photon_dir, CL_TRUE, 0, h_final_batch_size * sizeof(u32),
                                         h_photon_dir.data() + old_size);
-            ctx.queue.enqueueReadBuffer(d_photon_normal, CL_TRUE, 0, h_final_batch_size * sizeof(float4),
-                                        h_photon_normal.data() + old_size);
         }
         total_photons_emitted += photons_per_round;
 
         TimerScope timer_scope_hash("building spatial hash");
-        PhotonHash photon_hash(h_photon_pos, h_photon_power, h_photon_dir, h_photon_normal, photon_hash_info);
-        buffers.copy_photons(ctx, photon_hash, h_photon_pos, h_photon_power, h_photon_dir, h_photon_normal);
+        PhotonHash photon_hash(h_photon_pos, h_photon_power, h_photon_dir, photon_hash_info);
+        buffers.copy_photons(ctx, photon_hash, h_photon_pos, h_photon_power, h_photon_dir);
         timer_scope_hash.stop();
 
         // gather pass (add up irradiance and do the SPPM update)

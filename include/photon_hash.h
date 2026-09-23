@@ -3,6 +3,7 @@
 
 #include "bounding_box.h"
 #include "constants.h"
+#include "photon.h"
 #include "typedefs.h"
 #include "utils.h"
 
@@ -55,9 +56,9 @@ inline PhotonHashInfo build_photon_hash_info(const BoundingBox &bbox, u32 grid_r
 
 inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __global const u32 *tree_index,
                                __global const u32 *bucket_tree_offset, __global const u32 *bucket_tree_size,
-                               __global const float4 *photon_pos, __global const float4 *photon_power,
-                               __global const float4 *photon_dir, __global const float4 *photon_normal,
-                               f32 max_dist2, const float4 surf_hit_normal, float4 *flux, f32 *out_max_dist2, f32 *out_found) {
+                               __global const float4 *photon_pos, __global const u32 *photon_power,
+                               __global const u32 *photon_dir, f32 max_dist2, const float4 surf_hit_normal,
+                               float4 *flux, f32 *out_max_dist2, f32 *out_found) {
     f32 worst = 0.0f;
     f32 found = 0.0f;
 
@@ -91,15 +92,15 @@ inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __gl
             if (d2 >= max_dist2)
                 continue;
 
-            f32 normal_sim = dot(photon_normal[pidx], surf_hit_normal);
-            if (normal_sim < 0.0f)
+            float4 p_dir = decode_oct(photon_dir[pidx]);
+            if (dot(p_dir, surf_hit_normal) > 0.0f)
                 continue;
 
             worst = fmax(worst, d2);
 
             // gaussian filter, see constants definition for reference
             f32 w = GAUSS_ALPHA * (1.0f - (1.0f - exp(-GAUSS_BETA * d2 / (2.0f * max_dist2))) / (1 - exp(-GAUSS_BETA)));
-            *flux += w * photon_power[pidx];
+            *flux += w * decode_rgbe(photon_power[pidx]);
             found += w;
         }
     }

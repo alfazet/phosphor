@@ -10,8 +10,8 @@ __kernel void gather_pass(
     const u32 n_pixels,
 
     // photon map buffers
-    __global const float4 *photon_pos, __global const float4 *photon_power, __global const float4 *photon_dir,
-    __global const float4 *photon_normal, const u32 n_photons,
+    __global const float4 *photon_pos, __global const u32 *photon_power, __global const u32 *photon_dir,
+    const u32 n_photons,
 
     // spatial hash
     __global const u32 *tree_index, __global const u32 *bucket_tree_offset, __global const u32 *bucket_tree_size,
@@ -52,7 +52,7 @@ __kernel void gather_pass(
     f32 found = 0.0f; // called `M` in the paper
 
     gather_photon_flux(hp.position, info, tree_index, bucket_tree_offset, bucket_tree_size, photon_pos, photon_power,
-                       photon_dir, photon_normal, r_sq, hp.normal, &new_flux, &max_dist_sq, &found);
+                       photon_dir, r_sq, hp.normal, &new_flux, &max_dist_sq, &found);
 
     // SPPM update
     if (found > 0.0f) {
