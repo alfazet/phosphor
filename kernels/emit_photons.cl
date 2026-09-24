@@ -43,8 +43,8 @@ __kernel void emit_photons(
 
     float4 origin, dir, power;
     sample_light(&rng, lights, n_lights, light_pref_sum, total_luminance, scene_center, scene_radius, etri_v0, etri_v1,
-                 etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2, tex_meta, tex_atlas, &origin, &dir,
-                 &power);
+                 etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2, etri_mat_index, materials, tex_meta,
+                 tex_atlas, &origin, &dir, &power);
 
     f32 curr_ior = AIR_IOR;
 

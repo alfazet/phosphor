@@ -198,7 +198,7 @@ void SceneBuffers::set_camera_pass_args(cl::Kernel &kernel, u32 seed, u32 direct
                     tri_n1, tri_n2, tri_uv0, tri_uv1, tri_uv2, tri_t0, tri_t1, tri_t2, bvh_nodes, tri_mat_index,
                     n_triangles, materials, tex_meta, tex_atlas, lights, n_lights, light_pref_sum, total_luminance,
                     scene_center, scene_radius, etri_v0, etri_v1, etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0,
-                    etri_uv1, etri_uv2, hit_points);
+                    etri_uv1, etri_uv2, etri_mat_index, hit_points);
 }
 
 void SceneBuffers::set_gather_pass_args(cl::Kernel &kernel, PhotonHashInfo info, f32 sppm_alpha) const {

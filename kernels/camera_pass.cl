@@ -34,6 +34,7 @@ __kernel void camera_pass(
     __global const float4 *etri_v0, __global const float4 *etri_v1, __global const float4 *etri_v2,
     __global const float4 *etri_n0, __global const float4 *etri_n1, __global const float4 *etri_n2,
     __global const float2 *etri_uv0, __global const float2 *etri_uv1, __global const float2 *etri_uv2,
+    __global const u32 *etri_mat_index,
 
     // output
     __global HitPoint *hit_points) {
@@ -99,8 +100,8 @@ __kernel void camera_pass(
                 direct_sum += direct_lighting(
                     &rng, surf_hit.position, ctx.shading_normal, ctx.base_color, ctx.metallic, lights, n_lights,
                     light_pref_sum, total_luminance, scene_center, scene_radius, etri_v0, etri_v1, etri_v2, etri_n0,
-                    etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2, tex_meta, tex_atlas, tree, tri_v0, tri_v1, tri_v2,
-                    tri_uv0, tri_uv1, tri_uv2, tri_n0, tri_n1, tri_n2, tri_mat_index, n_triangles);
+                    etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2, etri_mat_index, materials, tex_meta, tex_atlas, tree,
+                    tri_v0, tri_v1, tri_v2, tri_uv0, tri_uv1, tri_uv2, tri_n0, tri_n1, tri_n2, tri_mat_index, n_triangles);
             }
             float4 direct = direct_sum / (f32)direct_samples;
 
