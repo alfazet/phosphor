@@ -75,6 +75,7 @@ static inline void sample_textured_light(RngState *rng, Light *light, __global c
                                          __global const float4 *etri_n0, __global const float4 *etri_n1,
                                          __global const float4 *etri_n2, __global const float2 *etri_uv0,
                                          __global const float2 *etri_uv1, __global const float2 *etri_uv2,
+                                         __global const u32 *etri_mat_index, __global const Material *materials,
                                          __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
                                          float4 *origin, float4 *dir, float4 *power) {
     u32 tex_index = as_uint(light->aux.x);
@@ -130,7 +131,9 @@ static inline void sample_textured_light(RngState *rng, Light *light, __global c
 
     float4 emissive_power = light->power;
     if (tex_index != NO_TEXTURE) {
-        float4 tex_color = sample_texture(tex_meta, tex_atlas, tex_index, uv);
+        u32 mat_idx = etri_mat_index[chosen_idx];
+        Material mat = materials[mat_idx];
+        float4 tex_color = sample_texture_uv(&mat, tex_meta, tex_atlas, tex_index, uv, mat.emis_transform);
         emissive_power *= tex_color;
     }
     *power = emissive_power;
@@ -153,7 +156,8 @@ inline void sample_light(RngState *rng, __global const Light *lights, u32 n_ligh
                          __global const float4 *etri_v1, __global const float4 *etri_v2, __global const float4 *etri_n0,
                          __global const float4 *etri_n1, __global const float4 *etri_n2,
                          __global const float2 *etri_uv0, __global const float2 *etri_uv1,
-                         __global const float2 *etri_uv2, __global const TextureMeta *tex_meta,
+                         __global const float2 *etri_uv2, __global const u32 *etri_mat_index,
+                         __global const Material *materials, __global const TextureMeta *tex_meta,
                          __global const u8 *tex_atlas, float4 *origin, float4 *dir, float4 *power) {
     if (n_lights == 0 || total_luminance < EPS) {
         *origin = (float4)(0.0f);
@@ -174,7 +178,7 @@ inline void sample_light(RngState *rng, __global const Light *lights, u32 n_ligh
         sample_directional_light(rng, &light, scene_center, scene_radius, origin, dir, power);
     else
         sample_textured_light(rng, &light, etri_v0, etri_v1, etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1,
-                              etri_uv2, tex_meta, tex_atlas, origin, dir, power);
+                              etri_uv2, etri_mat_index, materials, tex_meta, tex_atlas, origin, dir, power);
 
     *power /= scale;
 }
@@ -186,11 +190,12 @@ direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32
                 f32 scene_radius, __global const float4 *etri_v0, __global const float4 *etri_v1,
                 __global const float4 *etri_v2, __global const float4 *etri_n0, __global const float4 *etri_n1,
                 __global const float4 *etri_n2, __global const float2 *etri_uv0, __global const float2 *etri_uv1,
-                __global const float2 *etri_uv2, __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
-                __global const BvhNode *tree, __global const float4 *tri_v0, __global const float4 *tri_v1,
-                __global const float4 *tri_v2, __global const float2 *tri_uv0, __global const float2 *tri_uv1,
-                __global const float2 *tri_uv2, __global const float4 *tri_n0, __global const float4 *tri_n1,
-                __global const float4 *tri_n2, __global const u32 *tri_mat_index, u32 n_tris) {
+                __global const float2 *etri_uv2, __global const u32 *etri_mat_index, __global const Material *materials,
+                __global const TextureMeta *tex_meta, __global const u8 *tex_atlas, __global const BvhNode *tree,
+                __global const float4 *tri_v0, __global const float4 *tri_v1, __global const float4 *tri_v2,
+                __global const float2 *tri_uv0, __global const float2 *tri_uv1, __global const float2 *tri_uv2,
+                __global const float4 *tri_n0, __global const float4 *tri_n1, __global const float4 *tri_n2,
+                __global const u32 *tri_mat_index, u32 n_tris) {
     if (n_lights == 0 || total_luminance < EPS)
         return BLACK;
 
@@ -301,7 +306,9 @@ direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32
         if (tex_index != NO_TEXTURE) {
             float2 uv0 = etri_uv0[chosen], uv1 = etri_uv1[chosen], uv2 = etri_uv2[chosen];
             float2 uv = (float2)(bw * uv0.x + bu * uv1.x + bv * uv2.x, bw * uv0.y + bu * uv1.y + bv * uv2.y);
-            emissive_flux *= sample_texture(tex_meta, tex_atlas, tex_index, uv);
+            u32 mat_idx = etri_mat_index[chosen];
+            Material mat = materials[mat_idx];
+            emissive_flux *= sample_texture_uv(&mat, tex_meta, tex_atlas, tex_index, uv, mat.emis_transform);
         }
 
         f32 cos_l = fmax(dot(-shadow_dir, ln), 0.0f);
