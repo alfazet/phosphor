@@ -2,6 +2,7 @@
 
 import sys
 import numpy as np
+from matplotlib.image import imread, imsave
 from PyQt6 import uic
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog
 from PyQt6.QtGui import QPixmap, QImage, qRgb, QAction
@@ -88,7 +89,6 @@ def gaussian_filter(arr, k=1, sd=1):
             shifted = np.roll(padded, shift=(dy, dx), axis=(0, 1))
             result += shifted * kernel[dy + k, dx + k]
     result = result[k:-k, k:-k, :]
-    result /= (kernel_size * kernel_size)
     return result
 
 def process_pixels(func):
@@ -105,11 +105,19 @@ algs = {
     "Mean5": lambda arr: mean_filter(arr, 2),
     "Median3": lambda arr: median_filter(arr, 1),
     "Median5": lambda arr: median_filter(arr, 2),
-    "Gaussian3_3": lambda arr: gaussian_filter(arr, 1, 1),
-    "Gaussian3_5": lambda arr: gaussian_filter(arr, 2, 2),
-    "Gaussian5_3": lambda arr: gaussian_filter(arr, 1, 1),
-    "Gaussian5_5": lambda arr: gaussian_filter(arr, 2, 2),
+    "Gaussian3_1": lambda arr: gaussian_filter(arr, 1, 1),
+    "Gaussian3_2": lambda arr: gaussian_filter(arr, 1, 2),
+    "Gaussian5_1": lambda arr: gaussian_filter(arr, 2, 1),
+    "Gaussian5_2": lambda arr: gaussian_filter(arr, 2, 2),
 }
+
+if len(sys.argv) > 1:
+    image_path = sys.argv[1]
+    image = imread(image_path)
+    for name, func in algs.items():
+        result = func(image)
+        imsave(f"{name}.png", result)
+    sys.exit(0)
 
 app = QApplication(sys.argv)
 
