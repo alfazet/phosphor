@@ -8,6 +8,9 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog
 from PyQt6.QtGui import QPixmap, QImage, qRgb, QAction
 from PyQt6.QtCore import Qt
 
+from filters_cpu import mean_filter, median_filter, gaussian_filter
+from filters_gpu import mean_filter_gpu, median_filter_gpu, gaussian_filter_gpu
+
 def open_file():
     filename, _ = QFileDialog.getOpenFileName(
         window, "Open Image", "", "Images (*.png *.jpg *.jpeg *.bmp)"
@@ -44,53 +47,6 @@ def array_to_qimage(arr):
     image = QImage(bgra.data, width, height, QImage.Format.Format_RGB32)
     return image.copy()
 
-def median_filter(arr, k=1):
-    kernel_size = 2 * k + 1
-    padded = np.pad(arr, ((k, k), (k, k), (0, 0)), mode='edge')
-    h, w, c = arr.shape
-    result = np.zeros_like(arr, dtype=np.float64)
-
-    for i in range(h):
-        for j in range(w):
-            window = padded[i:i + kernel_size, j:j + kernel_size, :]
-            result[i, j, :] = np.median(window, axis=(0, 1))
-
-    return result
-
-def mean_filter(arr, k=1):
-    kernel_size = 2 * k + 1
-    padded = np.pad(arr, ((k, k), (k, k), (0, 0)), mode='edge')
-    result = np.zeros_like(padded, dtype=np.float64)
-    for dy in range(-k, k + 1):
-        for dx in range(-k, k + 1):
-            shifted = np.roll(padded, shift=(dy, dx), axis=(0, 1))
-            result += shifted
-    result = result[k:-k, k:-k, :]
-    result /= (kernel_size * kernel_size)
-    return result
-
-def gaussian(x, y, sd):
-    return 1/np.sqrt(2*(np.pi))/sd*np.exp(-(x**2+y**2)/(2*sd**2))
-
-def gaussian_filter(arr, k=1, sd=1):
-    kernel_size = 2 * k + 1
-
-    padded = np.pad(arr, ((k, k), (k, k), (0, 0)), mode='edge')
-    result = np.zeros_like(padded, dtype=np.float64)
-    kernel = np.zeros(shape=(kernel_size, kernel_size), dtype=np.float64)
-    for dy in range(-k, k + 1):
-        for dx in range(-k, k + 1):
-            kernel[dy + k, dx + k] = gaussian(dx, dy, sd)
-
-    kernel /= kernel.sum()
-
-    for dy in range(-k, k + 1):
-        for dx in range(-k, k + 1):
-            shifted = np.roll(padded, shift=(dy, dx), axis=(0, 1))
-            result += shifted * kernel[dy + k, dx + k]
-    result = result[k:-k, k:-k, :]
-    return result
-
 def process_pixels(func):
     pixmap = window.left_image.pixmap()
     if pixmap is None or pixmap.isNull():
@@ -100,21 +56,45 @@ def process_pixels(func):
     result = func(arr)
     window.right_image.setPixmap(QPixmap.fromImage(array_to_qimage(result)))
 
-algs = {
-    "Mean3": lambda arr: mean_filter(arr, 1),
-    "Mean5": lambda arr: mean_filter(arr, 2),
-    "Median3": lambda arr: median_filter(arr, 1),
-    "Median5": lambda arr: median_filter(arr, 2),
-    "Gaussian3_1": lambda arr: gaussian_filter(arr, 1, 1),
-    "Gaussian3_2": lambda arr: gaussian_filter(arr, 1, 2),
-    "Gaussian5_1": lambda arr: gaussian_filter(arr, 2, 1),
-    "Gaussian5_2": lambda arr: gaussian_filter(arr, 2, 2),
+algs_cpu = {
+    "Mean3 (CPU)": lambda arr: mean_filter(arr, 1),
+    "Mean5 (CPU)": lambda arr: mean_filter(arr, 2),
+    "Median3 (CPU)": lambda arr: median_filter(arr, 1),
+    "Median5 (CPU)": lambda arr: median_filter(arr, 2),
+    "Gaussian3_1 (CPU)": lambda arr: gaussian_filter(arr, 1, 1),
+    "Gaussian3_2 (CPU)": lambda arr: gaussian_filter(arr, 1, 2),
+    "Gaussian5_1 (CPU)": lambda arr: gaussian_filter(arr, 2, 1),
+    "Gaussian5_2 (CPU)": lambda arr: gaussian_filter(arr, 2, 2),
 }
+
+algs_gpu = {
+    "Mean3 (GPU)": lambda arr: mean_filter_gpu(arr, 1),
+    "Mean5 (GPU)": lambda arr: mean_filter_gpu(arr, 2),
+    "Median3 (GPU)": lambda arr: median_filter_gpu(arr, 1),
+    "Median5 (GPU)": lambda arr: median_filter_gpu(arr, 2),
+    "Gaussian3_1 (GPU)": lambda arr: gaussian_filter_gpu(arr, 1, 1),
+    "Gaussian3_2 (GPU)": lambda arr: gaussian_filter_gpu(arr, 1, 2),
+    "Gaussian5_1 (GPU)": lambda arr: gaussian_filter_gpu(arr, 2, 1),
+    "Gaussian5_2 (GPU)": lambda arr: gaussian_filter_gpu(arr, 2, 2),
+}
+
+algs = {**algs_cpu, **algs_gpu}
 
 if len(sys.argv) > 1:
     image_path = sys.argv[1]
     image = imread(image_path)
-    for name, func in algs.items():
+    if image.dtype != np.uint8:
+        image = (image * 255).round()
+    for name, func in algs_gpu.items():
+        result = func(image)
+        imsave(f"{name}.png", np.clip(result, 0, 255).astype(np.uint8))
+    sys.exit(0)
+
+
+if len(sys.argv) > 1:
+    image_path = sys.argv[1]
+    image = imread(image_path)
+    for name, func in algs_gpu.items():
         result = func(image)
         imsave(f"{name}.png", result)
     sys.exit(0)
