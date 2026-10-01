@@ -2,14 +2,14 @@
 
 import sys
 import numpy as np
+from matplotlib.image import imread, imsave
 from PyQt6 import uic
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog
 from PyQt6.QtGui import QPixmap, QImage, qRgb, QAction
 from PyQt6.QtCore import Qt
 
-app = QApplication(sys.argv)
-
-window = uic.loadUi("window.ui")
+from filters_cpu import mean_filter, median_filter, gaussian_filter
+from filters_gpu import mean_filter_gpu, median_filter_gpu, gaussian_filter_gpu
 
 def open_file():
     filename, _ = QFileDialog.getOpenFileName(
@@ -47,18 +47,6 @@ def array_to_qimage(arr):
     image = QImage(bgra.data, width, height, QImage.Format.Format_RGB32)
     return image.copy()
 
-def mean_filter(arr, kernel_size=3):
-    k = kernel_size // 2
-    padded = np.pad(arr, ((k, k), (k, k), (0, 0)), mode='edge')
-    result = np.zeros_like(arr, dtype=np.float64)
-    for dy in range(-k, k + 1):
-        for dx in range(-k, k + 1):
-            shifted = padded[k + dy : k + dy + arr.shape[0], k + dx : k + dx + arr.shape[1], :]
-            result += shifted
-    kernel_size = 2 * k + 1
-    result /= (kernel_size * kernel_size)
-    return result
-
 def process_pixels(func):
     pixmap = window.left_image.pixmap()
     if pixmap is None or pixmap.isNull():
@@ -68,10 +56,52 @@ def process_pixels(func):
     result = func(arr)
     window.right_image.setPixmap(QPixmap.fromImage(array_to_qimage(result)))
 
-algs = {
-    "Mean3": mean_filter,
+algs_cpu = {
+    "Mean3 (CPU)": lambda arr: mean_filter(arr, 1),
+    "Mean5 (CPU)": lambda arr: mean_filter(arr, 2),
+    "Median3 (CPU)": lambda arr: median_filter(arr, 1),
+    "Median5 (CPU)": lambda arr: median_filter(arr, 2),
+    "Gaussian3_1 (CPU)": lambda arr: gaussian_filter(arr, 1, 1),
+    "Gaussian3_2 (CPU)": lambda arr: gaussian_filter(arr, 1, 2),
+    "Gaussian5_1 (CPU)": lambda arr: gaussian_filter(arr, 2, 1),
+    "Gaussian5_2 (CPU)": lambda arr: gaussian_filter(arr, 2, 2),
 }
 
+algs_gpu = {
+    "Mean3 (GPU)": lambda arr: mean_filter_gpu(arr, 1),
+    "Mean5 (GPU)": lambda arr: mean_filter_gpu(arr, 2),
+    "Median3 (GPU)": lambda arr: median_filter_gpu(arr, 1),
+    "Median5 (GPU)": lambda arr: median_filter_gpu(arr, 2),
+    "Gaussian3_1 (GPU)": lambda arr: gaussian_filter_gpu(arr, 1, 1),
+    "Gaussian3_2 (GPU)": lambda arr: gaussian_filter_gpu(arr, 1, 2),
+    "Gaussian5_1 (GPU)": lambda arr: gaussian_filter_gpu(arr, 2, 1),
+    "Gaussian5_2 (GPU)": lambda arr: gaussian_filter_gpu(arr, 2, 2),
+}
+
+algs = {**algs_cpu, **algs_gpu}
+
+if len(sys.argv) > 1:
+    image_path = sys.argv[1]
+    image = imread(image_path)
+    if image.dtype != np.uint8:
+        image = (image * 255).round()
+    for name, func in algs_gpu.items():
+        result = func(image)
+        imsave(f"{name}.png", np.clip(result, 0, 255).astype(np.uint8))
+    sys.exit(0)
+
+
+if len(sys.argv) > 1:
+    image_path = sys.argv[1]
+    image = imread(image_path)
+    for name, func in algs_gpu.items():
+        result = func(image)
+        imsave(f"{name}.png", result)
+    sys.exit(0)
+
+app = QApplication(sys.argv)
+
+window = uic.loadUi("window.ui")
 menubar = window.menubar
 filters_menu = menubar.addMenu("Algorithms")
 
