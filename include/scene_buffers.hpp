@@ -62,6 +62,11 @@ struct SceneBuffers {
     float4 scene_center{};
     f32 scene_radius = 0.0f;
 
+    cl::Buffer envmap_data;
+    u32 envmap_width = 0;
+    u32 envmap_height = 0;
+    u32 has_envmap = 0;
+
     void set_camera(const CameraParams &cam, u32 width, u32 height);
 
     void copy_scene(ClContext &ctx, const SceneData &scene, const Bvh &bvh);

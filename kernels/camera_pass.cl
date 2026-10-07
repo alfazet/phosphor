@@ -2,6 +2,7 @@
 #include "bvh_node.h"
 #include "camera.h"
 #include "constants.h"
+#include "envmap.h"
 #include "hit.h"
 #include "hitpoint.h"
 #include "light_sampling.h"
@@ -37,7 +38,10 @@ __kernel void camera_pass(
     __global const u32 *etri_mat_index,
 
     // output
-    __global HitPoint *hit_points) {
+    __global HitPoint *hit_points,
+
+    // envmap
+    __global const f32 *envmap_data, const u32 envmap_width, const u32 envmap_height, const u32 has_envmap) {
 
     u32 tid = get_global_id(0);
     u32 n_pixels = image_width * image_height;
@@ -69,8 +73,11 @@ __kernel void camera_pass(
         HitRecord rec;
         bool hit = scene_intersect(tree, tri_v0, tri_v1, tri_v2, tri_uv0, tri_uv1, tri_uv2, tri_n0, tri_n1, tri_n2,
                                    tri_mat_index, n_triangles, origin, dir, EPS, INF, &rec);
-        if (!hit)
-            break; // ray escaped the scene
+        if (!hit) {
+            if (has_envmap)
+                emission += throughput * sample_envmap(envmap_data, envmap_width, envmap_height, dir);
+            break;
+        }
 
         SurfaceHit surf_hit = process_hit(&rec, origin, dir, tri_uv0, tri_uv1, tri_uv2);
         Material mat = materials[surf_hit.mat_index];
@@ -97,11 +104,12 @@ __kernel void camera_pass(
         if (bsdf.event == BSDF_DIFFUSE) {
             float4 direct_sum = BLACK;
             for (u32 d = 0; d < direct_samples; d++) {
-                direct_sum += direct_lighting(
-                    &rng, surf_hit.position, ctx.shading_normal, ctx.base_color, ctx.metallic, lights, n_lights,
-                    light_pref_sum, total_luminance, scene_center, scene_radius, etri_v0, etri_v1, etri_v2, etri_n0,
-                    etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2, etri_mat_index, materials, tex_meta, tex_atlas, tree,
-                    tri_v0, tri_v1, tri_v2, tri_uv0, tri_uv1, tri_uv2, tri_n0, tri_n1, tri_n2, tri_mat_index, n_triangles);
+                direct_sum +=
+                    direct_lighting(&rng, surf_hit.position, ctx.shading_normal, ctx.base_color, ctx.metallic, lights,
+                                    n_lights, light_pref_sum, total_luminance, scene_center, scene_radius, etri_v0,
+                                    etri_v1, etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2,
+                                    etri_mat_index, materials, tex_meta, tex_atlas, tree, tri_v0, tri_v1, tri_v2,
+                                    tri_uv0, tri_uv1, tri_uv2, tri_n0, tri_n1, tri_n2, tri_mat_index, n_triangles);
             }
             float4 direct = direct_sum / (f32)direct_samples;
 
@@ -130,5 +138,6 @@ __kernel void camera_pass(
         dir = bsdf.dir;
     }
 
+    hp.emission = emission;
     hit_points[tid] = hp;
 }

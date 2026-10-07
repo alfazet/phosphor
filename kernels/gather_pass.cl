@@ -26,6 +26,12 @@ __kernel void gather_pass(
     HitPoint hp = hit_points[tid];
     SppmPixel sp = sppm_pixels[tid];
     if (hp.is_valid == 0) {
+        float4 irradiance;
+        irradiance.x = hp.emission.x;
+        irradiance.y = hp.emission.y;
+        irradiance.z = hp.emission.z;
+        irradiance.w = 0.0f;
+        total_irradiance[tid] += irradiance;
         sppm_pixels[tid] = sp;
         return;
     }

@@ -31,6 +31,9 @@ void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
         LOG_ERROR("empty scene, nothing to render");
         return;
     }
+    if (!args.envmap.empty()) {
+        scene.load_envmap(args.envmap.c_str());
+    }
 
     std::filesystem::path output_dir(args.output_dir);
     if (!args.was_provided("-o")) {

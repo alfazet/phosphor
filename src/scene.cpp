@@ -420,3 +420,20 @@ void SceneData::build_luminance_pref_sum() {
         this->luminance_pref_sum.push_back(running);
     }
 }
+
+void SceneData::load_envmap(const char *path) {
+    this->envmap = EnvMap{};
+    i32 w = 0, h = 0;
+    f32 *raw = stbi_loadf(path, &w, &h, NULL, 3);
+    if (!raw) {
+        LOG_ERROR("failed to load envmap {}", path);
+        return;
+    }
+    this->envmap.width = static_cast<u32>(w);
+    this->envmap.height = static_cast<u32>(h);
+    this->envmap.pixels.assign(raw, raw + 3 * w * h);
+    this->envmap.loaded = true;
+    stbi_image_free(raw);
+
+    LOG_INFO("loaded envmap {}", path);
+}
