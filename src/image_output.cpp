@@ -13,7 +13,8 @@ inline f32 tone_map(f32 x) {
 }
 
 void write_png(const std::filesystem::path &path, u32 width, u32 height, const std::vector<SppmPixel> &sppm_pixels,
-               const std::vector<float4> &total_irradiance, u64 total_photons, u32 sppm_rounds, const std::string &metadata) {
+               const std::vector<float4> &total_irradiance, u64 total_photons, u32 sppm_rounds,
+               const std::string &metadata) {
     u32 n_pixels = width * height;
     std::vector<u8> ldr(n_pixels * 3);
 
