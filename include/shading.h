@@ -24,6 +24,36 @@ typedef struct ShadingContext {
     f32 ior;
 } ShadingContext;
 
+typedef struct IorStack {
+    f32 ior[IOR_STACK_SIZE];
+    u32 cur;
+} IorStack;
+
+inline void init_ior_stack(IorStack *stack, f32 initial_ior) {
+    stack->cur = 0;
+    stack->ior[0] = initial_ior;
+}
+
+inline f32 current_ior(const IorStack *stack) { return stack->ior[stack->cur]; }
+
+inline f32 target_ior(const IorStack *stack, f32 inside_ior, bool front_face) {
+    if (front_face)
+        return inside_ior;
+    return (stack->cur == 0) ? stack->ior[stack->cur - 1] : AIR_IOR;
+}
+
+inline void update_ior_stack(IorStack *stack, f32 inside_ior, bool front_face) {
+    if (front_face) {
+        if (stack->cur < IOR_STACK_SIZE - 1) {
+            stack->cur++;
+            stack->ior[stack->cur] = inside_ior;
+        }
+    } else {
+        if (stack->cur > 0)
+            stack->cur--;
+    }
+}
+
 inline float4 apply_normal_map(float4 map_sample, float4 geom_normal, float4 tangent, float4 bitangent) {
     float4 n_ts = (float4)(map_sample.x * 2.0f - 1.0f, map_sample.y * 2.0f - 1.0f, map_sample.z * 2.0f - 1.0f, 0.0f);
     float4 perturbed = n_ts.x * tangent + n_ts.y * bitangent + n_ts.z * geom_normal;
@@ -118,7 +148,7 @@ typedef struct BsdfSample {
 } BsdfSample;
 
 inline BsdfSample sample_bsdf(RngState *rng, const ShadingContext *ctx, float4 shading_normal, float4 geom_normal,
-                              float4 view, f32 *curr_ior, bool front_face) {
+                              float4 view, IorStack *ior_stack, bool front_face) {
     BsdfSample s;
     float4 h = ggx_sample_vndf(rng, shading_normal, geom_normal, view, ctx->roughness);
     f32 alpha = ctx->roughness * ctx->roughness;
@@ -133,8 +163,8 @@ inline BsdfSample sample_bsdf(RngState *rng, const ShadingContext *ctx, float4 s
         return s;
     }
 
-    f32 ior_1 = front_face ? *curr_ior : ctx->ior;
-    f32 ior_2 = front_face ? ctx->ior : *curr_ior;
+    f32 ior_1 = current_ior(ior_stack);
+    f32 ior_2 = target_ior(ior_stack, ctx->ior, front_face);
     f32 fr = fresnel_refracted(ior_1, ior_2, -view, h);
 
     f32 r_diel = random_float(rng);
@@ -162,7 +192,8 @@ inline BsdfSample sample_bsdf(RngState *rng, const ShadingContext *ctx, float4 s
             return s;
         }
         bool transmitted = dot(refracted, h) < 0.0f;
-        *curr_ior = transmitted ? (front_face ? ctx->ior : AIR_IOR) : *curr_ior;
+        if (transmitted)
+            update_ior_stack(ior_stack, ctx->ior, front_face);
         s.dir = refracted;
         f32 cos_l = fmax(0.0f, fabs(dot(refracted, shading_normal)));
         f32 g1_l = smith_g1_ggx(cos_l, alpha);
