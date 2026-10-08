@@ -220,7 +220,7 @@ direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32
         if (cos_i <= 0.0f)
             return BLACK;
 
-        irradiance = flux * cos_i / (4.0f * PI * dist_sq);
+        irradiance = flux * cos_i / dist_sq;
 
     } else if (light.kind == LIGHT_SPOT) {
         float4 to_light = light.position - pos;

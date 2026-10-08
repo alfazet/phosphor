@@ -39,7 +39,8 @@ constexpr const char *DEFAULT_OUTPUT_DIR = "./phosphor_output";
     X("--focus-distance", focus_distance, f32, parse_f32, DEFAULT_FOCUS_DISTANCE,                                      \
       "distance from the camera where an object is perfectly in focus")                                                \
     X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")                                                        \
-    X("--snapshots", save_snapshots, bool, parse_bool, false, "should rendering snapshots be saved?")
+    X("--snapshots", save_snapshots, bool, parse_bool, false, "should rendering snapshots be saved?")                  \
+    X("--envmap", envmap, std::string, parse_string, "", "path to an HDR environment map")
 
 struct ArgsList {
     std::string dataset_path;
