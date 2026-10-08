@@ -1,4 +1,3 @@
-#include "bsdfs.h"
 #include "constants.h"
 #include "hit.h"
 #include "light_sampling.h"
@@ -9,7 +8,6 @@
 #include "surface_hit.h"
 #include "texture_meta.h"
 #include "typedefs.h"
-#include "utils.h"
 
 __kernel void emit_photons(
     // output photon arrays
@@ -46,7 +44,8 @@ __kernel void emit_photons(
                  etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2, etri_mat_index, materials, tex_meta,
                  tex_atlas, &origin, &dir, &power);
 
-    f32 curr_ior = AIR_IOR;
+    IorStack ior_stack;
+    init_ior_stack(&ior_stack, AIR_IOR);
 
     // the fraction of the original power that survives to the current bounce
     float4 throughput = (float4)(1.0f, 1.0f, 1.0f, 0.0f);
@@ -62,6 +61,7 @@ __kernel void emit_photons(
         Material mat = materials[surf_hit.mat_index];
 
         float4 vol_trans = WHITE;
+        f32 curr_ior = current_ior(&ior_stack);
         if (curr_ior != AIR_IOR && mat.thickness > 0.0f && mat.att_dist > EPS) {
             vol_trans = beer_lambert(mat.att_color, mat.att_dist, surf_hit.t);
             power *= vol_trans;
@@ -91,7 +91,7 @@ __kernel void emit_photons(
 
         float4 view = -dir;
         BsdfSample bsdf =
-            sample_bsdf(&rng, &ctx, ctx.shading_normal, surf_hit.normal, view, &curr_ior, surf_hit.front_face);
+            sample_bsdf(&rng, &ctx, ctx.shading_normal, surf_hit.normal, view, &ior_stack, surf_hit.front_face);
 
         if (bsdf.event == BSDF_DIFFUSE && dot(dir, surf_hit.normal) < 0.0f) {
             u32 idx = atomic_inc(photon_count);
