@@ -1,4 +1,3 @@
-#include "bsdfs.h"
 #include "bvh_node.h"
 #include "camera.h"
 #include "constants.h"
@@ -57,7 +56,8 @@ __kernel void camera_pass(
 
     float4 throughput = WHITE;
     float4 emission = BLACK;
-    f32 curr_ior = AIR_IOR;
+    IorStack ior_stack;
+    init_ior_stack(&ior_stack, AIR_IOR);
 
     HitPoint hp;
     hp.position = ZERO;
@@ -83,6 +83,7 @@ __kernel void camera_pass(
         Material mat = materials[surf_hit.mat_index];
 
         float4 vol_trans = WHITE;
+        f32 curr_ior = current_ior(&ior_stack);
         if (curr_ior != AIR_IOR && mat.thickness > 0.0f && mat.att_dist > EPS)
             vol_trans = beer_lambert(mat.att_color, mat.att_dist, surf_hit.t);
 
@@ -98,7 +99,7 @@ __kernel void camera_pass(
 
         float4 view = -dir;
         BsdfSample bsdf =
-            sample_bsdf(&rng, &ctx, ctx.shading_normal, surf_hit.normal, view, &curr_ior, surf_hit.front_face);
+            sample_bsdf(&rng, &ctx, ctx.shading_normal, surf_hit.normal, view, &ior_stack, surf_hit.front_face);
         bsdf.throughput *= vol_trans;
 
         if (bsdf.event == BSDF_DIFFUSE) {

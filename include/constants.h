@@ -19,6 +19,7 @@
 
 #define BVH_STACK_SIZE 24u
 #define KD_STACK_SIZE 24u
+#define IOR_STACK_SIZE 8u
 
 #define MAX_PHOTONS_PER_BATCH (1u << 15)
 #define DEFAULT_CAMERA_ASPECT (16.0f / 9.0f)
