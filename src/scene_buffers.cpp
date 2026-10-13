@@ -183,10 +183,8 @@ void SceneBuffers::copy_photons(ClContext &ctx, PhotonHash &hash, std::vector<fl
     this->photon_power = copy_to_dev_buf(ctx, photon_power.data(), n_photons, sizeof(u32));
     this->photon_dir = copy_to_dev_buf(ctx, photon_dir.data(), n_photons, sizeof(u32));
 
-    tree_index = copy_to_dev_buf(ctx, hash.tree_index.data(), hash.tree_index.size(), sizeof(u32));
-    bucket_tree_offset =
-        copy_to_dev_buf(ctx, hash.bucket_tree_offset.data(), hash.bucket_tree_offset.size(), sizeof(u32));
-    bucket_tree_size = copy_to_dev_buf(ctx, hash.bucket_tree_size.data(), hash.bucket_tree_size.size(), sizeof(u32));
+    cell_start = copy_to_dev_buf(ctx, hash.cell_start.data(), hash.cell_start.size(), sizeof(u32));
+    cell_end = copy_to_dev_buf(ctx, hash.cell_end.data(), hash.cell_end.size(), sizeof(u32));
 }
 
 void SceneBuffers::alloc_sppm_buffers(ClContext &ctx) {
@@ -217,7 +215,7 @@ void SceneBuffers::set_camera_pass_args(cl::Kernel &kernel, u32 seed, u32 direct
 
 void SceneBuffers::set_gather_pass_args(cl::Kernel &kernel, PhotonHashInfo info, f32 sppm_alpha) const {
     set_kernel_args(kernel, hit_points, sppm_pixels, total_irradiance, n_pixels, photon_pos, photon_power, photon_dir,
-                    n_photons, tree_index, bucket_tree_offset, bucket_tree_size, info, sppm_alpha);
+                    n_photons, cell_start, cell_end, info, sppm_alpha);
 }
 
 void SceneBuffers::print_buffer_sizes() const {
@@ -266,9 +264,8 @@ void SceneBuffers::print_buffer_sizes() const {
     sz("photon_pos", photon_pos);
     sz("photon_power", photon_power);
     sz("photon_dir", photon_dir);
-    sz("tree_index", tree_index);
-    sz("bucket_tree_offset", bucket_tree_offset);
-    sz("bucket_tree_size", bucket_tree_size);
+    sz("cell_start", cell_start);
+    sz("cell_end", cell_end);
 
     sz("hit_points", hit_points);
     sz("sppm_pixels", sppm_pixels);

@@ -54,11 +54,10 @@ inline PhotonHashInfo build_photon_hash_info(const BoundingBox &bbox, u32 grid_r
 
 #ifdef __OPENCL_C_VERSION__
 
-inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __global const u32 *tree_index,
-                               __global const u32 *bucket_tree_offset, __global const u32 *bucket_tree_size,
-                               __global const float4 *photon_pos, __global const u32 *photon_power,
-                               __global const u32 *photon_dir, f32 max_dist2, const float4 surf_hit_normal,
-                               float4 *flux, f32 *out_max_dist2, f32 *out_found) {
+inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __global const u32 *cell_start,
+                               __global const u32 *cell_end, __global const float4 *photon_pos,
+                               __global const u32 *photon_power, __global const u32 *photon_dir, f32 max_dist2,
+                               const float4 surf_hit_normal, float4 *flux, f32 *out_max_dist2, f32 *out_found) {
     f32 worst = 0.0f;
     f32 found = 0.0f;
 
@@ -76,17 +75,12 @@ inline void gather_photon_flux(const float4 pos, const PhotonHashInfo info, __gl
         if (h == 0)
             continue;
 
-        u32 offset = bucket_tree_offset[h];
-        u32 size = bucket_tree_size[h];
-        if (size == 0)
+        u32 start = cell_start[h];
+        u32 end = cell_end[h];
+        if (start == end)
             continue;
 
-        for (u32 j = 0; j < size; j++) {
-            u32 pidx = tree_index[offset + j];
-            if (pidx == 0)
-                continue;
-            pidx -= 1;
-
+        for (u32 pidx = start; pidx < end; pidx++) {
             float4 diff = pos - photon_pos[pidx];
             f32 d2 = dot(diff, diff);
             if (d2 >= max_dist2)

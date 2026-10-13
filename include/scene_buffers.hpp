@@ -3,11 +3,9 @@
 
 #include "bvh.hpp"
 #include "camera.h"
-#include "hitpoint.h"
 #include "opencl_ctx.hpp"
 #include "photon_hash.hpp"
 #include "scene.hpp"
-#include "sppm_pixel.h"
 #include "typedefs.h"
 
 #include <vector>
@@ -54,9 +52,8 @@ struct SceneBuffers {
     cl::Buffer photon_power;
     cl::Buffer photon_dir;
 
-    cl::Buffer tree_index;
-    cl::Buffer bucket_tree_offset;
-    cl::Buffer bucket_tree_size;
+    cl::Buffer cell_start;
+    cl::Buffer cell_end;
     u32 n_photons = 0;
 
     float4 scene_center{};
