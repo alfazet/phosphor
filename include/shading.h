@@ -39,7 +39,7 @@ inline f32 current_ior(const IorStack *stack) { return stack->ior[stack->cur]; }
 inline f32 target_ior(const IorStack *stack, f32 inside_ior, bool front_face) {
     if (front_face)
         return inside_ior;
-    return (stack->cur == 0) ? stack->ior[stack->cur - 1] : AIR_IOR;
+    return (stack->cur == 0) ? AIR_IOR : stack->ior[stack->cur - 1];
 }
 
 inline void update_ior_stack(IorStack *stack, f32 inside_ior, bool front_face) {
