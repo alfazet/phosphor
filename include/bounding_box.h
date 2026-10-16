@@ -17,12 +17,12 @@ inline f32 min_f32(f32 a, f32 b) { return a < b ? a : b; }
 inline f32 max_f32(f32 a, f32 b) { return a > b ? a : b; }
 
 inline void expand(BoundingBox &bbox) {
-    bbox.bbox_min.x -= EPS;
-    bbox.bbox_min.y -= EPS;
-    bbox.bbox_min.z -= EPS;
-    bbox.bbox_max.x += EPS;
-    bbox.bbox_max.y += EPS;
-    bbox.bbox_max.z += EPS;
+    bbox.bbox_min.x -= DELTA;
+    bbox.bbox_min.y -= DELTA;
+    bbox.bbox_min.z -= DELTA;
+    bbox.bbox_max.x += DELTA;
+    bbox.bbox_max.y += DELTA;
+    bbox.bbox_max.z += DELTA;
 }
 
 inline void expand_aabb(BoundingBox &bbox, const float4 p) {
