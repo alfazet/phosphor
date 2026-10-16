@@ -46,7 +46,7 @@ __kernel void gather_pass(
     f32 r_sq = sp.radius_sq;
     f32 photon_count = sp.photon_count;
     // first round has the initial search radius taken from cell size
-    if (r_sq <= 0.0f) {
+    if (r_sq < EPS) {
         f32 half_cx = info.cell_sizes.x * 0.5f;
         f32 half_cy = info.cell_sizes.y * 0.5f;
         f32 half_cz = info.cell_sizes.z * 0.5f;
