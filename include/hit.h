@@ -48,8 +48,8 @@ inline bool triangle_hit_single(u32 t, float4 origin, float4 dir, __global const
     // dot()/cross() behave as their 3D counterparts
     float4 h = cross(dir, edge2);
     f32 a = dot(edge1, h);
-    if (fabs(a) < EPS)
-        return false;
+    if (fabs(a) < 1e-10f) 
+	    return false;
 
     f32 f = 1.0f / a;
     float4 s = origin - v0;
