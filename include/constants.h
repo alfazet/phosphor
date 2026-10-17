@@ -3,7 +3,8 @@
 
 #define GPU_ALIGN __attribute__((aligned(16)))
 
-#define EPS 1e-4f
+#define EPS 1e-10f
+#define DELTA 1e-6f
 #define INF 1e9f
 #define PI 3.141592654f
 #define U32_MAX 4294967296.0f
@@ -15,7 +16,7 @@
 #define AIR_IOR 1.0f
 #define MAX_PHOTON_BOUNCES 50u
 #define MAX_RAY_BOUNCES 5u
-#define MIN_CELL_SIZE 0.1f
+#define MIN_CELL_SIZE 0.001f
 
 #define BVH_STACK_SIZE 24u
 #define KD_STACK_SIZE 24u
