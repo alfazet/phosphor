@@ -57,6 +57,12 @@ inline BoundingBox get_bounding_box(const Triangle &tri) {
     check_bbox_inf(res);
     expand(res);
     check_bbox_width(res);
+    //DBG(res.bbox_min.x);
+    //DBG(res.bbox_min.y);
+    //DBG(res.bbox_min.z);
+    //DBG(res.bbox_max.x);
+    //DBG(res.bbox_max.y);
+    //DBG(res.bbox_max.z);
     return res;
 }
 
@@ -86,7 +92,6 @@ inline BoundingBox merge(const BoundingBox &a, const BoundingBox &b) {
     result.bbox_max.x = max_f32(a.bbox_max.x, b.bbox_max.x);
     result.bbox_max.y = max_f32(a.bbox_max.y, b.bbox_max.y);
     result.bbox_max.z = max_f32(a.bbox_max.z, b.bbox_max.z);
-    expand(result);
     return result;
 }
 
