@@ -11,7 +11,7 @@ struct Bvh {
 
     Bvh(const std::vector<Triangle> &triangles);
 
-    const BoundingBox& get_bbox() const;
+    const BoundingBox &get_bbox() const;
 };
 
 #endif // PHOSPHOR_GPU_BVH_H

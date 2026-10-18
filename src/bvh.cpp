@@ -15,7 +15,7 @@ struct TmpNode {
 };
 
 static u32 build_tmp(const std::vector<Triangle> &triangles, std::vector<u32> &indices, u32 start, u32 end,
-                      std::vector<TmpNode> &tmp) {
+                     std::vector<TmpNode> &tmp) {
     u32 idx = static_cast<u32>(tmp.size());
     tmp.push_back({});
 
