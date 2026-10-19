@@ -14,7 +14,6 @@
 #define DEFAULT_TRANSMISSION 0.0f
 #define DEFAULT_IOR 1.5f
 #define AIR_IOR 1.0f
-#define MAX_PHOTON_BOUNCES 50u
 #define MAX_RAY_BOUNCES 5u
 #define MIN_CELL_SIZE 0.001f
 
@@ -22,7 +21,7 @@
 #define KD_STACK_SIZE 24u
 #define IOR_STACK_SIZE 8u
 
-#define MAX_PHOTONS_PER_BATCH (1u << 15)
+#define MAX_PHOTONS_PER_BATCH (1u << 20)
 #define DEFAULT_CAMERA_ASPECT (16.0f / 9.0f)
 
 #define ZERO (float4)(0.0f, 0.0f, 0.0f, 0.0f)

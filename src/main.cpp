@@ -5,7 +5,7 @@
 #include "image_output.hpp"
 #include "logger.hpp"
 #include "opencl_ctx.hpp"
-#include "photon_hash.hpp"
+#include "photon_hash.h"
 #include "scene.hpp"
 #include "scene_buffers.hpp"
 #include "sppm_pixel.h"
@@ -25,6 +25,9 @@ void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
     cl::Kernel k_emit_photons = ctx.make_kernel("emit_photons");
     cl::Kernel k_camera_pass = ctx.make_kernel("camera_pass");
     cl::Kernel k_gather_pass = ctx.make_kernel("gather_pass");
+    cl::Kernel k_hash_photons = ctx.make_kernel("hash_photons");
+    cl::Kernel k_scan_cells = ctx.make_kernel("scan_cells");
+    cl::Kernel k_scatter_photons = ctx.make_kernel("scatter_photons");
 
     SceneData scene = read_gltf_scene(args.model.c_str());
     if (scene.triangles.empty()) {
@@ -56,76 +59,78 @@ void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
 
     u32 photons_per_round = args.photons;
     u32 photons_per_batch = std::min(photons_per_round, MAX_PHOTONS_PER_BATCH);
-    u32 max_photons_in_batch = photons_per_batch * MAX_PHOTON_BOUNCES;
-    cl::Buffer d_photon_pos(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(float4));
-    cl::Buffer d_photon_power(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(u32));
-    cl::Buffer d_photon_dir(ctx.context, CL_MEM_READ_WRITE, max_photons_in_batch * sizeof(u32));
+    u32 max_photons_total = photons_per_round * args.max_photon_bounces;
+
+    PhotonHashInfo photon_hash_info = build_photon_hash_info(bbox, args.grid_res);
+    u32 bucket_count = args.grid_res * args.grid_res * args.grid_res + 1;
+
+    cl::Buffer d_photon_pos(ctx.context, CL_MEM_READ_WRITE, max_photons_total * sizeof(float4));
+    cl::Buffer d_photon_power(ctx.context, CL_MEM_READ_WRITE, max_photons_total * sizeof(u32));
+    cl::Buffer d_photon_dir(ctx.context, CL_MEM_READ_WRITE, max_photons_total * sizeof(u32));
+
     u32 h_batch_size = 0;
     cl::Buffer d_batch_size(ctx.context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(u32), &h_batch_size);
 
     u64 total_photons_emitted = 0;
+    buffers.alloc_photon_hash_buffers(ctx, max_photons_total, bucket_count);
     RngState rng = pcg_seed(args.seed);
-    PhotonHashInfo photon_hash_info = build_photon_hash_info(bbox, args.grid_res);
 
     std::vector<SppmPixel> h_sppm(buffers.n_pixels);
     std::vector<float4> h_total_irradiance(buffers.n_pixels);
 
     for (u32 round = 1; round <= args.sppm_rounds; round++) {
+        TimerScope timer_scope_round(std::format("SPPM round {}", round));
         u32 round_seed = random_u32(&rng);
 
-        // camera pass (trace rays and record their first diffuse hit)
         buffers.set_camera_pass_args(k_camera_pass, round_seed, args.direct_samples);
         ctx.queue.enqueueNDRangeKernel(k_camera_pass, cl::NullRange, cl::NDRange(buffers.n_pixels), cl::NullRange);
         ctx.queue.finish();
 
-        // photon emission
-        std::vector<float4> h_photon_pos;
-        std::vector<u32> h_photon_power, h_photon_dir;
-        ProgressScope progress_scope_photons("emitting photons", photons_per_round);
-        for (u32 batch_offset = 0; batch_offset < photons_per_round; batch_offset += photons_per_batch) {
-            u32 to_emit = std::min(photons_per_batch, photons_per_round - batch_offset);
-            progress_scope_photons.increase(to_emit);
-            h_batch_size = 0;
-            ctx.queue.enqueueWriteBuffer(d_batch_size, CL_TRUE, 0, sizeof(u32), &h_batch_size);
-
-            u32 emission_seed = random_u32(&rng);
-            buffers.set_emit_photons_args(k_emit_photons, batch_offset, photons_per_round, emission_seed,
-                                          max_photons_in_batch, d_photon_pos, d_photon_power, d_photon_dir,
-                                          d_batch_size);
-            ctx.queue.enqueueNDRangeKernel(k_emit_photons, cl::NullRange, cl::NDRange(to_emit), cl::NullRange);
+        h_batch_size = 0;
+        ctx.queue.enqueueWriteBuffer(d_batch_size, CL_TRUE, 0, sizeof(u32), &h_batch_size);
+        {
+            for (u32 batch_offset = 0; batch_offset < photons_per_round; batch_offset += photons_per_batch) {
+                u32 to_emit = std::min(photons_per_batch, photons_per_round - batch_offset);
+                u32 emission_seed = random_u32(&rng);
+                buffers.set_emit_photons_args(k_emit_photons, batch_offset, photons_per_round, args.max_photon_bounces,
+                                              emission_seed, max_photons_total, d_photon_pos, d_photon_power,
+                                              d_photon_dir, d_batch_size);
+                ctx.queue.enqueueNDRangeKernel(k_emit_photons, cl::NullRange, cl::NDRange(to_emit), cl::NullRange);
+            }
             ctx.queue.finish();
-
-            u32 h_final_batch_size = 0;
-            ctx.queue.enqueueReadBuffer(d_batch_size, CL_TRUE, 0, sizeof(u32), &h_final_batch_size);
-            h_final_batch_size = std::min(h_final_batch_size, max_photons_in_batch);
-            if (h_final_batch_size == 0)
-                LOG_FATAL("no photon hit");
-
-            u32 old_size = h_photon_pos.size();
-            h_photon_pos.resize(old_size + h_final_batch_size);
-            h_photon_power.resize(old_size + h_final_batch_size);
-            h_photon_dir.resize(old_size + h_final_batch_size);
-
-            ctx.queue.enqueueReadBuffer(d_photon_pos, CL_TRUE, 0, h_final_batch_size * sizeof(float4),
-                                        h_photon_pos.data() + old_size);
-            ctx.queue.enqueueReadBuffer(d_photon_power, CL_TRUE, 0, h_final_batch_size * sizeof(u32),
-                                        h_photon_power.data() + old_size);
-            ctx.queue.enqueueReadBuffer(d_photon_dir, CL_TRUE, 0, h_final_batch_size * sizeof(u32),
-                                        h_photon_dir.data() + old_size);
         }
+
+        u32 n_photons = 0;
+        ctx.queue.enqueueReadBuffer(d_batch_size, CL_TRUE, 0, sizeof(u32), &n_photons);
+        n_photons = std::min(n_photons, max_photons_total);
+        if (n_photons == 0)
+            LOG_FATAL("no photon hit");
+        buffers.n_photons = n_photons;
+
+        {
+            // hash photons
+            ctx.queue.enqueueFillBuffer(buffers.cell_counts, 0, 0, bucket_count * sizeof(u32));
+            buffers.set_hash_photons_args(k_hash_photons, d_photon_pos, n_photons, photon_hash_info);
+            ctx.queue.enqueueNDRangeKernel(k_hash_photons, cl::NullRange, cl::NDRange(n_photons), cl::NullRange);
+
+            // scan on grid cells
+            buffers.set_scan_cells_args(k_scan_cells, bucket_count);
+            ctx.queue.enqueueNDRangeKernel(k_scan_cells, cl::NullRange, cl::NDRange(1), cl::NullRange);
+
+            // scatter photons into sorted output buffers
+            ctx.queue.enqueueCopyBuffer(buffers.cell_start, buffers.cell_write_head, 0, 0, bucket_count * sizeof(u32));
+            buffers.set_scatter_args(k_scatter_photons, d_photon_pos, d_photon_power, d_photon_dir, n_photons);
+            ctx.queue.enqueueNDRangeKernel(k_scatter_photons, cl::NullRange, cl::NDRange(n_photons), cl::NullRange);
+
+            ctx.queue.finish();
+        }
+
         total_photons_emitted += photons_per_round;
-
-        TimerScope timer_scope_hash("building spatial hash");
-        PhotonHash photon_hash(h_photon_pos, h_photon_power, h_photon_dir, photon_hash_info);
-        buffers.copy_photons(ctx, photon_hash, h_photon_pos, h_photon_power, h_photon_dir);
-        timer_scope_hash.stop();
-
-        // gather pass (add up irradiance and do the SPPM update)
         buffers.set_gather_pass_args(k_gather_pass, photon_hash_info, args.sppm_alpha);
         ctx.queue.enqueueNDRangeKernel(k_gather_pass, cl::NullRange, cl::NDRange(buffers.n_pixels), cl::NullRange);
         ctx.queue.finish();
+        timer_scope_round.stop();
 
-        // save snapshots once in a while if enabled
         if ((args.save_snapshots && is_pow2(round)) || round == args.sppm_rounds) {
             ctx.queue.enqueueReadBuffer(buffers.sppm_pixels, CL_TRUE, 0, buffers.n_pixels * sizeof(SppmPixel),
                                         h_sppm.data());

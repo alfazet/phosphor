@@ -13,12 +13,13 @@ constexpr u32 DEFAULT_SAMPLES = 64;
 constexpr u32 DEFAULT_PHOTONS = 1000000;
 constexpr f32 DEFAULT_RAY_STEP = 0.0001f;
 constexpr u32 DEFAULT_SEED = 2137;
-constexpr u32 DEFAULT_GRID_RES = 128;
+constexpr u32 DEFAULT_MAX_PHOTON_BOUNCES = 16;
+constexpr u32 DEFAULT_GRID_RES = 32;
 constexpr f32 DEFAULT_DEFOCUS_ANGLE = 0.0;
 constexpr f32 DEFAULT_FOCUS_DISTANCE = 1.0;
 constexpr u32 DEFAULT_SPPM_ROUNDS = 64;
 constexpr f32 DEFAULT_SPPM_ALPHA = 0.7f;
-constexpr u32 DEFAULT_DIRECT_SAMPLES = 32;
+constexpr u32 DEFAULT_DIRECT_SAMPLES = 64;
 constexpr const char *DEFAULT_MODEL_PATH = "./models/sample/sample.glb";
 constexpr const char *DEFAULT_OUTPUT_DIR = "./phosphor_output";
 
@@ -28,11 +29,13 @@ constexpr const char *DEFAULT_OUTPUT_DIR = "./phosphor_output";
     X("-p", photons, u32, parse_u32, DEFAULT_PHOTONS, "number of photons to emit per SPPM round")                      \
     X("-m", model, std::string, parse_string, DEFAULT_MODEL_PATH, "gltf model path")                                   \
     X("-o", output_dir, std::string, parse_string, DEFAULT_OUTPUT_DIR, "output directory prefix")                      \
-    X("--grid-res", grid_res, u32, parse_u32, DEFAULT_GRID_RES, "spatial hash resolution")                             \
-    X("--sppm-rounds", sppm_rounds, u32, parse_u32, DEFAULT_SPPM_ROUNDS, "number of SPPM rounds")                      \
-    X("--sppm-alpha", sppm_alpha, f32, parse_f32, DEFAULT_SPPM_ALPHA, "SPPM radius reduction factor")                  \
+    X("--max-bounces", max_photon_bounces, u32, u32_range(1, 32), DEFAULT_MAX_PHOTON_BOUNCES,                          \
+      "max number of bounces for a single photon")                                                                     \
+    X("--grid-res", grid_res, u32, u32_range(1, 64), DEFAULT_GRID_RES, "spatial hash resolution")                      \
     X("--direct-samples", direct_samples, u32, parse_u32, DEFAULT_DIRECT_SAMPLES,                                      \
       "number of direct lighting rays per pixel per camera pass")                                                      \
+    X("--sppm-rounds", sppm_rounds, u32, parse_u32, DEFAULT_SPPM_ROUNDS, "number of SPPM rounds")                      \
+    X("--sppm-alpha", sppm_alpha, f32, parse_f32, DEFAULT_SPPM_ALPHA, "SPPM radius reduction factor")                  \
     X("--ray-step", ray_step, f32, parse_f32, DEFAULT_RAY_STEP, "ray step as a fraction of scene diagonal")            \
     X("--defocus-angle", defocus_angle, f32, parse_f32, DEFAULT_DEFOCUS_ANGLE,                                         \
       "variation angle of rays through each pixel")                                                                    \
