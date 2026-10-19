@@ -20,7 +20,7 @@ typedef struct GPU_ALIGN Light {
     float4 origin;
     float4 aux;
     // spot: .x = inner cone angle, .y = outer cone angle
-    // textured: .x = (as u32) tex_index, .y = (as u32) tri_start, .z = (as u32) tri_count
+    // textured: .x = (as u32) tex_index, .y = (as u32) tri_start, .z = (as u32) tri_count, .w = total_area
     // 7 * 4 * 4 = 112
 
     u8 kind;

@@ -3,14 +3,10 @@
 
 #include "bvh.hpp"
 #include "camera.h"
-#include "hitpoint.h"
 #include "opencl_ctx.hpp"
 #include "photon_hash.h"
 #include "scene.hpp"
-#include "sppm_pixel.h"
 #include "typedefs.h"
-
-#include <vector>
 
 struct SceneBuffers {
     cl::Buffer tri_v0, tri_v1, tri_v2;
@@ -58,7 +54,7 @@ struct SceneBuffers {
     cl::Buffer photon_hashes;
     cl::Buffer cell_counts;
     cl::Buffer cell_start;
-    cl::Buffer cell_write_head;
+    cl::Buffer cell_end;
 
     float4 scene_center{};
     f32 scene_radius = 0.0f;

@@ -118,7 +118,7 @@ void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
             ctx.queue.enqueueNDRangeKernel(k_scan_cells, cl::NullRange, cl::NDRange(1), cl::NullRange);
 
             // scatter photons into sorted output buffers
-            ctx.queue.enqueueCopyBuffer(buffers.cell_start, buffers.cell_write_head, 0, 0, bucket_count * sizeof(u32));
+            ctx.queue.enqueueCopyBuffer(buffers.cell_start, buffers.cell_end, 0, 0, bucket_count * sizeof(u32));
             buffers.set_scatter_args(k_scatter_photons, d_photon_pos, d_photon_power, d_photon_dir, n_photons);
             ctx.queue.enqueueNDRangeKernel(k_scatter_photons, cl::NullRange, cl::NDRange(n_photons), cl::NullRange);
 

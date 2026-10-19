@@ -39,5 +39,7 @@
 // values from Jensen's book (7.4.2)
 #define GAUSS_ALPHA 1.818f
 #define GAUSS_BETA 1.953f
+// = 1 - exp(-GAUSS_BETA)
+#define GAUSS_DENOM 0.85815f
 
 #endif // PHOSPHOR_CONSTANTS_H

@@ -182,7 +182,7 @@ void SceneBuffers::alloc_photon_hash_buffers(ClContext &ctx, u32 max_photons, u3
     photon_hashes = cl::Buffer(ctx.context, CL_MEM_READ_WRITE, max_photons * sizeof(u32));
     cell_counts = cl::Buffer(ctx.context, CL_MEM_READ_WRITE, bucket_count * sizeof(u32));
     cell_start = cl::Buffer(ctx.context, CL_MEM_READ_WRITE, bucket_count * sizeof(u32));
-    cell_write_head = cl::Buffer(ctx.context, CL_MEM_READ_WRITE, bucket_count * sizeof(u32));
+    cell_end = cl::Buffer(ctx.context, CL_MEM_READ_WRITE, bucket_count * sizeof(u32));
 }
 
 void SceneBuffers::alloc_sppm_buffers(ClContext &ctx) {
@@ -224,12 +224,12 @@ void SceneBuffers::set_scan_cells_args(cl::Kernel &kernel, u32 bucket_count) con
 void SceneBuffers::set_scatter_args(cl::Kernel &kernel, cl::Buffer &raw_photon_pos, cl::Buffer &raw_photon_power,
                                     cl::Buffer &raw_photon_dir, u32 n_photons) const {
     set_kernel_args(kernel, raw_photon_pos, raw_photon_power, raw_photon_dir, photon_hashes, photon_pos, photon_power,
-                    photon_dir, cell_write_head, n_photons);
+                    photon_dir, cell_end, n_photons);
 }
 
 void SceneBuffers::set_gather_pass_args(cl::Kernel &kernel, PhotonHashInfo info, f32 sppm_alpha) const {
     set_kernel_args(kernel, hit_points, sppm_pixels, total_irradiance, n_pixels, photon_pos, photon_power, photon_dir,
-                    n_photons, cell_start, cell_write_head, info, sppm_alpha);
+                    n_photons, cell_start, cell_end, info, sppm_alpha);
 }
 
 void SceneBuffers::print_buffer_sizes() const {
@@ -281,7 +281,7 @@ void SceneBuffers::print_buffer_sizes() const {
     sz("photon_hashes", photon_hashes);
     sz("cell_counts", cell_counts);
     sz("cell_start", cell_start);
-    sz("cell_write_head", cell_write_head);
+    sz("cell_end", cell_end);
 
     sz("hit_points", hit_points);
     sz("sppm_pixels", sppm_pixels);
