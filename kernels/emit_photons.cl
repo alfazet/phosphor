@@ -15,7 +15,7 @@ __kernel void emit_photons(
 
     // light sources
     __global const Light *lights, const u32 n_lights, const u32 max_photons, const u32 offset,
-    const u32 photons_to_emit, const u32 seed,
+    const u32 photons_to_emit, const u32 max_photon_bounces, const u32 seed,
 
     // scene geometry
     __global const BvhNode *tree, __global const float4 *tri_v0, __global const float4 *tri_v1,
@@ -50,7 +50,7 @@ __kernel void emit_photons(
     // the fraction of the original power that survives to the current bounce
     float4 throughput = (float4)(1.0f, 1.0f, 1.0f, 0.0f);
 
-    for (u32 depth = 0; depth < MAX_PHOTON_BOUNCES; depth++) {
+    for (u32 depth = 0; depth < max_photon_bounces; depth++) {
         HitRecord rec;
         bool hit = scene_intersect(tree, tri_v0, tri_v1, tri_v2, tri_uv0, tri_uv1, tri_uv2, tri_n0, tri_n1, tri_n2,
                                    tri_mat_index, n_tris, origin, dir, EPS, INF, &rec);

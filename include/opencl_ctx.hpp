@@ -25,6 +25,8 @@ struct ClContext {
 
     usize max_alloc_size() const;
 
+    usize max_work_group_size() const;
+
     // platform = an OpenCl impl, e.g. Intel, Nvidia, AMD
     cl::Platform platform;
     // device = CPU or GPU

@@ -4,11 +4,9 @@
 #include "bvh.hpp"
 #include "camera.h"
 #include "opencl_ctx.hpp"
-#include "photon_hash.hpp"
+#include "photon_hash.h"
 #include "scene.hpp"
 #include "typedefs.h"
-
-#include <vector>
 
 struct SceneBuffers {
     cl::Buffer tri_v0, tri_v1, tri_v2;
@@ -51,10 +49,12 @@ struct SceneBuffers {
     cl::Buffer photon_pos;
     cl::Buffer photon_power;
     cl::Buffer photon_dir;
+    u32 n_photons = 0;
 
+    cl::Buffer photon_hashes;
+    cl::Buffer cell_counts;
     cl::Buffer cell_start;
     cl::Buffer cell_end;
-    u32 n_photons = 0;
 
     float4 scene_center{};
     f32 scene_radius = 0.0f;
@@ -68,16 +68,23 @@ struct SceneBuffers {
 
     void copy_scene(ClContext &ctx, const SceneData &scene, const Bvh &bvh);
 
-    void copy_photons(ClContext &ctx, PhotonHash &hash, std::vector<float4> &photon_pos, std::vector<u32> &photon_power,
-                      std::vector<u32> &photon_dir);
+    void alloc_photon_hash_buffers(ClContext &ctx, u32 max_photons, u32 bucket_count);
 
     void alloc_sppm_buffers(ClContext &ctx);
 
-    void set_emit_photons_args(cl::Kernel &kernel, u32 batch_offset, u32 photons_to_emit, u32 seed,
-                               u32 batch_max_photons, cl::Buffer &out_photon_pos, cl::Buffer &out_photon_power,
+    void set_emit_photons_args(cl::Kernel &kernel, u32 batch_offset, u32 photons_to_emit, u32 max_photon_bounces,
+                               u32 seed, u32 max_photons, cl::Buffer &out_photon_pos, cl::Buffer &out_photon_power,
                                cl::Buffer &out_photon_dir, cl::Buffer &out_photon_count) const;
 
     void set_camera_pass_args(cl::Kernel &kernel, u32 seed, u32 direct_samples) const;
+
+    void set_hash_photons_args(cl::Kernel &kernel, cl::Buffer &raw_photon_pos, u32 n_photons,
+                               PhotonHashInfo info) const;
+
+    void set_scan_cells_args(cl::Kernel &kernel, u32 bucket_count) const;
+
+    void set_scatter_args(cl::Kernel &kernel, cl::Buffer &raw_photon_pos, cl::Buffer &raw_photon_power,
+                          cl::Buffer &raw_photon_dir, u32 n_photons) const;
 
     void set_gather_pass_args(cl::Kernel &kernel, PhotonHashInfo info, f32 sppm_alpha) const;
 

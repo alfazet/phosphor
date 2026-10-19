@@ -38,17 +38,11 @@ inline f32 random_float(RngState *rng) { return (f32)random_u32(rng) / U32_MAX; 
 #ifdef __OPENCL_C_VERSION__
 
 inline float4 random_unit_vector(RngState *rng) {
-    float4 p;
-    f32 len;
-    do {
-        p.x = 2.0f * random_float(rng) - 1.0f;
-        p.y = 2.0f * random_float(rng) - 1.0f;
-        p.z = 2.0f * random_float(rng) - 1.0f;
-        p.w = 0.0f;
-        len = dot(p, p);
-    } while (len >= 1.0f || len <= EPS);
+    f32 z = 2.0f * random_float(rng) - 1.0f;
+    f32 r = sqrt(fmax(0.0f, 1.0f - z * z));
+    f32 phi = 2.0f * PI * random_float(rng);
 
-    return p * rsqrt(len);
+    return (float4)(r * cos(phi), r * sin(phi), z, 0.0f);
 }
 
 inline float4 random_in_unit_hemisphere(RngState *rng, float4 normal) {

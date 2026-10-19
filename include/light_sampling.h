@@ -41,7 +41,7 @@ static inline u32 select_light(RngState *rng, __global const f32 *pref_sum, u32 
 static inline void sample_point_light(RngState *rng, Light *light, float4 *origin, float4 *dir, float4 *power) {
     *origin = light->position;
     *dir = random_unit_vector(rng);
-    *power = light->power;
+    *power = light->power * (4.0f * PI);
 }
 
 static inline void sample_spot_light(RngState *rng, Light *light, float4 *origin, float4 *dir, float4 *power) {
@@ -67,7 +67,8 @@ static inline void sample_spot_light(RngState *rng, Light *light, float4 *origin
 
     f32 t = clamp((cos_theta - cos_outer) / (cos_inner - cos_outer + EPS), 0.0f, 1.0f);
     f32 falloff = t * t * (-2.0f * t + 3.0f);
-    *power = light->power * falloff;
+    f32 angle_factor = 2.0f * PI * (1.0f - cos_outer);
+    *power = light->power * falloff * angle_factor;
 }
 
 static inline void sample_textured_light(RngState *rng, Light *light, __global const float4 *etri_v0,
@@ -84,13 +85,7 @@ static inline void sample_textured_light(RngState *rng, Light *light, __global c
 
     u32 chosen_idx = start;
     if (n_triangles > 1) {
-        f32 total_area = 0.0f;
-        for (u32 i = 0; i < n_triangles; i++) {
-            u32 t = start + i;
-            float4 e1 = etri_v1[t] - etri_v0[t];
-            float4 e2 = etri_v2[t] - etri_v0[t];
-            total_area += 0.5f * length(cross(e1, e2));
-        }
+        f32 total_area = light->aux.w;
         if (total_area > EPS) {
             f32 r = random_float(rng) * total_area;
             f32 accum = 0.0f;
@@ -148,7 +143,8 @@ static inline void sample_directional_light(RngState *rng, Light *light, float4 
 
     *dir = light->direction;
     *origin = center - light->direction * 2.0f * radius + disk_offset;
-    *power = light->power;
+
+    *power = light->power * PI * radius * radius;
 }
 
 inline void sample_light(RngState *rng, __global const Light *lights, u32 n_lights, __global const f32 *light_pref_sum,
@@ -241,7 +237,7 @@ direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32
         if (falloff < EPS)
             return BLACK;
 
-        irradiance = flux * falloff * cos_i / (4.0f * PI * dist_sq);
+        irradiance = flux * falloff * cos_i / dist_sq;
 
     } else if (light.kind == LIGHT_DIRECTIONAL) {
         shadow_dir = normalize(-light.direction);
@@ -257,13 +253,7 @@ direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32
         u32 start = as_uint(light.aux.y);
         u32 n_triangles = as_uint(light.aux.z);
 
-        f32 total_area = 0.0f;
-        for (u32 i = 0; i < n_triangles; i++) {
-            u32 t = start + i;
-            float4 e1 = etri_v1[t] - etri_v0[t];
-            float4 e2 = etri_v2[t] - etri_v0[t];
-            total_area += 0.5f * length(cross(e1, e2));
-        }
+        f32 total_area = light.aux.w;
         if (total_area < EPS)
             return BLACK;
 
@@ -318,14 +308,25 @@ direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32
     if (dot(irradiance, irradiance) < EPS * EPS)
         return BLACK;
 
-    HitRecord shadow_hit_rec;
-    bool occluded =
-        scene_intersect(tree, tri_v0, tri_v1, tri_v2, tri_uv0, tri_uv1, tri_uv2, tri_n0, tri_n1, tri_n2, tri_mat_index,
-                        n_tris, shadow_origin, shadow_dir, EPS, shadow_dist - EPS, &shadow_hit_rec);
-    if (occluded)
-        return BLACK;
+    float4 trans = WHITE;
+    f32 t_min = EPS, t_max = shadow_dist - EPS;
+    for (u32 depth = 0; depth < MAX_RAY_BOUNCES; depth++) {
+        HitRecord shadow_hit_rec;
+        bool hit = scene_intersect(tree, tri_v0, tri_v1, tri_v2, tri_uv0, tri_uv1, tri_uv2, tri_n0, tri_n1, tri_n2,
+                                   tri_mat_index, n_tris, shadow_origin, shadow_dir, t_min, t_max, &shadow_hit_rec);
+        if (!hit)
+            break;
+        Material mat = materials[shadow_hit_rec.mat_index];
+        if (mat.transmission < EPS)
+            return BLACK;
 
-    return irradiance * (1.0f - metallic) * base_color / PI;
+        trans *= mat.base_color * mat.transmission;
+        if (dot(trans, trans) < EPS)
+            return BLACK;
+        t_min = shadow_hit_rec.t + EPS;
+    }
+
+    return irradiance * (1.0f - metallic) * (base_color / PI) * trans;
 }
 
 #endif // __OPENCL_C_VERSION__

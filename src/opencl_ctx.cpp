@@ -72,3 +72,5 @@ std::string ClContext::platform_name() const { return platform.getInfo<CL_PLATFO
 std::string ClContext::device_name() const { return device.getInfo<CL_DEVICE_NAME>(); }
 
 usize ClContext::max_alloc_size() const { return device.getInfo<CL_DEVICE_MAX_MEM_ALLOC_SIZE>(); }
+
+usize ClContext::max_work_group_size() const { return device.getInfo<CL_DEVICE_MAX_WORK_GROUP_SIZE>(); }

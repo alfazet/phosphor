@@ -296,7 +296,7 @@ void parse_mesh(aiMesh *ai_mesh, const aiScene *ai_scene, SceneData &out_scene, 
         }
         vec3 emissive_power = PI * (*emissive) * total_area;
         out_scene.lights.push_back(
-            make_textured_light(m.emis_index, emissive_triangles_start, triangle_count, emissive_power));
+            make_textured_light(m.emis_index, emissive_triangles_start, triangle_count, emissive_power, total_area));
     }
 }
 

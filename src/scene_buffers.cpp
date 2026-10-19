@@ -175,16 +175,14 @@ void SceneBuffers::copy_scene(ClContext &ctx, const SceneData &scene, const Bvh 
     }
 }
 
-void SceneBuffers::copy_photons(ClContext &ctx, PhotonHash &hash, std::vector<float4> &photon_pos,
-                                std::vector<u32> &photon_power, std::vector<u32> &photon_dir) {
-    this->n_photons = static_cast<u32>(photon_pos.size());
-
-    this->photon_pos = copy_to_dev_buf(ctx, photon_pos.data(), n_photons, sizeof(float4));
-    this->photon_power = copy_to_dev_buf(ctx, photon_power.data(), n_photons, sizeof(u32));
-    this->photon_dir = copy_to_dev_buf(ctx, photon_dir.data(), n_photons, sizeof(u32));
-
-    cell_start = copy_to_dev_buf(ctx, hash.cell_start.data(), hash.cell_start.size(), sizeof(u32));
-    cell_end = copy_to_dev_buf(ctx, hash.cell_end.data(), hash.cell_end.size(), sizeof(u32));
+void SceneBuffers::alloc_photon_hash_buffers(ClContext &ctx, u32 max_photons, u32 bucket_count) {
+    photon_pos = cl::Buffer(ctx.context, CL_MEM_READ_WRITE, max_photons * sizeof(float4));
+    photon_power = cl::Buffer(ctx.context, CL_MEM_READ_WRITE, max_photons * sizeof(u32));
+    photon_dir = cl::Buffer(ctx.context, CL_MEM_READ_WRITE, max_photons * sizeof(u32));
+    photon_hashes = cl::Buffer(ctx.context, CL_MEM_READ_WRITE, max_photons * sizeof(u32));
+    cell_counts = cl::Buffer(ctx.context, CL_MEM_READ_WRITE, bucket_count * sizeof(u32));
+    cell_start = cl::Buffer(ctx.context, CL_MEM_READ_WRITE, bucket_count * sizeof(u32));
+    cell_end = cl::Buffer(ctx.context, CL_MEM_READ_WRITE, bucket_count * sizeof(u32));
 }
 
 void SceneBuffers::alloc_sppm_buffers(ClContext &ctx) {
@@ -193,15 +191,16 @@ void SceneBuffers::alloc_sppm_buffers(ClContext &ctx) {
     this->total_irradiance = init_filled_dev_buf(ctx, 0, n_pixels, sizeof(float4));
 }
 
-void SceneBuffers::set_emit_photons_args(cl::Kernel &kernel, u32 batch_offset, u32 photons_to_emit, u32 seed,
-                                         u32 batch_max_photons, cl::Buffer &out_photon_pos,
-                                         cl::Buffer &out_photon_power, cl::Buffer &out_photon_dir,
-                                         cl::Buffer &out_photon_count) const {
+void SceneBuffers::set_emit_photons_args(cl::Kernel &kernel, u32 batch_offset, u32 photons_to_emit,
+                                         u32 max_photon_bounces, u32 seed, u32 batch_max_photons,
+                                         cl::Buffer &out_photon_pos, cl::Buffer &out_photon_power,
+                                         cl::Buffer &out_photon_dir, cl::Buffer &out_photon_count) const {
     set_kernel_args(kernel, out_photon_pos, out_photon_power, out_photon_dir, out_photon_count, lights, n_lights,
-                    batch_max_photons, batch_offset, photons_to_emit, seed, bvh_nodes, tri_v0, tri_v1, tri_v2, tri_n0,
-                    tri_n1, tri_n2, tri_uv0, tri_uv1, tri_uv2, tri_t0, tri_t1, tri_t2, tri_mat_index, n_triangles,
-                    etri_v0, etri_v1, etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2, etri_mat_index,
-                    materials, tex_meta, tex_atlas, light_pref_sum, total_luminance, scene_center, scene_radius);
+                    batch_max_photons, batch_offset, photons_to_emit, max_photon_bounces, seed, bvh_nodes, tri_v0,
+                    tri_v1, tri_v2, tri_n0, tri_n1, tri_n2, tri_uv0, tri_uv1, tri_uv2, tri_t0, tri_t1, tri_t2,
+                    tri_mat_index, n_triangles, etri_v0, etri_v1, etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0,
+                    etri_uv1, etri_uv2, etri_mat_index, materials, tex_meta, tex_atlas, light_pref_sum, total_luminance,
+                    scene_center, scene_radius);
 }
 
 void SceneBuffers::set_camera_pass_args(cl::Kernel &kernel, u32 seed, u32 direct_samples) const {
@@ -211,6 +210,21 @@ void SceneBuffers::set_camera_pass_args(cl::Kernel &kernel, u32 seed, u32 direct
                     scene_center, scene_radius, etri_v0, etri_v1, etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0,
                     etri_uv1, etri_uv2, etri_mat_index, hit_points, envmap_data, envmap_width, envmap_height,
                     has_envmap);
+}
+
+void SceneBuffers::set_hash_photons_args(cl::Kernel &kernel, cl::Buffer &raw_photon_pos, u32 n_photons,
+                                         PhotonHashInfo info) const {
+    set_kernel_args(kernel, raw_photon_pos, photon_hashes, cell_counts, n_photons, info);
+}
+
+void SceneBuffers::set_scan_cells_args(cl::Kernel &kernel, u32 bucket_count) const {
+    set_kernel_args(kernel, cell_counts, cell_start, bucket_count);
+}
+
+void SceneBuffers::set_scatter_args(cl::Kernel &kernel, cl::Buffer &raw_photon_pos, cl::Buffer &raw_photon_power,
+                                    cl::Buffer &raw_photon_dir, u32 n_photons) const {
+    set_kernel_args(kernel, raw_photon_pos, raw_photon_power, raw_photon_dir, photon_hashes, photon_pos, photon_power,
+                    photon_dir, cell_end, n_photons);
 }
 
 void SceneBuffers::set_gather_pass_args(cl::Kernel &kernel, PhotonHashInfo info, f32 sppm_alpha) const {
@@ -264,6 +278,8 @@ void SceneBuffers::print_buffer_sizes() const {
     sz("photon_pos", photon_pos);
     sz("photon_power", photon_power);
     sz("photon_dir", photon_dir);
+    sz("photon_hashes", photon_hashes);
+    sz("cell_counts", cell_counts);
     sz("cell_start", cell_start);
     sz("cell_end", cell_end);
 
