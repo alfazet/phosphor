@@ -24,6 +24,8 @@ inline bool is_pow2(u32 x) {
     return ((x - 1) & x) == 0;
 }
 
+inline u32 global_size(u32 n, u32 local_size) { return ((n + local_size - 1) / local_size) * local_size; }
+
 #ifndef __OPENCL_C_VERSION__
 
 #include <bit>

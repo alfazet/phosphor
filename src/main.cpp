@@ -19,8 +19,9 @@
 
 void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
     ClContext ctx;
-    LOG_INFO("OpenCL platform/device: {}/{} with max. alloc size {} bytes", ctx.platform_name(), ctx.device_name(),
-             ctx.max_alloc_size());
+    LOG_INFO("OpenCL platform/device: {}/{}", ctx.platform_name(), ctx.device_name());
+    LOG_INFO("max. alloc size: {} bytes", ctx.max_alloc_size());
+    LOG_INFO("max. workgroup size: {} threads", ctx.max_work_group_size());
 
     cl::Kernel k_emit_photons = ctx.make_kernel("emit_photons");
     cl::Kernel k_camera_pass = ctx.make_kernel("camera_pass");
@@ -28,6 +29,7 @@ void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
     cl::Kernel k_hash_photons = ctx.make_kernel("hash_photons");
     cl::Kernel k_scan_cells = ctx.make_kernel("scan_cells");
     cl::Kernel k_scatter_photons = ctx.make_kernel("scatter_photons");
+    u32 local_size = args.workgroup_size;
 
     SceneData scene = read_gltf_scene(args.model.c_str());
     if (scene.triangles.empty()) {
@@ -83,7 +85,9 @@ void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
         u32 round_seed = random_u32(&rng);
 
         buffers.set_camera_pass_args(k_camera_pass, round_seed, args.direct_samples);
-        ctx.queue.enqueueNDRangeKernel(k_camera_pass, cl::NullRange, cl::NDRange(buffers.n_pixels), cl::NullRange);
+
+        ctx.queue.enqueueNDRangeKernel(k_camera_pass, cl::NullRange,
+                                       cl::NDRange(global_size(buffers.n_pixels, local_size)), cl::NDRange(local_size));
         ctx.queue.finish();
 
         h_batch_size = 0;
@@ -95,7 +99,8 @@ void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
                 buffers.set_emit_photons_args(k_emit_photons, batch_offset, photons_per_round, args.max_photon_bounces,
                                               emission_seed, max_photons_total, d_photon_pos, d_photon_power,
                                               d_photon_dir, d_batch_size);
-                ctx.queue.enqueueNDRangeKernel(k_emit_photons, cl::NullRange, cl::NDRange(to_emit), cl::NullRange);
+                ctx.queue.enqueueNDRangeKernel(k_emit_photons, cl::NullRange,
+                                               cl::NDRange(global_size(to_emit, local_size)), cl::NDRange(local_size));
             }
             ctx.queue.finish();
         }
@@ -111,7 +116,8 @@ void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
             // hash photons
             ctx.queue.enqueueFillBuffer(buffers.cell_counts, 0, 0, bucket_count * sizeof(u32));
             buffers.set_hash_photons_args(k_hash_photons, d_photon_pos, n_photons, photon_hash_info);
-            ctx.queue.enqueueNDRangeKernel(k_hash_photons, cl::NullRange, cl::NDRange(n_photons), cl::NullRange);
+            ctx.queue.enqueueNDRangeKernel(k_hash_photons, cl::NullRange,
+                                           cl::NDRange(global_size(n_photons, local_size)), cl::NDRange(local_size));
 
             // scan on grid cells
             buffers.set_scan_cells_args(k_scan_cells, bucket_count);
@@ -120,14 +126,16 @@ void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
             // scatter photons into sorted output buffers
             ctx.queue.enqueueCopyBuffer(buffers.cell_start, buffers.cell_end, 0, 0, bucket_count * sizeof(u32));
             buffers.set_scatter_args(k_scatter_photons, d_photon_pos, d_photon_power, d_photon_dir, n_photons);
-            ctx.queue.enqueueNDRangeKernel(k_scatter_photons, cl::NullRange, cl::NDRange(n_photons), cl::NullRange);
+            ctx.queue.enqueueNDRangeKernel(k_scatter_photons, cl::NullRange,
+                                           cl::NDRange(global_size(n_photons, local_size)), cl::NDRange(local_size));
 
             ctx.queue.finish();
         }
 
         total_photons_emitted += photons_per_round;
         buffers.set_gather_pass_args(k_gather_pass, photon_hash_info, args.sppm_alpha);
-        ctx.queue.enqueueNDRangeKernel(k_gather_pass, cl::NullRange, cl::NDRange(buffers.n_pixels), cl::NullRange);
+        ctx.queue.enqueueNDRangeKernel(k_gather_pass, cl::NullRange,
+                                       cl::NDRange(global_size(buffers.n_pixels, local_size)), cl::NDRange(local_size));
         ctx.queue.finish();
         timer_scope_round.stop();
 

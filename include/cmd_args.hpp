@@ -19,6 +19,7 @@ constexpr f32 DEFAULT_FOCUS_DISTANCE = 1.0;
 constexpr u32 DEFAULT_SPPM_ROUNDS = 64;
 constexpr f32 DEFAULT_SPPM_ALPHA = 0.7f;
 constexpr u32 DEFAULT_DIRECT_SAMPLES = 16;
+constexpr u32 DEFAULT_WORKGROUP_SIZE = 32;
 constexpr const char *DEFAULT_MODEL_PATH = "./models/sample/sample.glb";
 constexpr const char *DEFAULT_OUTPUT_DIR = "./phosphor_output";
 
@@ -33,6 +34,8 @@ constexpr const char *DEFAULT_OUTPUT_DIR = "./phosphor_output";
     X("--grid-res", grid_res, u32, u32_range(1, 128), DEFAULT_GRID_RES, "spatial hash resolution")                     \
     X("--direct-samples", direct_samples, u32, u32_range(1, 128), DEFAULT_DIRECT_SAMPLES,                              \
       "number of direct lighting rays per pixel per camera pass")                                                      \
+    X("--workgroup", workgroup_size, u32, u32_range(1, 1024), DEFAULT_WORKGROUP_SIZE,                                  \
+      "size of OpenCL workgroups (number of threads)")                                                                 \
     X("--sppm-rounds", sppm_rounds, u32, parse_u32, DEFAULT_SPPM_ROUNDS, "number of SPPM rounds")                      \
     X("--sppm-alpha", sppm_alpha, f32, parse_f32, DEFAULT_SPPM_ALPHA, "SPPM radius reduction factor")                  \
     X("--ray-step", ray_step, f32, parse_f32, DEFAULT_RAY_STEP, "ray step as a fraction of scene diagonal")            \
