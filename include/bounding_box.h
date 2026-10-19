@@ -11,10 +11,21 @@ typedef struct BoundingBox {
 
 #ifndef __OPENCL_C_VERSION__
 
+#include "logger.hpp"
 #include "triangle.h"
 
 inline f32 min_f32(f32 a, f32 b) { return a < b ? a : b; }
 inline f32 max_f32(f32 a, f32 b) { return a > b ? a : b; }
+inline bool check_inf(f32 value) { return (value >= INF || value <= -INF); }
+inline void check_bbox_inf(const BoundingBox bbox) {
+        if (check_inf(bbox.bbox_min.x) || check_inf(bbox.bbox_min.y) || check_inf(bbox.bbox_min.z) || check_inf(bbox.bbox_max.x) || check_inf(bbox.bbox_max.y) || check_inf(bbox.bbox_max.z)) 
+		LOG_FATAL("bounding box contains an infinity");
+}
+
+inline void check_bbox_width(const BoundingBox bbox) {
+	if (bbox.bbox_min.x == bbox.bbox_max.x || bbox.bbox_min.y == bbox.bbox_max.y || bbox.bbox_min.z == bbox.bbox_max.z)
+		LOG_FATAL("object has no width");
+}
 
 inline void expand(BoundingBox &bbox) {
     bbox.bbox_min.x -= DELTA;
@@ -43,7 +54,15 @@ inline BoundingBox get_bounding_box(const Triangle &tri) {
     expand_aabb(res, tri.v0);
     expand_aabb(res, tri.v1);
     expand_aabb(res, tri.v2);
+    check_bbox_inf(res);
     expand(res);
+    check_bbox_width(res);
+    //DBG(res.bbox_min.x);
+    //DBG(res.bbox_min.y);
+    //DBG(res.bbox_min.z);
+    //DBG(res.bbox_max.x);
+    //DBG(res.bbox_max.y);
+    //DBG(res.bbox_max.z);
     return res;
 }
 
@@ -73,7 +92,6 @@ inline BoundingBox merge(const BoundingBox &a, const BoundingBox &b) {
     result.bbox_max.x = max_f32(a.bbox_max.x, b.bbox_max.x);
     result.bbox_max.y = max_f32(a.bbox_max.y, b.bbox_max.y);
     result.bbox_max.z = max_f32(a.bbox_max.z, b.bbox_max.z);
-    expand(result);
     return result;
 }
 
