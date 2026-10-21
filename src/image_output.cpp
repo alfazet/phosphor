@@ -3,7 +3,7 @@
 #include "logger.hpp"
 #include "stb_image_write.h"
 
-// #include <cmath>
+#include <cmath>
 //
 // inline f32 tone_map(f32 x, f32 exposure) {
 //     x *= exposure;
@@ -20,6 +20,37 @@ inline f32 tone_map(f32 x, f32 exposure) {
     f32 out = (x * (a * x + b)) / (x * (c * x + d) + e);
 
     return std::clamp(out, 0.0f, 1.0f);
+}
+
+RenderSize resolve_render_size(const ArgsList &args, f32 base_aspect) {
+    ASSERT(base_aspect > 0.0f, "base aspect must be positive");
+
+    const bool has_w = args.was_provided("-w");
+    const bool has_h = args.was_provided("-h");
+
+    u32 width = args.width;
+    u32 height = args.height;
+
+    if ((has_w && has_h) || (!has_w && !has_h)) {
+        f32 aspect = static_cast<f32>(width) / static_cast<f32>(height);
+        f32 rel_diff = std::abs(aspect - base_aspect) / base_aspect;
+        if (rel_diff > 0.1f)
+            LOG_WARN("output aspect {:.3f} ({}x{}) differs from the camera's aspect {:.3f}", aspect, width, height,
+                     base_aspect);
+        return {
+            args.width,
+            args.height,
+            aspect,
+        };
+    }
+
+    if (has_w) {
+        height = std::max(1u, static_cast<u32>(std::lround(width / base_aspect)));
+        return {width, height, base_aspect};
+    }
+
+    width = std::max(1u, static_cast<u32>(std::lround(height * base_aspect)));
+    return {width, height, base_aspect};
 }
 
 void write_png(const std::filesystem::path &path, u32 width, u32 height, f32 exposure,

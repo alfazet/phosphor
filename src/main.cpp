@@ -49,6 +49,8 @@ void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
     std::filesystem::create_directory(output_dir);
 
     Camera &camera = scene.get_camera();
+    RenderSize render_size = resolve_render_size(args, camera.aspect_ratio);
+    camera.aspect_ratio = render_size.aspect;
     camera.focus(args.defocus_angle, args.focus_distance);
 
     Bvh bvh(scene.triangles);
@@ -56,7 +58,7 @@ void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
 
     SceneBuffers buffers;
     buffers.copy_scene(ctx, scene, bvh);
-    buffers.set_camera(camera.to_params(), args.res, args.res);
+    buffers.set_camera(camera.to_params(), render_size.width, render_size.height);
     buffers.alloc_sppm_buffers(ctx);
 
     u32 photons_per_round = args.photons;
@@ -146,8 +148,8 @@ void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
                                         h_total_irradiance.data());
 
             std::filesystem::path image_path = output_dir / std::format("{:0>6}.png", std::to_string(round));
-            write_png(image_path, args.res, args.res, args.exposure, h_sppm, h_total_irradiance, total_photons_emitted, round,
-                      image_metadata);
+            write_png(image_path, render_size.width, render_size.height, args.exposure, h_sppm, h_total_irradiance,
+                      total_photons_emitted, round, image_metadata);
             LOG_INFO("rendered image after {} SPPM rounds written to {}", round, image_path.c_str());
         }
     }
