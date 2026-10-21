@@ -8,7 +8,8 @@
 #include <unordered_map>
 #include <unordered_set>
 
-constexpr u32 DEFAULT_RES = 1024;
+constexpr u32 DEFAULT_WIDTH = 1024;
+constexpr u32 DEFAULT_HEIGHT = 1024;
 constexpr u32 DEFAULT_PHOTONS = 1048576;
 constexpr f32 DEFAULT_RAY_STEP = 0.0001f;
 constexpr u32 DEFAULT_SEED = 2137;
@@ -26,7 +27,8 @@ constexpr const char *DEFAULT_OUTPUT_DIR = "./phosphor_output";
 
 #define ARG_TABLE(X)                                                                                                   \
     X("--help", help, bool, parse_bool, false, "show help?")                                                           \
-    X("-r", res, u32, parse_u32, DEFAULT_RES, "image resolution (px)")                                                 \
+    X("-w", width, u32, parse_u32, DEFAULT_WIDTH, "image width (px)")                                                  \
+    X("-h", height, u32, parse_u32, DEFAULT_HEIGHT, "image height (px)")                                               \
     X("-p", photons, u32, parse_u32, DEFAULT_PHOTONS, "number of photons to emit per SPPM round")                      \
     X("-m", model, std::string, parse_string, DEFAULT_MODEL_PATH, "gltf model path")                                   \
     X("-o", output_dir, std::string, parse_string, DEFAULT_OUTPUT_DIR, "output directory prefix")                      \

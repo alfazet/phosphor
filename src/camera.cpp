@@ -1,4 +1,5 @@
 #include "camera.hpp"
+#include "logger.hpp"
 
 Camera::Camera(vec3 position, vec3 look_at, vec3 up, f32 hfov_deg, f32 aspect) {
     this->position = position;
