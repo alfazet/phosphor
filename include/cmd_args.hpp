@@ -18,6 +18,7 @@ constexpr f32 DEFAULT_DEFOCUS_ANGLE = 0.0;
 constexpr f32 DEFAULT_FOCUS_DISTANCE = 1.0;
 constexpr u32 DEFAULT_SPPM_ROUNDS = 64;
 constexpr f32 DEFAULT_SPPM_ALPHA = 0.7f;
+constexpr f32 DEFAULT_EXPOSURE = 1.0f;
 constexpr u32 DEFAULT_DIRECT_SAMPLES = 16;
 constexpr u32 DEFAULT_WORKGROUP_SIZE = 32;
 constexpr const char *DEFAULT_MODEL_PATH = "./models/sample/sample.glb";
@@ -43,6 +44,7 @@ constexpr const char *DEFAULT_OUTPUT_DIR = "./phosphor_output";
       "variation angle of rays through each pixel")                                                                    \
     X("--focus-distance", focus_distance, f32, parse_f32, DEFAULT_FOCUS_DISTANCE,                                      \
       "distance from the camera where an object is perfectly in focus")                                                \
+    X("--exposure", exposure, f32, parse_f32, DEFAULT_EXPOSURE, "color exposure multiplier")                           \
     X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")                                                        \
     X("--snapshots", save_snapshots, bool, parse_bool, false, "should rendering snapshots be saved?")                  \
     X("--envmap", envmap, std::string, parse_string, "", "path to an HDR environment map")

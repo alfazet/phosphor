@@ -84,8 +84,10 @@ __kernel void camera_pass(
 
         float4 vol_trans = WHITE;
         f32 curr_ior = current_ior(&ior_stack);
-        if (curr_ior != AIR_IOR && mat.thickness > 0.0f && mat.att_dist > EPS)
+        if (curr_ior != AIR_IOR && mat.thickness > 0.0f && mat.att_dist > EPS) {
             vol_trans = beer_lambert(mat.att_color, mat.att_dist, surf_hit.t);
+            throughput *= vol_trans;
+        }
 
         f32 bary_w = 1.0f - rec.u - rec.v;
         float4 tan_raw = bary_w * tri_t0[surf_hit.tri_index] + rec.u * tri_t1[surf_hit.tri_index] +
@@ -100,7 +102,6 @@ __kernel void camera_pass(
         float4 view = -dir;
         BsdfSample bsdf =
             sample_bsdf(&rng, &ctx, ctx.shading_normal, surf_hit.normal, view, &ior_stack, surf_hit.front_face);
-        bsdf.throughput *= vol_trans;
 
         if (bsdf.event == BSDF_DIFFUSE) {
             float4 direct_sum = BLACK;

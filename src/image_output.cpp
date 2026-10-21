@@ -3,18 +3,28 @@
 #include "logger.hpp"
 #include "stb_image_write.h"
 
-#include <cmath>
+// #include <cmath>
+//
+// inline f32 tone_map(f32 x, f32 exposure) {
+//     x *= exposure;
+//     f32 mapped = x / (1.0f + x);
+//     f32 out = std::pow(mapped, 1.0f / 2.2f);
+//
+//     return std::clamp(out, 0.0f, 1.0f);
+// }
 
-inline f32 tone_map(f32 x) {
-    f32 mapped = x / (1.0f + x);
-    f32 out = std::pow(mapped, 1.0f / 2.2f);
+// https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve
+inline f32 tone_map(f32 x, f32 exposure) {
+    x *= exposure;
+    f32 a = 2.51f, b = 0.03f, c = 2.43f, d = 0.59f, e = 0.14f;
+    f32 out = (x * (a * x + b)) / (x * (c * x + d) + e);
 
     return std::clamp(out, 0.0f, 1.0f);
 }
 
-void write_png(const std::filesystem::path &path, u32 width, u32 height, const std::vector<SppmPixel> &sppm_pixels,
-               const std::vector<float4> &total_irradiance, u64 total_photons, u32 sppm_rounds,
-               const std::string &metadata) {
+void write_png(const std::filesystem::path &path, u32 width, u32 height, f32 exposure,
+               const std::vector<SppmPixel> &sppm_pixels, const std::vector<float4> &total_irradiance,
+               u64 total_photons, u32 sppm_rounds, const std::string &metadata) {
     u32 n_pixels = width * height;
     std::vector<u8> ldr(n_pixels * 3);
 
@@ -36,9 +46,9 @@ void write_png(const std::filesystem::path &path, u32 width, u32 height, const s
         f32 r = x.x * inv_rounds + indirect.x;
         f32 g = x.y * inv_rounds + indirect.y;
         f32 b = x.z * inv_rounds + indirect.z;
-        ldr[p * 3 + 0] = static_cast<u8>(tone_map(r) * 255.0f);
-        ldr[p * 3 + 1] = static_cast<u8>(tone_map(g) * 255.0f);
-        ldr[p * 3 + 2] = static_cast<u8>(tone_map(b) * 255.0f);
+        ldr[p * 3 + 0] = static_cast<u8>(tone_map(r, exposure) * 255.0f);
+        ldr[p * 3 + 1] = static_cast<u8>(tone_map(g, exposure) * 255.0f);
+        ldr[p * 3 + 2] = static_cast<u8>(tone_map(b, exposure) * 255.0f);
     }
 
     stbi_write_png(path.c_str(), static_cast<i32>(width), static_cast<i32>(height), 3, ldr.data(),

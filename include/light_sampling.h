@@ -129,7 +129,7 @@ static inline void sample_textured_light(RngState *rng, Light *light, __global c
         u32 mat_idx = etri_mat_index[chosen_idx];
         Material mat = materials[mat_idx];
         float4 tex_color = sample_texture_uv(&mat, tex_meta, tex_atlas, tex_index, uv, mat.emis_transform);
-        emissive_power *= tex_color;
+        emissive_power *= srgb_to_linear(tex_color);
     }
     *power = emissive_power;
 }
@@ -298,7 +298,8 @@ direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32
             float2 uv = (float2)(bw * uv0.x + bu * uv1.x + bv * uv2.x, bw * uv0.y + bu * uv1.y + bv * uv2.y);
             u32 mat_idx = etri_mat_index[chosen];
             Material mat = materials[mat_idx];
-            emissive_flux *= sample_texture_uv(&mat, tex_meta, tex_atlas, tex_index, uv, mat.emis_transform);
+            float4 tex_color = sample_texture_uv(&mat, tex_meta, tex_atlas, tex_index, uv, mat.emis_transform);
+            emissive_flux *= srgb_to_linear(tex_color);
         }
 
         f32 cos_l = fmax(dot(-shadow_dir, ln), 0.0f);
@@ -326,7 +327,7 @@ direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32
         t_min = shadow_hit_rec.t + EPS;
     }
 
-    return irradiance * (1.0f - metallic) * (base_color / PI) * trans;
+    return irradiance * (base_color / PI) * trans;
 }
 
 #endif // __OPENCL_C_VERSION__

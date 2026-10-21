@@ -146,8 +146,8 @@ void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
                                         h_total_irradiance.data());
 
             std::filesystem::path image_path = output_dir / std::format("{:0>6}.png", std::to_string(round));
-            write_png(image_path, args.res, args.res, h_sppm, h_total_irradiance, total_photons_emitted,
-                      args.sppm_rounds, image_metadata);
+            write_png(image_path, args.res, args.res, args.exposure, h_sppm, h_total_irradiance, total_photons_emitted, round,
+                      image_metadata);
             LOG_INFO("rendered image after {} SPPM rounds written to {}", round, image_path.c_str());
         }
     }
