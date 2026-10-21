@@ -50,6 +50,8 @@ typedef struct GPU_ALIGN Material {
 #include "constants.h"
 #include "texture_meta.h"
 
+inline float4 srgb_to_linear(float4 c) { return (float4)(pow(c.x, 2.2f), pow(c.y, 2.2f), pow(c.z, 2.2f), c.w); }
+
 inline float2 apply_uv_transform(float2 uv, float2 offset, float2 scale, f32 rotation) {
     float2 scaled = uv * scale;
     f32 cos_r = cos(rotation);

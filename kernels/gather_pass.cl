@@ -66,7 +66,7 @@ __kernel void gather_pass(
         f32 ratio = new_photon_count / (photon_count + found);
         f32 new_radius_sq = r_sq * ratio;
 
-        float4 albedo = hp.base_color * (1.0f - hp.metallic);
+        float4 albedo = hp.base_color;
         float4 contribution = hp.throughput * (albedo / PI) * new_flux;
 
         sp.flux = (sp.flux + contribution) * ratio;

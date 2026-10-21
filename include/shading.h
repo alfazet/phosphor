@@ -11,8 +11,6 @@
 #include "typedefs.h"
 #include "utils.h"
 
-inline float4 srgb_to_linear(float4 c) { return (float4)(pow(c.x, 2.2f), pow(c.y, 2.2f), pow(c.z, 2.2f), c.w); }
-
 typedef struct ShadingContext {
     float4 base_color;
     float4 emissive;
@@ -78,7 +76,7 @@ inline ShadingContext evaluate_material(const Material *mat, float2 uv, float4 g
                                         __global const u8 *tex_atlas, float4 vol_trans) {
     ShadingContext ctx;
 
-    ctx.base_color = mat->base_color * vol_trans;
+    ctx.base_color = mat->base_color;
     if (mat->diff_index != NO_TEXTURE) {
         float4 tex = sample_texture_uv(mat, tex_meta, tex_atlas, mat->diff_index, uv, mat->diff_transform);
         ctx.base_color *= srgb_to_linear(tex);
