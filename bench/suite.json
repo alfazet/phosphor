@@ -1,0 +1,24 @@
+{
+  "renderer": "./build/release/phosphor",
+  "output_root": "bench/runs",
+  "models_dir": "models/test",
+  "runs_dir": "bench/runs",
+  "seeds": [2137, 42],
+  "timeout_s": 900,
+  "args": {
+    "-w": 1024,
+    "-h": 1024,
+    "-p": 262144,
+    "--sppm-rounds": 16,
+    "--direct-samples": 8
+  },
+  "thresholds": {
+    "ssim_min": 0.8,
+    "mse_max": 0.003,
+    "ssim_std_max": 0.01
+  },
+  "scenes": [
+    {"name": "Directional", "args": {"-w": 1000, "-h": 1000}, "thresholds": {"ssim_min": 0.9}}
+  ]
+}
+
