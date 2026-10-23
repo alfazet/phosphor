@@ -41,12 +41,13 @@ def render(cfg, glb, seed, out_dir, suite_args):
         return None, f"missing {png.name}", dt
     return png, "", dt
 
-def find_models(cfg, only=None):
+def find_models(cfg, only=None, exclude=None):
     root = Path(cfg["models_dir"])
     if not root.exists():
         return []
-    return [d for d in sorted(root.iterdir())
-            if d.is_dir() and (not only or (d.name in only))]
+    return [d for d in sorted(root.iterdir()) if d.is_dir()
+            and (not only or (d.name in only))
+            and (not exclude or (d.name not in exclude))]
 
 def pick_file(folder, suffix, ext, name):
     if not folder.is_dir():
@@ -68,8 +69,8 @@ def pick_file(folder, suffix, ext, name):
         return chosen, None
     return cands[0], None
 
-def run_suite(cfg, only):
-    models = find_models(cfg, only)
+def run_suite(cfg, only, exclude):
+    models = find_models(cfg, only, exclude)
     if not models:
         print(f"no models found in {cfg['models_dir']}")
         return 1
@@ -140,9 +141,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--suite", default="bench/suite.json", help="test config")
     ap.add_argument("--only", nargs="+", help="model name(s) to run")
+    ap.add_argument("--exclude", nargs="+", help="model name(s) to exclude")
     a = ap.parse_args()
     cfg = json.loads(Path(a.suite).read_text())
-    return run_suite(cfg, a.only)
+    return run_suite(cfg, a.only, a.exclude)
 
 
 if __name__ == "__main__":
