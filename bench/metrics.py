@@ -11,6 +11,8 @@ def _blur(img, g):
     v = sliding_window_view(img, k, axis=0) @ g
     return sliding_window_view(v, k, axis=1) @ g
 
+# original paper: https://ece.uwaterloo.ca/~z70wang/publications/ssim.pdf
+# https://github.com/zhenglab/IQA/tree/master/Codes/OriginalVersion/SSIM
 def ssim_channel(a, b, data_range=1.0):
     C1, C2 = (0.01 * data_range) ** 2, (0.03 * data_range) ** 2
     g = _gauss()

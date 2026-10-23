@@ -20,9 +20,17 @@ def final_frame_name(out_dir):
     return max(pngs, key=lambda p: p.stat().st_mtime) if pngs else None
 
 def scene_settings(cfg, name):
-    over = next((s for s in cfg.get("scenes", []) if s["name"] == name), {})
-    return {"args": {**cfg["args"], **over.get("args", {})},
-            "thresholds": {**cfg["thresholds"], **over.get("thresholds", {})}}
+    over = next((s for s in cfg.get("scenes", []) if s.get("name") == name), {})
+    sc = {k: v for k, v in cfg.items() if k != "scenes"}
+    for k, v in over.items():
+        if k == "name":
+            continue
+        if k in ("args", "thresholds"):
+            sc[k] = {**(cfg.get(k) or {}), **(v or {})}
+        else:
+            sc[k] = v
+    return sc
+
 
 def render(cfg, glb, seed, out_dir, suite_args):
     args = {**suite_args, "-m": str(glb), "--seed": seed, "-o": str(out_dir), "--logs": str(out_dir / "renderer.log")}
@@ -88,13 +96,13 @@ def run_suite(cfg, only, exclude):
         if ref is None:
             failures.append(f"{name}: {err}")
             continue
-        sc = scene_settings(cfg, name)
-        th = sc["thresholds"]
+        cfg = scene_settings(cfg, name)
+        th = cfg["thresholds"]
         ref = load(ref)
         ssims, mses = [], []
 
         for seed in cfg["seeds"]:
-            png, err, dt = render(cfg, glb, seed, run_dir / name / f"seed{seed}", sc["args"])
+            png, err, dt = render(cfg, glb, seed, run_dir / name / f"seed{seed}", cfg["args"])
             row = {"run": run_dir.name, "model": name, "seed": seed, "time_s": round(dt, 2),
                    "ssim": "", "mse": "", "status": err or "ok"}
             if not err:
