@@ -48,6 +48,26 @@ def find_models(cfg, only=None):
     return [d for d in sorted(root.iterdir())
             if d.is_dir() and (not only or (d.name in only))]
 
+def pick_file(folder, suffix, ext, name):
+    if not folder.is_dir():
+        return None, f"{folder} is not a directory"
+
+    cands = sorted(
+            (p for p in folder.iterdir()
+             if p.is_file() and p.suffix.lower() == suffix and not p.name.startswith(".")),
+            key=lambda p: p.name.lower(),
+            )
+    if not cands:
+        return None, f"no {ext} (*{suffix}) in {folder}"
+    if len(cands) > 1:
+        # prefer the file named after the folder
+        named = [p for p in cands if p.stem.lower() == name.lower()]
+        chosen = named[0] if named else cands[0]
+        print(f"WARNING [{name}]: {len(cands)} {ext} files in {folder}, using {chosen.name}",
+              file=sys.stderr)
+        return chosen, None
+    return cands[0], None
+
 def run_suite(cfg, only):
     models = find_models(cfg, only)
     if not models:
@@ -59,16 +79,17 @@ def run_suite(cfg, only):
 
     for d in models:
         name = d.name
-        glb, ref_path = d / f"{name}.glb", d / f"{name}.png"
-        if not glb.exists():
-            failures.append(f"{name}: missing {glb}")
+        glb, err = pick_file(d, ".glb", "glTF model", name)
+        if glb is None:
+            failures.append(f"{name}: {err}")
             continue
-        if not ref_path.exists():
-            failures.append(f"{name}: missing reference {ref_path}")
+        ref, err = pick_file(d, ".png", "reference image", name)
+        if ref is None:
+            failures.append(f"{name}: {err}")
             continue
         sc = scene_settings(cfg, name)
         th = sc["thresholds"]
-        ref = load(ref_path)
+        ref = load(ref)
         ssims, mses = [], []
 
         for seed in cfg["seeds"]:
