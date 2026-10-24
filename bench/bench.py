@@ -1,8 +1,11 @@
+#!/usr/bin/env python
+
 from metrics import ssim, mse
 
 import argparse, csv, json, shutil, subprocess, sys, time
 from datetime import datetime
 from pathlib import Path
+import re
 
 import numpy as np
 from matplotlib.image import imread
@@ -31,23 +34,42 @@ def scene_settings(cfg, name):
             sc[k] = v
     return sc
 
+_FINISHED_RE = re.compile(r"finished\s+(?P<name>.+?),\s*took\s+(?P<ms>\d+(?:\.\d+)?)\s*ms")
+def parse_finished_times(log_path):
+    results = []
+    with Path(log_path).open("r", encoding="utf-8", errors="replace") as f:
+        for line in f:
+            m = _FINISHED_RE.search(line.rstrip())
+            if m:
+                results.append((m.group("name"), float(m.group("ms"))))
+    return results
 
 def render(cfg, glb, seed, out_dir, suite_args):
-    args = {**suite_args, "-m": str(glb), "--seed": seed, "-o": str(out_dir), "--logs": str(out_dir / "renderer.log")}
+    log = out_dir / "renderer.log"
+    args = {**suite_args, "-m": str(glb), "--seed": seed, "-o": str(out_dir), "--logs": log}
     cmd = [cfg["renderer"]] + [t for k, v in args.items() for t in (k, str(v))]
     out_dir.mkdir(parents=True, exist_ok=True)
-    t0 = time.perf_counter()
+
     try:
         p = subprocess.run(cmd, capture_output=True, text=True, timeout=cfg["timeout_s"])
     except subprocess.TimeoutExpired:
-        return None, "timeout", time.perf_counter() - t0
-    dt = time.perf_counter() - t0
+        return None, "timeout", -1, -1, -1,
+
+    ms = [v for _, v in parse_finished_times(log)] if log.exists() else []
+    t0 = ms[0] if len(ms) > 0 else -1
+    t1 = ms[1] if len(ms) > 1 else -1
+    t2 = sum(ms[2:]) if len(ms) > 2 else -1
+
+    t0 /= 1000
+    t1 /= 1000
+    t2 /= 1000
+
     if p.returncode != 0:
-        return None, f"exit {p.returncode}", dt
+        return None, f"exit {p.returncode}", t0, t1, t2
     png = final_frame_name(out_dir)
     if not png.exists():
-        return None, f"missing {png.name}", dt
-    return png, "", dt
+        return None, f"missing {png.name}", t0, t1, t2
+    return png, "", t0, t1, t2
 
 def find_models(cfg, only=None, exclude=None):
     root = Path(cfg["models_dir"])
@@ -102,8 +124,8 @@ def run_suite(cfg, only, exclude):
         ssims, mses = [], []
 
         for seed in cfg["seeds"]:
-            png, err, dt = render(cfg, glb, seed, run_dir / name / f"seed{seed}", cfg["args"])
-            row = {"run": run_dir.name, "model": name, "seed": seed, "time_s": round(dt, 2),
+            png, err, t0, t1, t2 = render(cfg, glb, seed, run_dir / name / f"seed{seed}", cfg["args"])
+            row = {"run": run_dir.name, "model": name, "seed": seed, "time reading": round(t0, 2), "time structs": round(t1, 2), "time render": round(t2, 2),
                    "ssim": "", "mse": "", "status": err or "ok"}
             if not err:
                 img = load(png)
@@ -116,7 +138,7 @@ def run_suite(cfg, only, exclude):
                 failures.append(f"{name} seed {seed}: {row['status']}")
             rows.append(row)
             print(f"{name:16s} seed {seed:<6d} {row['status']:8s} "
-                  f"SSIM {row['ssim']}  MSE {row['mse']}  ({row['time_s']} s)")
+                  f"SSIM {row['ssim']}  MSE {row['mse']}  ({row['time reading']} s) ({row['time structs']} s) ({row['time render']} s)")
 
         if ssims:
             m_ssim, s_ssim, m_mse = float(np.mean(ssims)), float(np.std(ssims)), float(np.mean(mses))
@@ -129,7 +151,7 @@ def run_suite(cfg, only, exclude):
                 failures.append(f"{name}: SSIM std {s_ssim:.4f} > {th['ssim_std_max']}")
 
     run_dir.mkdir(parents=True, exist_ok=True)
-    fields = ["run", "model", "seed", "time_s", "ssim", "mse", "status"]
+    fields = ["run", "model", "seed", "time reading", "time structs", "time render", "ssim", "mse", "status"]
     with open(run_dir / "results.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()
