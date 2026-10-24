@@ -31,7 +31,10 @@ void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
     cl::Kernel k_scatter_photons = ctx.make_kernel("scatter_photons");
     u32 local_size = args.workgroup_size;
 
+    TimerScope timer_scope("Loading scene");
     SceneData scene = read_gltf_scene(args.model.c_str());
+    timer_scope.stop();
+
     if (scene.triangles.empty()) {
         LOG_ERROR("empty scene, nothing to render");
         return;
@@ -48,6 +51,7 @@ void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
     }
     std::filesystem::create_directory(output_dir);
 
+    TimerScope timer_scope2("Preparing data structures");
     Camera &camera = scene.get_camera();
     RenderSize render_size = resolve_render_size(args, camera.aspect_ratio);
     camera.aspect_ratio = render_size.aspect;
@@ -81,6 +85,7 @@ void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
 
     std::vector<SppmPixel> h_sppm(buffers.n_pixels);
     std::vector<float4> h_total_irradiance(buffers.n_pixels);
+    timer_scope2.stop();
 
     for (u32 round = 1; round <= args.sppm_rounds; round++) {
         TimerScope timer_scope_round(std::format("SPPM round {}", round));
