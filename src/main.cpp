@@ -156,7 +156,6 @@ void phosphor_main(const ArgsList &args, const std::string &image_metadata) {
 }
 
 i32 main(i32 argc, char **argv) {
-    init_logger();
     ArgParser arg_parser(argc, argv, std::cout);
     try {
         auto args = arg_parser.parse_all();
@@ -164,6 +163,7 @@ i32 main(i32 argc, char **argv) {
             arg_parser.print_help();
             return 1;
         }
+        init_logger(args.logs_filename.c_str());
         LOG_INFO("chosen parameters:");
         arg_parser.print_values(args);
         std::string metadata = arg_parser.build_image_metadata(args);

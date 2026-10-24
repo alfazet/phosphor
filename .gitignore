@@ -5,3 +5,5 @@ build/
 phosphor_output_*/
 /*.png
 *.log
+bench/runs/
+__pycache__/

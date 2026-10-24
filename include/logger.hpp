@@ -174,6 +174,7 @@ class Logger {
 
         std::lock_guard<std::mutex> lock(mutex_);
         sink_->write(record);
+        sink_->flush();
     }
 
     template <typename... Args>
@@ -395,6 +396,6 @@ class TimerScope {
     std::thread thread_;
 };
 
-void init_logger();
+void init_logger(const char *logs_filename);
 
 #endif // PHOSPHOR_LOGGER_HPP

@@ -1,12 +1,12 @@
 #include "logger.hpp"
 
-void init_logger() {
+void init_logger(const char* logs_filename) {
     auto &l = logger::Logger::instance();
     l.set_level(logger::Level::Debug);
 
     auto multi = std::make_unique<logger::MultiSink>();
     multi->add(std::make_unique<logger::ConsoleSink>());
-    multi->add(std::make_unique<logger::FileSink>("phosphor.log", false));
+    multi->add(std::make_unique<logger::FileSink>(logs_filename, false));
     l.set_sink(std::move(multi));
 }
 

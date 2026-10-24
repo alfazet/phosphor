@@ -24,6 +24,7 @@ constexpr u32 DEFAULT_DIRECT_SAMPLES = 16;
 constexpr u32 DEFAULT_WORKGROUP_SIZE = 32;
 constexpr const char *DEFAULT_MODEL_PATH = "./models/sample/sample.glb";
 constexpr const char *DEFAULT_OUTPUT_DIR = "./phosphor_output";
+constexpr const char *DEFAULT_LOG_FILENAME = "./phosphor.log";
 
 #define ARG_TABLE(X)                                                                                                   \
     X("--help", help, bool, parse_bool, false, "show help?")                                                           \
@@ -49,7 +50,8 @@ constexpr const char *DEFAULT_OUTPUT_DIR = "./phosphor_output";
     X("--exposure", exposure, f32, parse_f32, DEFAULT_EXPOSURE, "color exposure multiplier")                           \
     X("--seed", seed, u32, parse_u32, DEFAULT_SEED, "rng seed")                                                        \
     X("--snapshots", save_snapshots, bool, parse_bool, false, "should rendering snapshots be saved?")                  \
-    X("--envmap", envmap, std::string, parse_string, "", "path to an HDR environment map")
+    X("--envmap", envmap, std::string, parse_string, "", "path to an HDR environment map")                             \
+    X("--logs", logs_filename, std::string, parse_string, "phosphor.log", "logs filename")
 
 struct ArgsList {
     std::string dataset_path;
