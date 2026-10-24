@@ -125,7 +125,7 @@ def run_suite(cfg, only, exclude):
 
         for seed in cfg["seeds"]:
             png, err, t0, t1, t2 = render(cfg, glb, seed, run_dir / name / f"seed{seed}", cfg["args"])
-            row = {"run": run_dir.name, "model": name, "seed": seed, "time_reading": round(t0, 2), "time_structs": round(t1, 2), "time_render": round(t2, 2),
+            row = {"run": run_dir.name, "model": name, "seed": seed, "time reading": round(t0, 2), "time structs": round(t1, 2), "time render": round(t2, 2),
                    "ssim": "", "mse": "", "status": err or "ok"}
             if not err:
                 img = load(png)
@@ -138,7 +138,7 @@ def run_suite(cfg, only, exclude):
                 failures.append(f"{name} seed {seed}: {row['status']}")
             rows.append(row)
             print(f"{name:16s} seed {seed:<6d} {row['status']:8s} "
-                  f"SSIM {row['ssim']}  MSE {row['mse']}  ({row['time_reading']} s) ({row['time_structs']} s) ({row['time_render']} s)")
+                  f"SSIM {row['ssim']}  MSE {row['mse']}  ({row['time reading']} s) ({row['time structs']} s) ({row['time render']} s)")
 
         if ssims:
             m_ssim, s_ssim, m_mse = float(np.mean(ssims)), float(np.std(ssims)), float(np.mean(mses))
@@ -151,7 +151,7 @@ def run_suite(cfg, only, exclude):
                 failures.append(f"{name}: SSIM std {s_ssim:.4f} > {th['ssim_std_max']}")
 
     run_dir.mkdir(parents=True, exist_ok=True)
-    fields = ["run", "model", "seed", "time_reading", "time_structs", "time_render", "ssim", "mse", "status"]
+    fields = ["run", "model", "seed", "time reading", "time structs", "time render", "ssim", "mse", "status"]
     with open(run_dir / "results.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()
