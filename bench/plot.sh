@@ -10,7 +10,7 @@ set terminal pngcairo size 900,500
 set output '$out'
 
 set title 'Render stage timings'
-set ylabel 'time (ms)'
+set ylabel 'time (s)'
 set style data histograms
 set style histogram rowstacked
 set style fill solid 0.8 border -1
