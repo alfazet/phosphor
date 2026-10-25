@@ -1,17 +1,16 @@
-#include "constants.h"
-#include "hit.h"
-#include "light_sampling.h"
-#include "material.h"
-#include "photon.h"
-#include "random.h"
-#include "shading.h"
-#include "surface_hit.h"
-#include "texture_meta.h"
-#include "typedefs.h"
+#include "common/constants.h"
+#include "common/material.h"
+#include "common/random.h"
+#include "common/texture_meta.h"
+#include "common/typedefs.h"
+#include "device/hit.h"
+#include "device/light_sampling.h"
+#include "device/photon.h"
+#include "device/shading.h"
 
 __kernel void emit_photons(
     // output photon arrays
-    __global float4 *photon_pos, __global u32 *photon_power, __global u32 *photon_dir, __global u32 *photon_count,
+    __global float4 *photon_pos, __global u32 *photon_power, __global u32 *photon_dir, __global u32 *n_photons,
 
     // light sources
     __global const Light *lights, const u32 n_lights, const u32 max_photons, const u32 offset,
@@ -32,7 +31,7 @@ __kernel void emit_photons(
 
     // materials, textures and lighting params
     __global const Material *materials, __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
-    __global const f32 *light_pref_sum, const f32 total_luminance, const float4 scene_center, const f32 scene_radius) {
+    __global const f32 *lum_pref_sum, const f32 total_lum, const float4 scene_center, const f32 scene_radius) {
 
     u32 tid = get_global_id(0) + offset;
     if (tid - offset >= photons_to_emit)
@@ -40,7 +39,7 @@ __kernel void emit_photons(
     RngState rng = pcg_seed(seed + tid);
 
     float4 origin, dir, power;
-    sample_light(&rng, lights, n_lights, light_pref_sum, total_luminance, scene_center, scene_radius, etri_v0, etri_v1,
+    sample_light(&rng, lights, n_lights, lum_pref_sum, total_lum, scene_center, scene_radius, etri_v0, etri_v1,
                  etri_v2, etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2, etri_mat_index, materials, tex_meta,
                  tex_atlas, &origin, &dir, &power);
 
@@ -69,10 +68,16 @@ __kernel void emit_photons(
         }
 
         f32 bary_w = 1.0f - rec.u - rec.v;
-        float4 tan_raw = bary_w * tri_t0[surf_hit.tri_index] + rec.u * tri_t1[surf_hit.tri_index] +
-                         rec.v * tri_t2[surf_hit.tri_index];
-        float4 tangent = (length(tan_raw) > EPS) ? normalize(tan_raw) : (float4)(1.0f, 0.0f, 0.0f, 0.0f);
-        float4 bitangent = normalize(cross(surf_hit.normal, tangent));
+        float4 tangent_raw = bary_w * tri_t0[surf_hit.tri_index] + rec.u * tri_t1[surf_hit.tri_index] +
+                             rec.v * tri_t2[surf_hit.tri_index];
+        float4 bitangent_raw = (length(tangent_raw) > EPS) ? cross(surf_hit.normal, tangent_raw) : ZERO;
+        float4 tangent, bitangent;
+        if (length(bitangent_raw) > EPS) {
+            bitangent = normalize(bitangent_raw);
+            tangent = cross(bitangent, surf_hit.normal);
+        } else {
+            make_tbn(surf_hit.normal, &tangent, &bitangent);
+        }
 
         ShadingContext ctx =
             evaluate_material(&mat, surf_hit.uv, surf_hit.normal, tangent, bitangent, tex_meta, tex_atlas, vol_trans);
@@ -94,7 +99,7 @@ __kernel void emit_photons(
             sample_bsdf(&rng, &ctx, ctx.shading_normal, surf_hit.normal, view, &ior_stack, surf_hit.front_face);
 
         if (bsdf.event == BSDF_DIFFUSE && dot(dir, surf_hit.normal) < 0.0f) {
-            u32 idx = atomic_inc(photon_count);
+            u32 idx = atomic_inc(n_photons);
             if (idx < max_photons) {
                 photon_pos[idx] = surf_hit.position;
                 photon_power[idx] = encode_rgbe(power);

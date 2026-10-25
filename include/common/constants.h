@@ -1,0 +1,47 @@
+#ifndef PHOSPHOR_CONSTANTS_H
+#define PHOSPHOR_CONSTANTS_H
+
+#define GPU_ALIGN __attribute__((aligned(16)))
+
+#define SCAN_WG_SIZE 256u
+#define SCAN_ELEMENTS_PER_THREAD 16u
+#define SCAN_CHUNK_SIZE                                                                                                \
+    (SCAN_WG_SIZE * SCAN_ELEMENTS_PER_THREAD) // number of spatial hash cells <= SCAN_CHUNK_SIZE^2 must hold
+
+#define EPS 1e-5f
+#define BBOX_EPS 1e-3f
+#define INF 1e9f
+#define PI 3.141592654f
+#define U32_MAX 4294967296.0f
+
+#define NO_TEXTURE 0xFFFFFFFFu
+#define LUMINOUS_EFFICACY 683.0f // cd * sr / W
+#define DEFAULT_TRANSMISSION 0.0f
+#define DEFAULT_IOR 1.5f
+#define AIR_IOR 1.0f
+#define MAX_RAY_BOUNCES 5u
+#define MIN_CELL_SIZE 0.001f
+
+#define BVH_STACK_SIZE 24u
+#define IOR_STACK_SIZE 8u
+
+#define DEFAULT_CAMERA_ASPECT (16.0f / 9.0f)
+
+#define ZERO (float4)(0.0f, 0.0f, 0.0f, 0.0f)
+#define BLACK (float4)(0.0f, 0.0f, 0.0f, 0.0f)
+#define WHITE (float4)(1.0f, 1.0f, 1.0f, 0.0f)
+
+#define MIN_ROUGHNESS 0.001f
+#define GGX_SAMPLING_ATTEMPTS 8u
+
+#define RR_MIN_RAY_DEPTH 2u
+#define RR_MIN_PHOTON_DEPTH 2u
+#define RR_MIN_Q 0.05f
+#define RR_MAX_Q 1.0f
+
+// values from Jensen's book (7.4.2)
+#define GAUSS_ALPHA 1.818f
+#define GAUSS_BETA 1.953f
+#define GAUSS_DENOM 0.85815f // = 1 - exp(-GAUSS_BETA)
+
+#endif // PHOSPHOR_CONSTANTS_H
