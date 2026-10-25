@@ -1,4 +1,4 @@
-#include "typedefs.h"
+#include "common/typedefs.h"
 
 // scatters photons into an order sorted by the spatial hash
 __kernel void scatter_photons(__global const float4 *photon_pos_in, __global const u32 *photon_power_in,
