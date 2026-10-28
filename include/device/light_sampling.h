@@ -72,12 +72,10 @@ static inline void sample_spot_light(RngState *rng, Light *light, float4 *origin
 }
 
 static inline void sample_textured_light(RngState *rng, Light *light, __global const TriangleVertices *etri_verts,
-                                         __global const float4 *etri_n0, __global const float4 *etri_n1,
-                                         __global const float4 *etri_n2, __global const float2 *etri_uv0,
-                                         __global const float2 *etri_uv1, __global const float2 *etri_uv2,
-                                         __global const u32 *etri_mat_index, __global const Material *materials,
-                                         __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
-                                         float4 *origin, float4 *dir, float4 *power) {
+                                         __global const TriangleNormals *etri_normals,
+                                         __global const TriangleUvs *etri_uvs, __global const u32 *etri_mat_index,
+                                         __global const Material *materials, __global const TextureMeta *tex_meta,
+                                         __global const u8 *tex_atlas, float4 *origin, float4 *dir, float4 *power) {
     u32 tex_index = as_uint(light->aux.x);
     u32 start = as_uint(light->aux.y);
     u32 n_triangles = as_uint(light->aux.z);
@@ -112,15 +110,16 @@ static inline void sample_textured_light(RngState *rng, Light *light, __global c
     float4 v0 = chosen_ev.v0, v1 = chosen_ev.v1, v2 = chosen_ev.v2;
     *origin = w * v0 + u * v1 + v * v2;
 
-    float4 n0 = etri_n0[chosen_idx], n1 = etri_n1[chosen_idx], n2 = etri_n2[chosen_idx];
-    float4 normal = w * n0 + u * n1 + v * n2;
+    TriangleNormals chosen_en = etri_normals[chosen_idx];
+    float4 normal = w * chosen_en.n0 + u * chosen_en.n1 + v * chosen_en.n2;
     if (length(normal) > EPS)
         normal = normalize(normal);
     else
         normal = normalize(cross(v1 - v0, v2 - v0));
 
-    float2 uv0_ = etri_uv0[chosen_idx], uv1_ = etri_uv1[chosen_idx], uv2_ = etri_uv2[chosen_idx];
-    float2 uv = (float2)(w * uv0_.x + u * uv1_.x + v * uv2_.x, w * uv0_.y + u * uv1_.y + v * uv2_.y);
+    TriangleUvs chosen_euv = etri_uvs[chosen_idx];
+    float2 uv = (float2)(w * chosen_euv.uv0.x + u * chosen_euv.uv1.x + v * chosen_euv.uv2.x,
+                         w * chosen_euv.uv0.y + u * chosen_euv.uv1.y + v * chosen_euv.uv2.y);
 
     *dir = random_in_unit_hemisphere(rng, normal);
     *origin += EPS * *dir;
@@ -150,10 +149,8 @@ static inline void sample_directional_light(RngState *rng, Light *light, float4 
 
 inline void sample_light(RngState *rng, __global const Light *lights, u32 n_lights, __global const f32 *lum_pref_sum,
                          f32 total_lum, float4 scene_center, f32 scene_radius,
-                         __global const TriangleVertices *etri_verts, __global const float4 *etri_n0,
-                         __global const float4 *etri_n1, __global const float4 *etri_n2,
-                         __global const float2 *etri_uv0, __global const float2 *etri_uv1,
-                         __global const float2 *etri_uv2, __global const u32 *etri_mat_index,
+                         __global const TriangleVertices *etri_verts, __global const TriangleNormals *etri_normals,
+                         __global const TriangleUvs *etri_uvs, __global const u32 *etri_mat_index,
                          __global const Material *materials, __global const TextureMeta *tex_meta,
                          __global const u8 *tex_atlas, float4 *origin, float4 *dir, float4 *power) {
     if (n_lights == 0 || total_lum < EPS) {
@@ -174,23 +171,22 @@ inline void sample_light(RngState *rng, __global const Light *lights, u32 n_ligh
     else if (light.kind == LIGHT_DIRECTIONAL)
         sample_directional_light(rng, &light, scene_center, scene_radius, origin, dir, power);
     else
-        sample_textured_light(rng, &light, etri_verts, etri_n0, etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2,
-                              etri_mat_index, materials, tex_meta, tex_atlas, origin, dir, power);
+        sample_textured_light(rng, &light, etri_verts, etri_normals, etri_uvs, etri_mat_index, materials, tex_meta,
+                              tex_atlas, origin, dir, power);
 
     *power /= scale;
 }
 
 // compute direct lighting (reflected radiance) by light-source sampling with next-event estimation
-inline float4
-direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32 metallic, __global const Light *lights,
-                u32 n_lights, __global const f32 *lum_pref_sum, f32 total_lum, float4 scene_center, f32 scene_radius,
-                __global const TriangleVertices *etri_verts, __global const float4 *etri_n0,
-                __global const float4 *etri_n1, __global const float4 *etri_n2, __global const float2 *etri_uv0,
-                __global const float2 *etri_uv1, __global const float2 *etri_uv2, __global const u32 *etri_mat_index,
-                __global const Material *materials, __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
-                __global const BvhNode *tree, __global const TriangleVertices *tri_verts, __global const float4 *tri_n0,
-                __global const float4 *tri_n1, __global const float4 *tri_n2, __global const u32 *tri_mat_index,
-                u32 n_tris) {
+inline float4 direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32 metallic,
+                              __global const Light *lights, u32 n_lights, __global const f32 *lum_pref_sum,
+                              f32 total_lum, float4 scene_center, f32 scene_radius,
+                              __global const TriangleVertices *etri_verts, __global const TriangleNormals *etri_normals,
+                              __global const TriangleUvs *etri_uvs, __global const u32 *etri_mat_index,
+                              __global const Material *materials, __global const TextureMeta *tex_meta,
+                              __global const u8 *tex_atlas, __global const BvhNode *tree,
+                              __global const TriangleVertices *tri_verts, __global const u32 *tri_mat_index,
+                              u32 n_tris) {
     if (n_lights == 0 || total_lum < EPS)
         return BLACK;
 
@@ -277,7 +273,8 @@ direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32
         TriangleVertices chosen_ev = etri_verts[chosen];
         float4 light_pos = bw * chosen_ev.v0 + bu * chosen_ev.v1 + bv * chosen_ev.v2;
 
-        float4 ln = bw * etri_n0[chosen] + bu * etri_n1[chosen] + bv * etri_n2[chosen];
+        TriangleNormals chosen_en = etri_normals[chosen];
+        float4 ln = bw * chosen_en.n0 + bu * chosen_en.n1 + bv * chosen_en.n2;
         if (length(ln) > EPS)
             ln = normalize(ln);
         else
@@ -295,8 +292,9 @@ direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32
 
         float4 emissive_flux = flux;
         if (tex_index != NO_TEXTURE) {
-            float2 uv0 = etri_uv0[chosen], uv1 = etri_uv1[chosen], uv2 = etri_uv2[chosen];
-            float2 uv = (float2)(bw * uv0.x + bu * uv1.x + bv * uv2.x, bw * uv0.y + bu * uv1.y + bv * uv2.y);
+            TriangleUvs chosen_euv = etri_uvs[chosen];
+            float2 uv = (float2)(bw * chosen_euv.uv0.x + bu * chosen_euv.uv1.x + bv * chosen_euv.uv2.x,
+                                 bw * chosen_euv.uv0.y + bu * chosen_euv.uv1.y + bv * chosen_euv.uv2.y);
             u32 mat_idx = etri_mat_index[chosen];
             Material mat = materials[mat_idx];
             float4 tex_color = sample_texture_uv(&mat, tex_meta, tex_atlas, tex_index, uv, mat.emis_transform);

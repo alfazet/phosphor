@@ -9,6 +9,24 @@ typedef struct GPU_ALIGN TriangleVertices {
     // 3 * 4 * 4 = 48
 } TriangleVertices;
 
+typedef struct GPU_ALIGN TriangleNormals {
+    float4 n0, n1, n2;
+    // 3 * 4 * 4 = 48
+} TriangleNormals;
+
+typedef struct GPU_ALIGN TriangleTangents {
+    float4 t0, t1, t2;
+    // 3 * 4 * 4 = 48
+} TriangleTangents;
+
+typedef struct GPU_ALIGN TriangleUvs {
+    float2 uv0, uv1, uv2;
+    // 3 * 2 * 4 = 24
+
+    // total: 24
+    u8 _padding[8];
+} TriangleUvs;
+
 typedef struct GPU_ALIGN Triangle {
     float4 v0, v1, v2;
     float4 n0, n1, n2;

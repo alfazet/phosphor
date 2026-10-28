@@ -169,10 +169,8 @@ inline bool scene_intersect(__global const BvhNode *tree, __global const Triangl
     return found;
 }
 
-inline SurfaceHit process_hit(const HitRecord *hit_rec, float4 origin, float4 dir, __global const float4 *tri_n0,
-                              __global const float4 *tri_n1, __global const float4 *tri_n2,
-                              __global const float2 *tri_uv0, __global const float2 *tri_uv1,
-                              __global const float2 *tri_uv2) {
+inline SurfaceHit process_hit(const HitRecord *hit_rec, float4 origin, float4 dir,
+                              __global const TriangleNormals *tri_normals, __global const TriangleUvs *tri_uvs) {
     SurfaceHit surf_hit;
     surf_hit.t = hit_rec->t;
     surf_hit.mat_index = hit_rec->mat_index;
@@ -182,19 +180,16 @@ inline SurfaceHit process_hit(const HitRecord *hit_rec, float4 origin, float4 di
     f32 u = hit_rec->u, v = hit_rec->v;
     f32 w = 1.0f - u - v;
 
-    float4 n0 = tri_n0[hit_rec->tri_index];
-    float4 n1 = tri_n1[hit_rec->tri_index];
-    float4 n2 = tri_n2[hit_rec->tri_index];
-    float4 outward_normal = normalize(compute_bary(u, v, n0, n1, n2));
+    TriangleNormals tn = tri_normals[hit_rec->tri_index];
+    float4 outward_normal = normalize(compute_bary(u, v, tn.n0, tn.n1, tn.n2));
     bool front_face = dot(dir, outward_normal) < 0.0f;
     float4 normal = front_face ? outward_normal : -outward_normal;
     surf_hit.front_face = front_face;
     surf_hit.normal = normal;
 
-    float2 uv0 = tri_uv0[hit_rec->tri_index];
-    float2 uv1 = tri_uv1[hit_rec->tri_index];
-    float2 uv2 = tri_uv2[hit_rec->tri_index];
-    surf_hit.uv = (float2)(w * uv0.x + u * uv1.x + v * uv2.x, w * uv0.y + u * uv1.y + v * uv2.y);
+    TriangleUvs tuv = tri_uvs[hit_rec->tri_index];
+    surf_hit.uv =
+        (float2)(w * tuv.uv0.x + u * tuv.uv1.x + v * tuv.uv2.x, w * tuv.uv0.y + u * tuv.uv1.y + v * tuv.uv2.y);
 
     return surf_hit;
 }
