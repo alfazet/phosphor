@@ -1,12 +1,13 @@
 #include "common/constants.h"
-#include "common/hit_point.h"
 #include "common/photon_hash.h"
 #include "common/pixel.h"
 #include "common/typedefs.h"
 
 __kernel void gather_flux(
     // hit point and per-pixel state
-    __global const HitPoint *hit_points, __global Pixel *pixels, __global float4 *total_radiance, const u32 n_pixels,
+    __global const float4 *hp_position, __global const float4 *hp_normal, __global const float4 *hp_throughput,
+    __global const float4 *hp_base_color, __global const float4 *hp_direct, __global const float4 *hp_emission,
+    __global Pixel *pixels, __global float4 *total_radiance, const u32 n_pixels,
 
     // photon map buffers
     __global const float4 *photon_pos, __global const u32 *photon_power, __global const u32 *photon_dir,
@@ -22,9 +23,8 @@ __kernel void gather_flux(
     if (tid >= n_pixels)
         return;
 
-    __global const HitPoint *hp = &hit_points[tid];
-    if (hp->is_valid == 0) {
-        float4 emission = hp->emission;
+    float4 emission = hp_emission[tid];
+    if (emission.w == 0.0f) {
         float4 radiance;
         radiance.x = emission.x;
         radiance.y = emission.y;
@@ -34,8 +34,7 @@ __kernel void gather_flux(
         return;
     }
 
-    float4 direct = hp->direct;
-    float4 emission = hp->emission;
+    float4 direct = hp_direct[tid];
     float4 radiance;
     radiance.x = direct.x + emission.x;
     radiance.y = direct.y + emission.y;
@@ -58,8 +57,8 @@ __kernel void gather_flux(
     f32 max_dist_sq = 0.0f;
     f32 found = 0.0f; // called `M` in the paper
 
-    gather_photon_flux(hp->position, data, cell_start, cell_end, photon_pos, photon_power, photon_dir, r_sq, hp->normal,
-                       &new_flux, &max_dist_sq, &found);
+    gather_photon_flux(hp_position[tid], data, cell_start, cell_end, photon_pos, photon_power, photon_dir, r_sq,
+                       hp_normal[tid], &new_flux, &max_dist_sq, &found);
 
     // SPPM update
     if (found > 0.0f) {
@@ -67,8 +66,8 @@ __kernel void gather_flux(
         f32 ratio = new_photon_count / (photon_count + found);
         f32 new_radius_sq = r_sq * ratio;
 
-        float4 albedo = hp->base_color;
-        float4 contribution = hp->throughput * (albedo / PI) * new_flux;
+        float4 albedo = hp_base_color[tid];
+        float4 contribution = hp_throughput[tid] * (albedo / PI) * new_flux;
 
         px.flux = (px.flux + contribution) * ratio;
         px.radius_sq = new_radius_sq;

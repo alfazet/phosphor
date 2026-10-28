@@ -12,14 +12,7 @@ typedef struct GPU_ALIGN HitPoint {
     float4 base_color;
     float4 direct;
     float4 emission;
-    // 6 * 16 = 96
-
-    f32 metallic;
-    u32 is_valid;
-    // 2 * 4 = 8
-
-    // total: 104
-    u8 _padding[8];
+    // 6 * 4 * 4 = 96
 } HitPoint;
 
 #endif // PHOSPHOR_HIT_POINT_H

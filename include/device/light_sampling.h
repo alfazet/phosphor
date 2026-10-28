@@ -178,7 +178,7 @@ inline void sample_light(RngState *rng, __global const Light *lights, u32 n_ligh
 }
 
 // compute direct lighting (reflected radiance) by light-source sampling with next-event estimation
-inline float4 direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, f32 metallic,
+inline float4 direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color,
                               __global const Light *lights, u32 n_lights, __global const f32 *lum_pref_sum,
                               f32 total_lum, float4 scene_center, f32 scene_radius,
                               __global const TriangleVertices *etri_verts, __global const TriangleNormals *etri_normals,

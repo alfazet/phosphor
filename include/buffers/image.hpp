@@ -6,7 +6,12 @@
 #include "host/opencl_ctx.hpp"
 
 struct ImageBuffers {
-    cl::Buffer d_hit_points;
+    cl::Buffer d_hp_position;
+    cl::Buffer d_hp_normal;
+    cl::Buffer d_hp_throughput;
+    cl::Buffer d_hp_base_color;
+    cl::Buffer d_hp_direct;
+    cl::Buffer d_hp_emission;
     cl::Buffer d_pixels;
     cl::Buffer d_total_radiance;
 

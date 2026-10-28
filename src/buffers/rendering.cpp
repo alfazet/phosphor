@@ -47,10 +47,11 @@ void RenderingBuffers::set_trace_rays_args(cl::Kernel &kernel, u32 seed, u32 dir
     const auto &s = this->shading_buf;
     const auto &i = this->image_buf;
     set_kernel_args(kernel, i.camera, i.image_width, i.image_height, seed, direct_samples, g.d_tri_verts,
-                    g.d_tri_normals, g.d_tri_tangents, g.d_tri_uvs, g.d_bvh_nodes, g.d_tri_mat_index, g.n_triangles,
+                    g.d_tri_normals, g.d_tri_uvs, g.d_tri_tangents, g.d_bvh_nodes, g.d_tri_mat_index, g.n_triangles,
                     s.d_materials, s.d_tex_meta, s.d_tex_atlas, s.d_lights, s.n_lights, s.d_lum_pref_sum, s.total_lum,
                     s.scene_center, s.scene_radius, g.d_etri_verts, g.d_etri_normals, g.d_etri_uvs, g.d_etri_mat_index,
-                    i.d_hit_points, s.d_envmap_data, s.envmap_width, s.envmap_height, s.has_envmap);
+                    i.d_hp_position, i.d_hp_normal, i.d_hp_throughput, i.d_hp_base_color, i.d_hp_direct,
+                    i.d_hp_emission, s.d_envmap_data, s.envmap_width, s.envmap_height, s.has_envmap);
 }
 
 void RenderingBuffers::set_hash_photons_args(cl::Kernel &kernel, cl::Buffer &raw_photon_pos, u32 n_photons_count,
@@ -69,6 +70,7 @@ void RenderingBuffers::set_scatter_args(cl::Kernel &kernel, cl::Buffer &raw_phot
 void RenderingBuffers::set_gather_flux_args(cl::Kernel &kernel, PhotonHashData data, f32 sppm_alpha) const {
     const auto &p = this->photon_buf;
     const auto &i = this->image_buf;
-    set_kernel_args(kernel, i.d_hit_points, i.d_pixels, i.d_total_radiance, i.n_pixels, p.d_photon_pos,
+    set_kernel_args(kernel, i.d_hp_position, i.d_hp_normal, i.d_hp_throughput, i.d_hp_base_color, i.d_hp_direct,
+                    i.d_hp_emission, i.d_pixels, i.d_total_radiance, i.n_pixels, p.d_photon_pos,
                     p.d_photon_power, p.d_photon_dir, p.n_photons, p.d_cell_start, p.d_cell_end, data, sppm_alpha);
 }
