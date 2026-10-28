@@ -5,6 +5,7 @@
 #include "common/material.h"
 #include "common/random.h"
 #include "common/texture_meta.h"
+#include "common/triangle.h"
 #include "common/typedefs.h"
 #include "device/envmap.h"
 #include "device/hit.h"
@@ -16,11 +17,11 @@ __kernel void trace_rays(
     const CameraParams camera, const u32 image_width, const u32 image_height, const u32 seed, const u32 direct_samples,
 
     // scene geometry
-    __global const float4 *tri_v0, __global const float4 *tri_v1, __global const float4 *tri_v2,
-    __global const float4 *tri_n0, __global const float4 *tri_n1, __global const float4 *tri_n2,
-    __global const float2 *tri_uv0, __global const float2 *tri_uv1, __global const float2 *tri_uv2,
-    __global const float4 *tri_t0, __global const float4 *tri_t1, __global const float4 *tri_t2,
-    __global const BvhNode *tree, __global const u32 *tri_mat_index, const u32 n_triangles,
+    __global const TriangleVertices *tri_verts, __global const float4 *tri_n0, __global const float4 *tri_n1,
+    __global const float4 *tri_n2, __global const float2 *tri_uv0, __global const float2 *tri_uv1,
+    __global const float2 *tri_uv2, __global const float4 *tri_t0, __global const float4 *tri_t1,
+    __global const float4 *tri_t2, __global const BvhNode *tree, __global const u32 *tri_mat_index,
+    const u32 n_triangles,
 
     // materials and textures
     __global const Material *materials, __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
@@ -30,10 +31,9 @@ __kernel void trace_rays(
     const float4 scene_center, const f32 scene_radius,
 
     // emissive triangles
-    __global const float4 *etri_v0, __global const float4 *etri_v1, __global const float4 *etri_v2,
-    __global const float4 *etri_n0, __global const float4 *etri_n1, __global const float4 *etri_n2,
-    __global const float2 *etri_uv0, __global const float2 *etri_uv1, __global const float2 *etri_uv2,
-    __global const u32 *etri_mat_index,
+    __global const TriangleVertices *etri_verts, __global const float4 *etri_n0, __global const float4 *etri_n1,
+    __global const float4 *etri_n2, __global const float2 *etri_uv0, __global const float2 *etri_uv1,
+    __global const float2 *etri_uv2, __global const u32 *etri_mat_index,
 
     // output
     __global HitPoint *hit_points,
@@ -70,15 +70,14 @@ __kernel void trace_rays(
 
     for (i32 depth = 0; depth < MAX_RAY_BOUNCES; depth++) {
         HitRecord rec;
-        bool hit = scene_intersect(tree, tri_v0, tri_v1, tri_v2, tri_uv0, tri_uv1, tri_uv2, tri_n0, tri_n1, tri_n2,
-                                   tri_mat_index, n_triangles, origin, dir, EPS, INF, &rec);
+        bool hit = scene_intersect(tree, tri_verts, tri_mat_index, n_triangles, origin, dir, EPS, INF, &rec);
         if (!hit) {
             if (has_envmap)
                 emission += throughput * sample_envmap(envmap_data, envmap_width, envmap_height, dir);
             break;
         }
 
-        SurfaceHit surf_hit = process_hit(&rec, origin, dir, tri_uv0, tri_uv1, tri_uv2);
+        SurfaceHit surf_hit = process_hit(&rec, origin, dir, tri_n0, tri_n1, tri_n2, tri_uv0, tri_uv1, tri_uv2);
         Material mat = materials[surf_hit.mat_index];
 
         float4 vol_trans = WHITE;
@@ -111,11 +110,11 @@ __kernel void trace_rays(
         if (bsdf.event == BSDF_DIFFUSE) {
             float4 direct_sum = BLACK;
             for (u32 d = 0; d < direct_samples; d++) {
-                direct_sum += direct_lighting(
-                    &rng, surf_hit.position, ctx.shading_normal, ctx.base_color, ctx.metallic, lights, n_lights,
-                    lum_pref_sum, total_lum, scene_center, scene_radius, etri_v0, etri_v1, etri_v2, etri_n0, etri_n1,
-                    etri_n2, etri_uv0, etri_uv1, etri_uv2, etri_mat_index, materials, tex_meta, tex_atlas, tree, tri_v0,
-                    tri_v1, tri_v2, tri_uv0, tri_uv1, tri_uv2, tri_n0, tri_n1, tri_n2, tri_mat_index, n_triangles);
+                direct_sum +=
+                    direct_lighting(&rng, surf_hit.position, ctx.shading_normal, ctx.base_color, ctx.metallic, lights,
+                                    n_lights, lum_pref_sum, total_lum, scene_center, scene_radius, etri_verts, etri_n0,
+                                    etri_n1, etri_n2, etri_uv0, etri_uv1, etri_uv2, etri_mat_index, materials, tex_meta,
+                                    tex_atlas, tree, tri_verts, tri_n0, tri_n1, tri_n2, tri_mat_index, n_triangles);
             }
             float4 direct = direct_sum / (f32)direct_samples;
 

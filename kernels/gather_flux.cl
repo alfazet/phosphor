@@ -22,25 +22,28 @@ __kernel void gather_flux(
     if (tid >= n_pixels)
         return;
 
-    HitPoint hp = hit_points[tid];
-    Pixel px = pixels[tid];
-    float4 radiance;
-    if (hp.is_valid == 0) {
-        radiance.x = hp.emission.x;
-        radiance.y = hp.emission.y;
-        radiance.z = hp.emission.z;
+    __global const HitPoint *hp = &hit_points[tid];
+    if (hp->is_valid == 0) {
+        float4 emission = hp->emission;
+        float4 radiance;
+        radiance.x = emission.x;
+        radiance.y = emission.y;
+        radiance.z = emission.z;
         radiance.w = 0.0f;
         total_radiance[tid] += radiance;
-        pixels[tid] = px;
         return;
     }
 
-    radiance.x = hp.direct.x + hp.emission.x;
-    radiance.y = hp.direct.y + hp.emission.y;
-    radiance.z = hp.direct.z + hp.emission.z;
+    float4 direct = hp->direct;
+    float4 emission = hp->emission;
+    float4 radiance;
+    radiance.x = direct.x + emission.x;
+    radiance.y = direct.y + emission.y;
+    radiance.z = direct.z + emission.z;
     radiance.w = 0.0f;
     total_radiance[tid] += radiance;
 
+    Pixel px = pixels[tid];
     f32 r_sq = px.radius_sq;
     f32 photon_count = px.photon_count;
     // first round has the initial search radius taken from cell size
@@ -55,7 +58,7 @@ __kernel void gather_flux(
     f32 max_dist_sq = 0.0f;
     f32 found = 0.0f; // called `M` in the paper
 
-    gather_photon_flux(hp.position, data, cell_start, cell_end, photon_pos, photon_power, photon_dir, r_sq, hp.normal,
+    gather_photon_flux(hp->position, data, cell_start, cell_end, photon_pos, photon_power, photon_dir, r_sq, hp->normal,
                        &new_flux, &max_dist_sq, &found);
 
     // SPPM update
@@ -64,12 +67,12 @@ __kernel void gather_flux(
         f32 ratio = new_photon_count / (photon_count + found);
         f32 new_radius_sq = r_sq * ratio;
 
-        float4 albedo = hp.base_color;
-        float4 contribution = hp.throughput * (albedo / PI) * new_flux;
+        float4 albedo = hp->base_color;
+        float4 contribution = hp->throughput * (albedo / PI) * new_flux;
 
         px.flux = (px.flux + contribution) * ratio;
         px.radius_sq = new_radius_sq;
         px.photon_count = new_photon_count;
+        pixels[tid] = px;
     }
-    pixels[tid] = px;
 }

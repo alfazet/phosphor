@@ -6,6 +6,7 @@
 #include "common/bounding_box.h"
 #include "common/bvh_node.h"
 #include "common/constants.h"
+#include "common/triangle.h"
 #include "common/typedefs.h"
 #include "common/utils.h"
 
@@ -13,19 +14,17 @@ typedef struct HitRecord {
     f32 t;
     f32 u;
     f32 v;
-    float4 normal;
     u32 tri_index;
     u32 mat_index;
-    bool front_face;
 } HitRecord;
 
 typedef struct SurfaceHit {
     float4 position;
     float4 normal;
     float2 uv;
+    f32 t;
     u32 mat_index;
     u32 tri_index;
-    f32 t;
     bool front_face;
 } SurfaceHit;
 
@@ -43,51 +42,37 @@ inline float4 compute_bary(f32 bary_x, f32 bary_y, float4 v0, float4 v1, float4 
     return result;
 }
 
-inline bool is_triangle_hit(u32 t, float4 origin, float4 dir, __global const float4 *tri_v0,
-                            __global const float4 *tri_v1, __global const float4 *tri_v2,
-                            __global const float2 *tri_uv0, __global const float2 *tri_uv1,
-                            __global const float2 *tri_uv2, __global const float4 *tri_n0,
-                            __global const float4 *tri_n1, __global const float4 *tri_n2,
+inline bool is_triangle_hit(u32 tri_idx, float4 origin, float4 dir, __global const TriangleVertices *tri_verts,
                             __global const u32 *tri_mat_index, f32 t_min, f32 t_max, HitRecord *hit_rec) {
-    float4 v0 = tri_v0[t], v1 = tri_v1[t], v2 = tri_v2[t];
-    float2 uv0 = tri_uv0[t], uv1 = tri_uv1[t], uv2 = tri_uv2[t];
-    float4 n0 = tri_n0[t], n1 = tri_n1[t], n2 = tri_n2[t];
-    float4 edge1 = v1 - v0;
-    float4 edge2 = v2 - v0;
+    TriangleVertices tri_v = tri_verts[tri_idx];
+    float4 e1 = tri_v.v1 - tri_v.v0;
+    float4 e2 = tri_v.v2 - tri_v.v0;
 
-    // moller-trumbore; w components of all vectors involved are 0, so
-    // dot()/cross() behave as their 3D counterparts
-    float4 h = cross(dir, edge2);
-    f32 a = dot(edge1, h);
+    float4 h = cross(dir, e2);
+    f32 a = dot(e1, h);
     if (fabs(a) < EPS)
         return false;
 
     f32 f = 1.0f / a;
-    float4 s = origin - v0;
+    float4 s = origin - tri_v.v0;
     f32 u = f * dot(s, h);
     if (u < 0.0f || u > 1.0f)
         return false;
 
-    float4 q = cross(s, edge1);
+    float4 q = cross(s, e1);
     f32 v = f * dot(dir, q);
     if (v < 0.0f || u + v > 1.0f)
         return false;
 
-    f32 tt = f * dot(edge2, q);
-    if (tt < t_min || tt > t_max)
+    f32 t = f * dot(e2, q);
+    if (t < t_min || t > t_max)
         return false;
 
-    float4 outward_normal = normalize(compute_bary(u, v, n0, n1, n2));
-    bool front_face = dot(dir, outward_normal) < 0.0f;
-    float4 normal = front_face ? outward_normal : -outward_normal;
-
-    hit_rec->t = tt;
+    hit_rec->t = t;
     hit_rec->u = u;
     hit_rec->v = v;
-    hit_rec->tri_index = t;
-    hit_rec->mat_index = tri_mat_index[t];
-    hit_rec->normal = normal;
-    hit_rec->front_face = front_face;
+    hit_rec->tri_index = tri_idx;
+    hit_rec->mat_index = tri_mat_index[tri_idx];
 
     return true;
 }
@@ -147,10 +132,7 @@ inline bool bbox_hit(BoundingBox bbox, float4 origin, float4 dir, f32 t_min, f32
     return true;
 }
 
-inline bool scene_intersect(__global const BvhNode *tree, __global const float4 *tri_v0, __global const float4 *tri_v1,
-                            __global const float4 *tri_v2, __global const float2 *tri_uv0,
-                            __global const float2 *tri_uv1, __global const float2 *tri_uv2,
-                            __global const float4 *tri_n0, __global const float4 *tri_n1, __global const float4 *tri_n2,
+inline bool scene_intersect(__global const BvhNode *tree, __global const TriangleVertices *tri_verts,
                             __global const u32 *tri_mat_index, u32 n_tris, float4 origin, float4 dir, f32 t_min,
                             f32 t_max, HitRecord *hit_rec) {
     i32 p = 0;
@@ -170,8 +152,8 @@ inline bool scene_intersect(__global const BvhNode *tree, __global const float4 
 
         if (node.triangle_index != -1) {
             HitRecord candidate;
-            if (is_triangle_hit(node.triangle_index, origin, dir, tri_v0, tri_v1, tri_v2, tri_uv0, tri_uv1, tri_uv2,
-                                tri_n0, tri_n1, tri_n2, tri_mat_index, t_min, closest, &candidate)) {
+            if (is_triangle_hit(node.triangle_index, origin, dir, tri_verts, tri_mat_index, t_min, closest,
+                                &candidate)) {
                 closest = candidate.t;
                 *hit_rec = candidate;
                 found = true;
@@ -187,22 +169,32 @@ inline bool scene_intersect(__global const BvhNode *tree, __global const float4 
     return found;
 }
 
-inline SurfaceHit process_hit(const HitRecord *hit_rec, float4 origin, float4 dir, __global const float2 *tri_uv0,
-                              __global const float2 *tri_uv1, __global const float2 *tri_uv2) {
+inline SurfaceHit process_hit(const HitRecord *hit_rec, float4 origin, float4 dir, __global const float4 *tri_n0,
+                              __global const float4 *tri_n1, __global const float4 *tri_n2,
+                              __global const float2 *tri_uv0, __global const float2 *tri_uv1,
+                              __global const float2 *tri_uv2) {
     SurfaceHit surf_hit;
     surf_hit.t = hit_rec->t;
     surf_hit.mat_index = hit_rec->mat_index;
     surf_hit.tri_index = hit_rec->tri_index;
-    surf_hit.front_face = hit_rec->front_face;
     surf_hit.position = origin + dir * hit_rec->t;
-    surf_hit.normal = hit_rec->normal;
+
+    f32 u = hit_rec->u, v = hit_rec->v;
+    f32 w = 1.0f - u - v;
+
+    float4 n0 = tri_n0[hit_rec->tri_index];
+    float4 n1 = tri_n1[hit_rec->tri_index];
+    float4 n2 = tri_n2[hit_rec->tri_index];
+    float4 outward_normal = normalize(compute_bary(u, v, n0, n1, n2));
+    bool front_face = dot(dir, outward_normal) < 0.0f;
+    float4 normal = front_face ? outward_normal : -outward_normal;
+    surf_hit.front_face = front_face;
+    surf_hit.normal = normal;
 
     float2 uv0 = tri_uv0[hit_rec->tri_index];
     float2 uv1 = tri_uv1[hit_rec->tri_index];
     float2 uv2 = tri_uv2[hit_rec->tri_index];
-    f32 w = 1.0f - hit_rec->u - hit_rec->v;
-    surf_hit.uv = (float2)(w * uv0.x + hit_rec->u * uv1.x + hit_rec->v * uv2.x,
-                           w * uv0.y + hit_rec->u * uv1.y + hit_rec->v * uv2.y);
+    surf_hit.uv = (float2)(w * uv0.x + u * uv1.x + v * uv2.x, w * uv0.y + u * uv1.y + v * uv2.y);
 
     return surf_hit;
 }
