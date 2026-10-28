@@ -32,7 +32,7 @@ struct RenderingBuffers {
 
     u32 n_photons() const { return this->photon_buf.n_photons; }
 
-    cl::Buffer &d_pixels() { return this->image_buf.d_pixels; }
+    cl::Buffer &d_flux() { return this->image_buf.d_flux; }
 
     cl::Buffer &d_total_radiance() { return this->image_buf.d_total_radiance; }
 

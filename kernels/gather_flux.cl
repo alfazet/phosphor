@@ -1,13 +1,12 @@
 #include "common/constants.h"
 #include "common/photon_hash.h"
-#include "common/pixel.h"
 #include "common/typedefs.h"
 
 __kernel void gather_flux(
     // hit point and per-pixel state
     __global const float4 *hp_position, __global const float4 *hp_normal, __global const float4 *hp_throughput,
     __global const float4 *hp_base_color, __global const float4 *hp_direct, __global const float4 *hp_emission,
-    __global Pixel *pixels, __global float4 *total_radiance, const u32 n_pixels,
+    __global float4 *flux, __global f32 *photon_count, __global float4 *total_radiance, const u32 n_pixels,
 
     // photon map buffers
     __global const float4 *photon_pos, __global const u32 *photon_power, __global const u32 *photon_dir,
@@ -42,9 +41,9 @@ __kernel void gather_flux(
     radiance.w = 0.0f;
     total_radiance[tid] += radiance;
 
-    Pixel px = pixels[tid];
-    f32 r_sq = px.radius_sq;
-    f32 photon_count = px.photon_count;
+    float4 local_flux = flux[tid];
+    f32 local_photon_count = photon_count[tid];
+    f32 r_sq = local_flux.w;
     // first round has the initial search radius taken from cell size
     if (r_sq < EPS) {
         f32 half_cx = data.cell_sizes.x * 0.5f;
@@ -62,16 +61,15 @@ __kernel void gather_flux(
 
     // SPPM update
     if (found > 0.0f) {
-        f32 new_photon_count = photon_count + sppm_alpha * found;
-        f32 ratio = new_photon_count / (photon_count + found);
+        f32 new_photon_count = local_photon_count + sppm_alpha * found;
+        f32 ratio = new_photon_count / (local_photon_count + found);
         f32 new_radius_sq = r_sq * ratio;
 
         float4 albedo = hp_base_color[tid];
         float4 contribution = hp_throughput[tid] * (albedo / PI) * new_flux;
 
-        px.flux = (px.flux + contribution) * ratio;
-        px.radius_sq = new_radius_sq;
-        px.photon_count = new_photon_count;
-        pixels[tid] = px;
+        float4 temp = (local_flux + contribution) * ratio;
+        flux[tid] = (float4)(temp.xyz, new_radius_sq);
+        photon_count[tid] = new_photon_count;
     }
 }

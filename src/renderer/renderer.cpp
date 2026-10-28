@@ -52,7 +52,7 @@ void Renderer::set_scene(SceneData &scene) {
     this->d_big_chunk_sums = cl::Buffer(this->ctx.context, CL_MEM_READ_WRITE, n_scan_chunks * sizeof(u32));
 
     this->rng = pcg_seed(this->args.seed);
-    this->h_pixels.resize(this->buffers.n_pixels());
+    this->h_flux.resize(this->buffers.n_pixels());
     this->h_total_radiance.resize(this->buffers.n_pixels());
 }
 
@@ -77,8 +77,8 @@ void Renderer::run() {
 
         total_photons_emitted += photons_per_round;
         if ((this->args.save_snapshots && is_pow2(round)) || round == this->args.sppm_rounds) {
-            this->ctx.queue.enqueueReadBuffer(this->buffers.d_pixels(), CL_TRUE, 0,
-                                              this->buffers.n_pixels() * sizeof(Pixel), this->h_pixels.data());
+            this->ctx.queue.enqueueReadBuffer(this->buffers.d_flux(), CL_TRUE, 0,
+                                              this->buffers.n_pixels() * sizeof(float4), this->h_flux.data());
             this->ctx.queue.enqueueReadBuffer(this->buffers.d_total_radiance(), CL_TRUE, 0,
                                               this->buffers.n_pixels() * sizeof(float4), this->h_total_radiance.data());
             this->save_snapshot(round, total_photons_emitted);
@@ -163,6 +163,6 @@ void Renderer::gather_flux() {
 void Renderer::save_snapshot(u32 round, u64 total_photons_emitted) {
     std::filesystem::path image_path = this->output_dir / std::format("{:06d}.png", round);
     this->writer.submit(image_path, this->render_size.width, this->render_size.height, this->args.exposure,
-                        this->h_pixels, this->h_total_radiance, total_photons_emitted, round, this->image_metadata);
+                        this->h_flux, this->h_total_radiance, total_photons_emitted, round, this->image_metadata);
     LOG_INFO("rendered image after {} SPPM rounds enqueued for writing: {}", round, image_path.c_str());
 }

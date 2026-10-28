@@ -4,9 +4,9 @@
 #include "common/texture_meta.h"
 #include "common/triangle.h"
 #include "common/typedefs.h"
+#include "device/encoding.h"
 #include "device/hit.h"
 #include "device/light_sampling.h"
-#include "device/photon.h"
 #include "device/shading.h"
 
 __kernel void emit_photons(
