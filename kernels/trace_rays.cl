@@ -17,11 +17,12 @@ __kernel void trace_rays(
 
     // scene geometry
     __global const TriangleVertices *tri_verts, __global const TriangleNormals *tri_normals,
-    __global const TriangleTangents *tri_tangents, __global const TriangleUvs *tri_uvs, __global const BvhNode *tree,
-    __global const u32 *tri_mat_index, const u32 n_triangles,
+    __global const TriangleTangents *tri_tangents, __global const TriangleUvs *tri_uvs,
+    __global const BvhNode *bvh_nodes, __global const u32 *tri_mat_index, const u32 n_triangles,
 
     // materials and textures
-    __global const Material *materials, __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
+    __global const Material *materials, __global const UvTransformBlock *uv_transforms,
+    __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
 
     // lights for direct illumination
     __global const Light *lights, const u32 n_lights, __global const f32 *lum_pref_sum, const f32 total_lum,
@@ -31,12 +32,13 @@ __kernel void trace_rays(
     __global const TriangleVertices *etri_verts, __global const TriangleNormals *etri_normals,
     __global const TriangleUvs *etri_uvs, __global const u32 *etri_mat_index,
 
-    // output
-    __global float4 *hp_position, __global float4 *hp_normal, __global float4 *hp_throughput,
-    __global float4 *hp_base_color, __global float4 *hp_direct, __global float4 *hp_emission,
-
     // envmap
-    __global const f32 *envmap_data, const u32 envmap_width, const u32 envmap_height, const u32 has_envmap) {
+    __global const f32 *envmap_data, const u32 envmap_width, const u32 envmap_height, const u32 has_envmap,
+
+    // output
+    __global float4 *hp_pos, __global float4 *hp_normal, __global float4 *hp_throughput, __global float4 *hp_base_color,
+    __global float4 *hp_direct, __global float4 *hp_emission
+) {
 
     u32 tid = get_global_id(0);
     u32 n_pixels = image_width * image_height;
@@ -62,7 +64,7 @@ __kernel void trace_rays(
 
     for (i32 depth = 0; depth < MAX_RAY_BOUNCES; depth++) {
         HitRecord rec;
-        bool hit = scene_intersect(tree, tri_verts, tri_mat_index, n_triangles, origin, dir, EPS, INF, &rec);
+        bool hit = scene_intersect(bvh_nodes, tri_verts, tri_mat_index, n_triangles, origin, dir, EPS, INF, &rec);
         if (!hit) {
             if (has_envmap)
                 emission += throughput * sample_envmap(envmap_data, envmap_width, envmap_height, dir);
@@ -91,8 +93,8 @@ __kernel void trace_rays(
             make_tbn(surf_hit.normal, &tangent, &bitangent);
         }
 
-        ShadingContext ctx =
-            evaluate_material(&mat, surf_hit.uv, surf_hit.normal, tangent, bitangent, tex_meta, tex_atlas, vol_trans);
+        ShadingContext ctx = evaluate_material(&mat, surf_hit.mat_index, surf_hit.uv, surf_hit.normal, tangent,
+                                               bitangent, tex_meta, tex_atlas, uv_transforms, vol_trans);
         emission += throughput * ctx.emissive;
 
         float4 view = -dir;
@@ -104,8 +106,8 @@ __kernel void trace_rays(
             for (u32 d = 0; d < direct_samples; d++) {
                 direct_sum += direct_lighting(&rng, surf_hit.position, ctx.shading_normal, ctx.base_color, lights,
                                               n_lights, lum_pref_sum, total_lum, scene_center, scene_radius, etri_verts,
-                                              etri_normals, etri_uvs, etri_mat_index, materials, tex_meta, tex_atlas,
-                                              tree, tri_verts, tri_mat_index, n_triangles);
+                                              etri_normals, etri_uvs, etri_mat_index, materials, uv_transforms,
+                                              tex_meta, tex_atlas, bvh_nodes, tri_verts, tri_mat_index, n_triangles);
             }
             float4 direct = direct_sum / (f32)direct_samples;
 
@@ -133,7 +135,7 @@ __kernel void trace_rays(
     }
 
     hp_emission[tid] = emission;
-    hp_position[tid] = position;
+    hp_pos[tid] = position;
     hp_normal[tid] = normal;
     hp_throughput[tid] = throughput;
     hp_base_color[tid] = base_color;

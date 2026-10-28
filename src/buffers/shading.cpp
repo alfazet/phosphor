@@ -15,6 +15,7 @@ void ShadingBuffers::upload(ClContext &ctx, const SceneData &scene, const Boundi
     this->n_textures = n_textures;
 
     this->d_materials = copy_to_dev_buf(ctx, scene.materials.data(), n_materials, sizeof(Material));
+    this->d_uv_transforms = copy_to_dev_buf(ctx, scene.uv_transforms.data(), n_materials, sizeof(UvTransformBlock));
     this->d_lights = copy_to_dev_buf(ctx, scene.lights.data(), n_lights, sizeof(Light));
 
     const std::vector<f32> &lum_pref_sum = scene.lum_pref_sum;
@@ -46,14 +47,10 @@ void ShadingBuffers::upload(ClContext &ctx, const SceneData &scene, const Boundi
     vec3 center = 0.5f * (bbox_min + bbox_max);
     this->scene_center = float4{{center.x, center.y, center.z, 0.0f}};
     const vec3 corners[8] = {
-        {scene_bbox.min.x, scene_bbox.min.y, scene_bbox.min.z},
-        {scene_bbox.max.x, scene_bbox.min.y, scene_bbox.min.z},
-        {scene_bbox.min.x, scene_bbox.max.y, scene_bbox.min.z},
-        {scene_bbox.min.x, scene_bbox.min.y, scene_bbox.max.z},
-        {scene_bbox.max.x, scene_bbox.max.y, scene_bbox.min.z},
-        {scene_bbox.min.x, scene_bbox.max.y, scene_bbox.max.z},
-        {scene_bbox.max.x, scene_bbox.min.y, scene_bbox.max.z},
-        {scene_bbox.max.x, scene_bbox.max.y, scene_bbox.max.z},
+        {scene_bbox.min.x, scene_bbox.min.y, scene_bbox.min.z}, {scene_bbox.max.x, scene_bbox.min.y, scene_bbox.min.z},
+        {scene_bbox.min.x, scene_bbox.max.y, scene_bbox.min.z}, {scene_bbox.min.x, scene_bbox.min.y, scene_bbox.max.z},
+        {scene_bbox.max.x, scene_bbox.max.y, scene_bbox.min.z}, {scene_bbox.min.x, scene_bbox.max.y, scene_bbox.max.z},
+        {scene_bbox.max.x, scene_bbox.min.y, scene_bbox.max.z}, {scene_bbox.max.x, scene_bbox.max.y, scene_bbox.max.z},
     };
     f32 radius = 0.0f;
     for (const auto &corner : corners)

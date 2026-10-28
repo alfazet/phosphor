@@ -53,12 +53,14 @@ inline PhotonHashData build_photon_hash_info(const BoundingBox &bbox, u32 grid_r
 
 #ifdef __OPENCL_C_VERSION__
 
-inline void gather_photon_flux(const float4 pos, const PhotonHashData data, __global const u32 *cell_start,
-                               __global const u32 *cell_end, __global const float4 *photon_pos,
-                               __global const u32 *photon_power, __global const u32 *photon_dir, f32 search_r_sq,
-                               const float4 surf_hit_normal, float4 *flux, f32 *out_max_dist_sq, f32 *out_found) {
+inline void gather_photon_flux(const float4 pos, const float4 surf_normal, const PhotonHashData data,
+                               __global const u32 *cell_start, __global const u32 *cell_end,
+                               __global const float4 *photon_pos, __global const u32 *photon_power,
+                               __global const u32 *photon_dir, f32 search_r_sq, float4 *out_flux, f32 *out_found,
+                               f32 *out_max_dist_sq) {
+    *out_flux = BLACK;
+    *out_found = 0.0f;
     f32 max_dist_sq = 0.0f;
-    f32 found = 0.0f;
 
     for (u32 i = 0; i < 27; i++) {
         i32 cell_x = (i32)(i % 3) - 1;
@@ -86,19 +88,18 @@ inline void gather_photon_flux(const float4 pos, const PhotonHashData data, __gl
                 continue;
 
             float4 p_dir = decode_oct(photon_dir[p_idx]);
-            if (dot(p_dir, surf_hit_normal) > 0.0f)
+            if (dot(p_dir, surf_normal) > 0.0f)
                 continue;
 
             max_dist_sq = fmax(max_dist_sq, d_sq);
             // gaussian filter, see constants definition for reference
             f32 w = GAUSS_ALPHA * (1.0f - (1.0f - native_exp(-GAUSS_BETA * d_sq / (2.0f * max_dist_sq))) / GAUSS_DENOM);
-            *flux += w * decode_rgbe(photon_power[p_idx]);
-            found += w;
+            *out_flux += w * decode_rgbe(photon_power[p_idx]);
+            *out_found += w;
         }
     }
 
     *out_max_dist_sq = max_dist_sq;
-    *out_found = found;
 }
 #endif // __OPENCL_C_VERSION__
 

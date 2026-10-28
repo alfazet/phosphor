@@ -79,7 +79,7 @@ void Renderer::run() {
         if ((this->args.save_snapshots && is_pow2(round)) || round == this->args.sppm_rounds) {
             this->ctx.queue.enqueueReadBuffer(this->buffers.d_flux(), CL_TRUE, 0,
                                               this->buffers.n_pixels() * sizeof(float4), this->h_flux.data());
-            this->ctx.queue.enqueueReadBuffer(this->buffers.d_total_radiance(), CL_TRUE, 0,
+            this->ctx.queue.enqueueReadBuffer(this->buffers.d_radiance(), CL_TRUE, 0,
                                               this->buffers.n_pixels() * sizeof(float4), this->h_total_radiance.data());
             this->save_snapshot(round, total_photons_emitted);
         }
@@ -131,16 +131,16 @@ void Renderer::hash_and_sort_photons() {
                                          cl::NDRange(global_size(n_photons, this->workgroup_size)),
                                          cl::NDRange(this->workgroup_size));
 
-    set_kernel_args(this->k_scan_small_chunks, p.d_cell_counts, p.d_cell_start, this->d_small_chunk_sums,
-                    this->bucket_count);
+    set_kernel_args(this->k_scan_small_chunks, p.d_cell_counts, this->bucket_count, p.d_cell_start,
+                    this->d_small_chunk_sums);
     this->ctx.queue.enqueueNDRangeKernel(this->k_scan_small_chunks, cl::NullRange,
                                          cl::NDRange(n_scan_chunks * SCAN_WG_SIZE), cl::NDRange(SCAN_WG_SIZE));
 
-    set_kernel_args(this->k_scan_big_chunks, this->d_small_chunk_sums, this->d_big_chunk_sums, n_scan_chunks);
+    set_kernel_args(this->k_scan_big_chunks, this->d_small_chunk_sums, n_scan_chunks, this->d_big_chunk_sums);
     this->ctx.queue.enqueueNDRangeKernel(this->k_scan_big_chunks, cl::NullRange, cl::NDRange(SCAN_WG_SIZE),
                                          cl::NDRange(SCAN_WG_SIZE));
 
-    set_kernel_args(this->k_scan_add_offsets, p.d_cell_start, this->d_big_chunk_sums, this->bucket_count);
+    set_kernel_args(this->k_scan_add_offsets, this->d_big_chunk_sums, this->bucket_count, p.d_cell_start);
     this->ctx.queue.enqueueNDRangeKernel(this->k_scan_add_offsets, cl::NullRange,
                                          cl::NDRange(n_scan_chunks * SCAN_WG_SIZE), cl::NDRange(SCAN_WG_SIZE));
 

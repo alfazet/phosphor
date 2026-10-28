@@ -16,6 +16,23 @@ typedef struct GPU_ALIGN UvTransform {
     u8 _padding[12];
 } UvTransform;
 
+typedef struct GPU_ALIGN UvTransformBlock {
+    UvTransform diff;
+    UvTransform emis;
+    UvTransform norm;
+    UvTransform occlusion;
+    UvTransform metal_rough;
+    UvTransform transmission;
+    // 6 * 32 = 192
+} UvTransformBlock;
+
+#define UV_SLOT_DIFF 0u
+#define UV_SLOT_EMIS 1u
+#define UV_SLOT_NORM 2u
+#define UV_SLOT_OCCLUSION 3u
+#define UV_SLOT_METAL_ROUGH 4u
+#define UV_SLOT_TRANSMISSION 5u
+
 typedef struct GPU_ALIGN Material {
     float4 base_color;
     float4 emissive;
@@ -28,7 +45,7 @@ typedef struct GPU_ALIGN Material {
     f32 ior;
     f32 att_dist;
     f32 thickness;
-    // 6 * 4 = 28
+    // 6 * 4 = 24
 
     u32 diff_index;
     u32 emis_index;
@@ -38,16 +55,7 @@ typedef struct GPU_ALIGN Material {
     u32 transmission_index;
     // 6 * 4 = 24
 
-    UvTransform diff_transform;
-    UvTransform emis_transform;
-    UvTransform norm_transform;
-    UvTransform occlusion_transform;
-    UvTransform metal_rough_transform;
-    UvTransform transmission_transform;
-    // 6 * 32 = 192
-
-    // total: 244
-    u8 _padding[12];
+    // total: 96
 } Material;
 
 #ifdef __OPENCL_C_VERSION__
@@ -131,10 +139,13 @@ inline float4 sample_texture(__global const TextureMeta *tex_meta, __global cons
     return w11 * Q11 + w12 * Q12 + w21 * Q21 + w22 * Q22;
 }
 
-inline float4 sample_texture_uv(const Material *mat, __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
-                                u32 index, float2 uv, UvTransform transform) {
-    float2 transformed = apply_uv_transform(uv, transform.uv_offset, transform.uv_scale, transform.uv_rotation);
-    return sample_texture(tex_meta, tex_atlas, index, transformed);
+inline float4 sample_texture_uv(__global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
+                                __global const UvTransformBlock *uv_transforms, u32 mat_index, u32 tex_index, float2 uv,
+                                u32 transform_slot) {
+    __global const UvTransform *slot = (__global const UvTransform *)&uv_transforms[mat_index] + transform_slot;
+    float2 transformed = apply_uv_transform(uv, slot->uv_offset, slot->uv_scale, slot->uv_rotation);
+
+    return sample_texture(tex_meta, tex_atlas, tex_index, transformed);
 }
 
 #endif // __OPENCL_C_VERSION__

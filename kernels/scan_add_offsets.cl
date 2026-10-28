@@ -3,7 +3,7 @@
 
 // adds big chunk offsets back to cell_start to finalize the scan
 __kernel __attribute__((reqd_work_group_size(SCAN_WG_SIZE, 1, 1))) void
-scan_add_offsets(__global u32 *cell_start, __global const u32 *chunk_offsets, const u32 n_cells) {
+scan_add_offsets(__global const u32 *chunk_offsets, const u32 n_cells, __global u32 *cell_start) {
     u32 local_tid = get_local_id(0);
     u32 wg_id = get_group_id(0);
     u32 offset = chunk_offsets[wg_id];

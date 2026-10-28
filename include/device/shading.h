@@ -71,27 +71,28 @@ inline float4 apply_normal_map(float4 map_sample, float4 geom_normal, float4 tan
 //   occlusion      - how much area is blocked from lights
 //   ior            – index of refraction
 //   shading_normal – new normal after applying the normal map
-inline ShadingContext evaluate_material(const Material *mat, float2 uv, float4 geom_normal, float4 tangent,
-                                        float4 bitangent, __global const TextureMeta *tex_meta,
-                                        __global const u8 *tex_atlas, float4 vol_trans) {
+inline ShadingContext evaluate_material(const Material *mat, u32 mat_index, float2 uv, float4 geom_normal,
+                                        float4 tangent, float4 bitangent, __global const TextureMeta *tex_meta,
+                                        __global const u8 *tex_atlas,
+                                        __global const UvTransformBlock *uv_transforms, float4 vol_trans) {
     ShadingContext ctx;
 
     ctx.base_color = mat->base_color;
     if (mat->diff_index != NO_TEXTURE) {
-        float4 tex = sample_texture_uv(mat, tex_meta, tex_atlas, mat->diff_index, uv, mat->diff_transform);
+        float4 tex = sample_texture_uv(tex_meta, tex_atlas, uv_transforms, mat_index, mat->diff_index, uv, UV_SLOT_DIFF);
         ctx.base_color *= srgb_to_linear(tex);
     }
 
     ctx.emissive = mat->emissive;
     if (mat->emis_index != NO_TEXTURE) {
-        float4 tex = sample_texture_uv(mat, tex_meta, tex_atlas, mat->emis_index, uv, mat->emis_transform);
+        float4 tex = sample_texture_uv(tex_meta, tex_atlas, uv_transforms, mat_index, mat->emis_index, uv, UV_SLOT_EMIS);
         ctx.emissive *= srgb_to_linear(tex);
     }
 
     ctx.metallic = mat->metallic;
     ctx.roughness = mat->roughness;
     if (mat->metal_rough_index != NO_TEXTURE) {
-        float4 mr = sample_texture_uv(mat, tex_meta, tex_atlas, mat->metal_rough_index, uv, mat->metal_rough_transform);
+        float4 mr = sample_texture_uv(tex_meta, tex_atlas, uv_transforms, mat_index, mat->metal_rough_index, uv, UV_SLOT_METAL_ROUGH);
         ctx.metallic *= mr.z;  // B channel
         ctx.roughness *= mr.y; // G channel
     }
@@ -100,13 +101,13 @@ inline ShadingContext evaluate_material(const Material *mat, float2 uv, float4 g
     ctx.transmission = mat->transmission;
     if (mat->transmission_index != NO_TEXTURE) {
         float4 tex =
-            sample_texture_uv(mat, tex_meta, tex_atlas, mat->transmission_index, uv, mat->transmission_transform);
+            sample_texture_uv(tex_meta, tex_atlas, uv_transforms, mat_index, mat->transmission_index, uv, UV_SLOT_TRANSMISSION);
         ctx.transmission *= tex.r;
     }
 
     ctx.occlusion = 1.0f;
     if (mat->occlusion_index != NO_TEXTURE) {
-        float4 occ = sample_texture_uv(mat, tex_meta, tex_atlas, mat->occlusion_index, uv, mat->occlusion_transform);
+        float4 occ = sample_texture_uv(tex_meta, tex_atlas, uv_transforms, mat_index, mat->occlusion_index, uv, UV_SLOT_OCCLUSION);
         ctx.occlusion = occ.r; // R channel
     }
 
@@ -114,7 +115,7 @@ inline ShadingContext evaluate_material(const Material *mat, float2 uv, float4 g
 
     ctx.shading_normal = geom_normal;
     if (mat->norm_index != NO_TEXTURE) {
-        float4 map_sample = sample_texture_uv(mat, tex_meta, tex_atlas, mat->norm_index, uv, mat->norm_transform);
+        float4 map_sample = sample_texture_uv(tex_meta, tex_atlas, uv_transforms, mat_index, mat->norm_index, uv, UV_SLOT_NORM);
         ctx.shading_normal = apply_normal_map(map_sample, geom_normal, tangent, bitangent);
     }
 

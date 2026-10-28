@@ -16,6 +16,6 @@ void ImageBuffers::alloc(ClContext &ctx) {
     this->d_hp_direct = alloc_and_memset(ctx, 0, this->n_pixels, sizeof(float4));
     this->d_hp_emission = alloc_and_memset(ctx, 0, this->n_pixels, sizeof(float4));
     this->d_flux = alloc_and_memset(ctx, 0, this->n_pixels, sizeof(float4));
-    this->d_photon_count = alloc_and_memset(ctx, 0, this->n_pixels, sizeof(f32));
-    this->d_total_radiance = alloc_and_memset(ctx, 0, this->n_pixels, sizeof(float4));
+    this->d_photon_weight = alloc_and_memset(ctx, 0, this->n_pixels, sizeof(f32));
+    this->d_radiance = alloc_and_memset(ctx, 0, this->n_pixels, sizeof(float4));
 }

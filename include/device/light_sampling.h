@@ -74,8 +74,10 @@ static inline void sample_spot_light(RngState *rng, Light *light, float4 *origin
 static inline void sample_textured_light(RngState *rng, Light *light, __global const TriangleVertices *etri_verts,
                                          __global const TriangleNormals *etri_normals,
                                          __global const TriangleUvs *etri_uvs, __global const u32 *etri_mat_index,
-                                         __global const Material *materials, __global const TextureMeta *tex_meta,
-                                         __global const u8 *tex_atlas, float4 *origin, float4 *dir, float4 *power) {
+                                         __global const Material *materials,
+                                         __global const UvTransformBlock *uv_transforms,
+                                         __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
+                                         float4 *origin, float4 *dir, float4 *power) {
     u32 tex_index = as_uint(light->aux.x);
     u32 start = as_uint(light->aux.y);
     u32 n_triangles = as_uint(light->aux.z);
@@ -127,8 +129,7 @@ static inline void sample_textured_light(RngState *rng, Light *light, __global c
     float4 emissive_power = light->power;
     if (tex_index != NO_TEXTURE) {
         u32 mat_idx = etri_mat_index[chosen_idx];
-        Material mat = materials[mat_idx];
-        float4 tex_color = sample_texture_uv(&mat, tex_meta, tex_atlas, tex_index, uv, mat.emis_transform);
+        float4 tex_color = sample_texture_uv(tex_meta, tex_atlas, uv_transforms, mat_idx, tex_index, uv, UV_SLOT_EMIS);
         emissive_power *= srgb_to_linear(tex_color);
     }
     *power = emissive_power;
@@ -151,8 +152,9 @@ inline void sample_light(RngState *rng, __global const Light *lights, u32 n_ligh
                          f32 total_lum, float4 scene_center, f32 scene_radius,
                          __global const TriangleVertices *etri_verts, __global const TriangleNormals *etri_normals,
                          __global const TriangleUvs *etri_uvs, __global const u32 *etri_mat_index,
-                         __global const Material *materials, __global const TextureMeta *tex_meta,
-                         __global const u8 *tex_atlas, float4 *origin, float4 *dir, float4 *power) {
+                         __global const Material *materials, __global const UvTransformBlock *uv_transforms,
+                         __global const TextureMeta *tex_meta, __global const u8 *tex_atlas, float4 *origin,
+                         float4 *dir, float4 *power) {
     if (n_lights == 0 || total_lum < EPS) {
         *origin = (float4)(0.0f);
         *dir = (float4)(0.0f, 1.0f, 0.0f, 0.0f);
@@ -171,19 +173,19 @@ inline void sample_light(RngState *rng, __global const Light *lights, u32 n_ligh
     else if (light.kind == LIGHT_DIRECTIONAL)
         sample_directional_light(rng, &light, scene_center, scene_radius, origin, dir, power);
     else
-        sample_textured_light(rng, &light, etri_verts, etri_normals, etri_uvs, etri_mat_index, materials, tex_meta,
-                              tex_atlas, origin, dir, power);
+        sample_textured_light(rng, &light, etri_verts, etri_normals, etri_uvs, etri_mat_index, materials, uv_transforms,
+                              tex_meta, tex_atlas, origin, dir, power);
 
     *power /= scale;
 }
 
 // compute direct lighting (reflected radiance) by light-source sampling with next-event estimation
-inline float4 direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color,
-                              __global const Light *lights, u32 n_lights, __global const f32 *lum_pref_sum,
-                              f32 total_lum, float4 scene_center, f32 scene_radius,
-                              __global const TriangleVertices *etri_verts, __global const TriangleNormals *etri_normals,
-                              __global const TriangleUvs *etri_uvs, __global const u32 *etri_mat_index,
-                              __global const Material *materials, __global const TextureMeta *tex_meta,
+inline float4 direct_lighting(RngState *rng, float4 pos, float4 normal, float4 base_color, __global const Light *lights,
+                              u32 n_lights, __global const f32 *lum_pref_sum, f32 total_lum, float4 scene_center,
+                              f32 scene_radius, __global const TriangleVertices *etri_verts,
+                              __global const TriangleNormals *etri_normals, __global const TriangleUvs *etri_uvs,
+                              __global const u32 *etri_mat_index, __global const Material *materials,
+                              __global const UvTransformBlock *uv_transforms, __global const TextureMeta *tex_meta,
                               __global const u8 *tex_atlas, __global const BvhNode *tree,
                               __global const TriangleVertices *tri_verts, __global const u32 *tri_mat_index,
                               u32 n_tris) {
@@ -296,8 +298,8 @@ inline float4 direct_lighting(RngState *rng, float4 pos, float4 normal, float4 b
             float2 uv = (float2)(bw * chosen_euv.uv0.x + bu * chosen_euv.uv1.x + bv * chosen_euv.uv2.x,
                                  bw * chosen_euv.uv0.y + bu * chosen_euv.uv1.y + bv * chosen_euv.uv2.y);
             u32 mat_idx = etri_mat_index[chosen];
-            Material mat = materials[mat_idx];
-            float4 tex_color = sample_texture_uv(&mat, tex_meta, tex_atlas, tex_index, uv, mat.emis_transform);
+            float4 tex_color =
+                sample_texture_uv(tex_meta, tex_atlas, uv_transforms, mat_idx, tex_index, uv, UV_SLOT_EMIS);
             emissive_flux *= srgb_to_linear(tex_color);
         }
 

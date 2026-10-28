@@ -4,7 +4,7 @@
 // similar to scan_small_chunks, but one level higher
 // scans "small" chunk sums produced by scan_small_chunks into big_chunk_sums
 __kernel __attribute__((reqd_work_group_size(SCAN_WG_SIZE, 1, 1))) void
-scan_big_chunks(__global const u32 *small_chunk_sums, __global u32 *big_chunk_sums, const u32 n_small_chunks) {
+scan_big_chunks(__global const u32 *small_chunk_sums, const u32 n_small_chunks, __global u32 *big_chunk_sums) {
     __local u32 sh_mem[SCAN_CHUNK_SIZE];
     __local u32 sums[SCAN_WG_SIZE];
 
