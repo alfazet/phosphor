@@ -79,8 +79,8 @@ inline bool is_triangle_hit(u32 tri_idx, float4 origin, float4 dir, __global con
 
 inline bool bbox_hit(BoundingBox bbox, float4 origin, float4 dir, f32 t_min, f32 t_max) {
     f32 inv_dx = 1.0f / dir.x;
-    f32 tx0 = (bbox.bbox_min.x - origin.x) * inv_dx;
-    f32 tx1 = (bbox.bbox_max.x - origin.x) * inv_dx;
+    f32 tx0 = (bbox.min.x - origin.x) * inv_dx;
+    f32 tx1 = (bbox.max.x - origin.x) * inv_dx;
     if (tx0 < tx1) {
         if (tx0 > t_min)
             t_min = tx0;
@@ -96,8 +96,8 @@ inline bool bbox_hit(BoundingBox bbox, float4 origin, float4 dir, f32 t_min, f32
         return false;
 
     f32 inv_dy = 1.0f / dir.y;
-    f32 ty0 = (bbox.bbox_min.y - origin.y) * inv_dy;
-    f32 ty1 = (bbox.bbox_max.y - origin.y) * inv_dy;
+    f32 ty0 = (bbox.min.y - origin.y) * inv_dy;
+    f32 ty1 = (bbox.max.y - origin.y) * inv_dy;
     if (ty0 < ty1) {
         if (ty0 > t_min)
             t_min = ty0;
@@ -113,8 +113,8 @@ inline bool bbox_hit(BoundingBox bbox, float4 origin, float4 dir, f32 t_min, f32
         return false;
 
     f32 inv_dz = 1.0f / dir.z;
-    f32 tz0 = (bbox.bbox_min.z - origin.z) * inv_dz;
-    f32 tz1 = (bbox.bbox_max.z - origin.z) * inv_dz;
+    f32 tz0 = (bbox.min.z - origin.z) * inv_dz;
+    f32 tz1 = (bbox.max.z - origin.z) * inv_dz;
     if (tz0 < tz1) {
         if (tz0 > t_min)
             t_min = tz0;
@@ -150,10 +150,10 @@ inline bool scene_intersect(__global const BvhNode *tree, __global const Triangl
         if (!bbox_hit(node.bbox, origin, dir, t_min, closest))
             continue;
 
-        if (node.triangle_index != -1) {
+        u32 triangle_index = as_uint(node.bbox.min.w);
+        if (triangle_index != -1) {
             HitRecord candidate;
-            if (is_triangle_hit(node.triangle_index, origin, dir, tri_verts, tri_mat_index, t_min, closest,
-                                &candidate)) {
+            if (is_triangle_hit(triangle_index, origin, dir, tri_verts, tri_mat_index, t_min, closest, &candidate)) {
                 closest = candidate.t;
                 *hit_rec = candidate;
                 found = true;
@@ -162,7 +162,9 @@ inline bool scene_intersect(__global const BvhNode *tree, __global const Triangl
         }
         if (p + 2 >= BVH_STACK_SIZE)
             continue;
-        stack[++p] = node.right_child;
+
+        u32 right_child = as_uint(node.bbox.max.w);
+        stack[++p] = right_child;
         stack[++p] = index + 1;
     }
 

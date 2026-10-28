@@ -41,10 +41,10 @@ inline u32 get_hash(const float4 pos, const PhotonHashData data) {
 inline PhotonHashData build_photon_hash_info(const BoundingBox &bbox, u32 grid_res) {
     PhotonHashData data{};
     data.grid_res = grid_res;
-    data.origin = (float4){bbox.bbox_min.x, bbox.bbox_min.y, bbox.bbox_min.z, 0.0f};
-    data.cell_sizes.x = glm::max((bbox.bbox_max.x - bbox.bbox_min.x) / grid_res, MIN_CELL_SIZE);
-    data.cell_sizes.y = glm::max((bbox.bbox_max.y - bbox.bbox_min.y) / grid_res, MIN_CELL_SIZE);
-    data.cell_sizes.z = glm::max((bbox.bbox_max.z - bbox.bbox_min.z) / grid_res, MIN_CELL_SIZE);
+    data.origin = (float4){bbox.min.x, bbox.min.y, bbox.min.z, 0.0f};
+    data.cell_sizes.x = glm::max((bbox.max.x - bbox.min.x) / grid_res, MIN_CELL_SIZE);
+    data.cell_sizes.y = glm::max((bbox.max.y - bbox.min.y) / grid_res, MIN_CELL_SIZE);
+    data.cell_sizes.z = glm::max((bbox.max.z - bbox.min.z) / grid_res, MIN_CELL_SIZE);
 
     return data;
 }

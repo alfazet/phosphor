@@ -41,19 +41,19 @@ void ShadingBuffers::upload(ClContext &ctx, const SceneData &scene, const Boundi
     this->d_tex_meta = copy_to_dev_buf(ctx, tex_meta_vec.data(), tex_meta_vec.size(), sizeof(TextureMeta));
     this->d_tex_atlas = copy_to_dev_buf(ctx, atlas.data(), atlas.size(), sizeof(u8));
 
-    vec3 bbox_min(scene_bbox.bbox_min.x, scene_bbox.bbox_min.y, scene_bbox.bbox_min.z);
-    vec3 bbox_max(scene_bbox.bbox_max.x, scene_bbox.bbox_max.y, scene_bbox.bbox_max.z);
+    vec3 bbox_min(scene_bbox.min.x, scene_bbox.min.y, scene_bbox.min.z);
+    vec3 bbox_max(scene_bbox.max.x, scene_bbox.max.y, scene_bbox.max.z);
     vec3 center = 0.5f * (bbox_min + bbox_max);
     this->scene_center = float4{{center.x, center.y, center.z, 0.0f}};
     const vec3 corners[8] = {
-        {scene_bbox.bbox_min.x, scene_bbox.bbox_min.y, scene_bbox.bbox_min.z},
-        {scene_bbox.bbox_max.x, scene_bbox.bbox_min.y, scene_bbox.bbox_min.z},
-        {scene_bbox.bbox_min.x, scene_bbox.bbox_max.y, scene_bbox.bbox_min.z},
-        {scene_bbox.bbox_min.x, scene_bbox.bbox_min.y, scene_bbox.bbox_max.z},
-        {scene_bbox.bbox_max.x, scene_bbox.bbox_max.y, scene_bbox.bbox_min.z},
-        {scene_bbox.bbox_min.x, scene_bbox.bbox_max.y, scene_bbox.bbox_max.z},
-        {scene_bbox.bbox_max.x, scene_bbox.bbox_min.y, scene_bbox.bbox_max.z},
-        {scene_bbox.bbox_max.x, scene_bbox.bbox_max.y, scene_bbox.bbox_max.z},
+        {scene_bbox.min.x, scene_bbox.min.y, scene_bbox.min.z},
+        {scene_bbox.max.x, scene_bbox.min.y, scene_bbox.min.z},
+        {scene_bbox.min.x, scene_bbox.max.y, scene_bbox.min.z},
+        {scene_bbox.min.x, scene_bbox.min.y, scene_bbox.max.z},
+        {scene_bbox.max.x, scene_bbox.max.y, scene_bbox.min.z},
+        {scene_bbox.min.x, scene_bbox.max.y, scene_bbox.max.z},
+        {scene_bbox.max.x, scene_bbox.min.y, scene_bbox.max.z},
+        {scene_bbox.max.x, scene_bbox.max.y, scene_bbox.max.z},
     };
     f32 radius = 0.0f;
     for (const auto &corner : corners)

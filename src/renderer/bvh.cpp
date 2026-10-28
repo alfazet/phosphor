@@ -2,6 +2,7 @@
 #include "common/bounding_box.h"
 #include "common/bvh_node.h"
 #include "common/triangle.h"
+#include "common/utils.h"
 
 #include <algorithm>
 #include <numeric>
@@ -40,7 +41,7 @@ static u32 build_tmp(const std::vector<Triangle> &triangles, std::vector<u32> &i
 
     u32 axis = get_longest_axis(bbox);
     auto cmp = [&](u32 i, u32 j) {
-        return get_bounding_box(triangles[i]).bbox_min.s[axis] < get_bounding_box(triangles[j]).bbox_min.s[axis];
+        return get_bounding_box(triangles[i]).min.s[axis] < get_bounding_box(triangles[j]).min.s[axis];
     };
     std::sort(indices.begin() + start, indices.begin() + end, cmp);
     u32 mid = start + (end - start) / 2;
@@ -59,13 +60,13 @@ static void flatten(const std::vector<TmpNode> &tmp, u32 tmp_idx, std::vector<Bv
     u32 idx = static_cast<u32>(bvh.size());
     bvh.push_back({});
     bvh[idx].bbox = tmp[tmp_idx].bbox;
-    bvh[idx].triangle_index = tmp[tmp_idx].triangle_index;
-    bvh[idx].right_child = 0;
+    bvh[idx].bbox.min.w = as_float(tmp[tmp_idx].triangle_index);
+    bvh[idx].bbox.max.w = as_float(tmp[tmp_idx].right_child);
 
     // non-leaf node
     if (tmp[tmp_idx].triangle_index == -1) {
         flatten(tmp, tmp[tmp_idx].left_child, bvh);
-        bvh[idx].right_child = static_cast<u32>(bvh.size());
+        bvh[idx].bbox.max.w = as_float(bvh.size());
         flatten(tmp, tmp[tmp_idx].right_child, bvh);
     }
 }
