@@ -37,8 +37,7 @@ __kernel void trace_rays(
 
     // output
     __global float4 *hp_pos, __global float4 *hp_normal, __global float4 *hp_throughput, __global float4 *hp_base_color,
-    __global float4 *hp_direct, __global float4 *hp_emission
-) {
+    __global float4 *hp_direct, __global float4 *hp_emission) {
 
     u32 tid = get_global_id(0);
     u32 n_pixels = image_width * image_height;
@@ -109,14 +108,13 @@ __kernel void trace_rays(
                                               etri_normals, etri_uvs, etri_mat_index, materials, uv_transforms,
                                               tex_meta, tex_atlas, bvh_nodes, tri_verts, tri_mat_index, n_triangles);
             }
-            float4 direct = direct_sum / (f32)direct_samples;
 
             emission = (float4)(emission.xyz, 1.0f);
             position = surf_hit.position;
             normal = surf_hit.normal;
             throughput = throughput;
             base_color = ctx.base_color;
-            direct = throughput * ctx.occlusion * direct;
+            direct = throughput * ctx.occlusion * (direct_sum / (f32)direct_samples);
             break;
         }
 
