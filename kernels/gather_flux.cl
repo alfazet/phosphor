@@ -60,12 +60,12 @@ __kernel void gather_flux(
     f32 found = 0.0f; // called `M` in the paper
 
     gather_photon_flux(hp_pos[tid], hp_normal[tid], data, cell_start, cell_end, photon_pos, photon_power, photon_dir,
-                       r_sq, &new_flux, &max_dist_sq, &found);
+                       r_sq, &new_flux, &found, &max_dist_sq);
 
     // SPPM update
     if (found > 0.0f) {
-        f32 new_photon_count = photon_weight_so_far + sppm_alpha * found;
-        f32 ratio = new_photon_count / (photon_weight_so_far + found);
+        f32 new_photon_weight = photon_weight_so_far + sppm_alpha * found;
+        f32 ratio = new_photon_weight / (photon_weight_so_far + found);
         f32 new_radius_sq = r_sq * ratio;
 
         float4 albedo = hp_base_color[tid];
@@ -73,6 +73,6 @@ __kernel void gather_flux(
 
         float4 temp = (flux_so_far + contribution) * ratio;
         flux[tid] = (float4)(temp.xyz, new_radius_sq);
-        photon_weight[tid] = new_photon_count;
+        photon_weight[tid] = new_photon_weight;
     }
 }
