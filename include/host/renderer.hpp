@@ -4,7 +4,6 @@
 #include "buffers/rendering.hpp"
 #include "common/constants.h"
 #include "common/photon_hash.h"
-#include "common/pixel.h"
 #include "host/cmd_args.hpp"
 #include "host/opencl_ctx.hpp"
 #include "host/output.hpp"
@@ -54,7 +53,7 @@ class Renderer {
     cl::Buffer d_small_chunk_sums;
     cl::Buffer d_big_chunk_sums;
 
-    std::vector<Pixel> h_pixels;
+    std::vector<float4> h_flux;
     std::vector<float4> h_total_radiance;
 
     ImageWriter writer;

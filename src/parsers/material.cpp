@@ -22,30 +22,6 @@ static Material make_default_material() {
     mat.metal_rough_index = NO_TEXTURE;
     mat.transmission_index = NO_TEXTURE;
 
-    mat.diff_transform.uv_offset = float2{{0.0f, 0.0f}};
-    mat.diff_transform.uv_scale = float2{{1.0f, 1.0f}};
-    mat.diff_transform.uv_rotation = 0.0f;
-
-    mat.emis_transform.uv_offset = float2{{0.0f, 0.0f}};
-    mat.emis_transform.uv_scale = float2{{1.0f, 1.0f}};
-    mat.emis_transform.uv_rotation = 0.0f;
-
-    mat.norm_transform.uv_offset = float2{{0.0f, 0.0f}};
-    mat.norm_transform.uv_scale = float2{{1.0f, 1.0f}};
-    mat.norm_transform.uv_rotation = 0.0f;
-
-    mat.occlusion_transform.uv_offset = float2{{0.0f, 0.0f}};
-    mat.occlusion_transform.uv_scale = float2{{1.0f, 1.0f}};
-    mat.occlusion_transform.uv_rotation = 0.0f;
-
-    mat.metal_rough_transform.uv_offset = float2{{0.0f, 0.0f}};
-    mat.metal_rough_transform.uv_scale = float2{{1.0f, 1.0f}};
-    mat.metal_rough_transform.uv_rotation = 0.0f;
-
-    mat.transmission_transform.uv_offset = float2{{0.0f, 0.0f}};
-    mat.transmission_transform.uv_scale = float2{{1.0f, 1.0f}};
-    mat.transmission_transform.uv_rotation = 0.0f;
-
     mat.att_color = float4{{1.0f, 1.0f, 1.0f, 0.0f}};
     mat.att_dist = INF;
     mat.thickness = 0.0f;
@@ -53,7 +29,25 @@ static Material make_default_material() {
     return mat;
 }
 
-static void parse_pbr_metallic_roughness(aiMaterial *ai_mat, const SceneData &scene, Material &out) {
+static UvTransformBlock make_default_uv_transforms() {
+    UvTransform identity{};
+    identity.uv_offset = float2{{0.0f, 0.0f}};
+    identity.uv_scale = float2{{1.0f, 1.0f}};
+    identity.uv_rotation = 0.0f;
+
+    UvTransformBlock block{};
+    block.diff = identity;
+    block.emis = identity;
+    block.norm = identity;
+    block.occlusion = identity;
+    block.metal_rough = identity;
+    block.transmission = identity;
+
+    return block;
+}
+
+static void parse_pbr_metallic_roughness(aiMaterial *ai_mat, const SceneData &scene, Material &out,
+                                         UvTransformBlock &out_uv) {
     const aiTextureType uv_types[] = {
         aiTextureType_DIFFUSE,           aiTextureType_BASE_COLOR,   aiTextureType_NORMALS,
         aiTextureType_EMISSIVE,          aiTextureType_METALNESS,    aiTextureType_DIFFUSE_ROUGHNESS,
@@ -64,31 +58,31 @@ static void parse_pbr_metallic_roughness(aiMaterial *ai_mat, const SceneData &sc
         if (ai_mat->Get(AI_MATKEY_UVTRANSFORM(type, 0), ai_uv) == AI_SUCCESS) {
             switch (type) {
             case aiTextureType_DIFFUSE:
-                transform = &out.diff_transform;
+                transform = &out_uv.diff;
                 break;
             case aiTextureType_BASE_COLOR:
-                transform = &out.diff_transform;
+                transform = &out_uv.diff;
                 break;
             case aiTextureType_NORMALS:
-                transform = &out.norm_transform;
+                transform = &out_uv.norm;
                 break;
             case aiTextureType_EMISSIVE:
-                transform = &out.emis_transform;
+                transform = &out_uv.emis;
                 break;
             case aiTextureType_METALNESS:
-                transform = &out.metal_rough_transform;
+                transform = &out_uv.metal_rough;
                 break;
             case aiTextureType_DIFFUSE_ROUGHNESS:
-                transform = &out.diff_transform;
+                transform = &out_uv.diff;
                 break;
             case aiTextureType_AMBIENT_OCCLUSION:
-                transform = &out.occlusion_transform;
+                transform = &out_uv.occlusion;
                 break;
             case aiTextureType_TRANSMISSION:
-                transform = &out.transmission_transform;
+                transform = &out_uv.transmission;
                 break;
             default:
-                transform = &out.diff_transform;
+                transform = &out_uv.diff;
                 break;
             }
             transform->uv_offset = float2{{ai_uv.mTranslation.x, ai_uv.mTranslation.y}};
@@ -162,16 +156,18 @@ static void parse_material_textures(aiMaterial *ai_mat, const SceneData &scene, 
 
 u32 parse_material(const aiScene *scene, aiMesh *mesh, SceneData &out_scene, std::optional<vec3> &emissive_out) {
     Material mat = make_default_material();
+    UvTransformBlock uv = make_default_uv_transforms();
     emissive_out = std::nullopt;
     if (mesh->mMaterialIndex >= scene->mNumMaterials) {
         u32 idx = out_scene.materials.size();
         out_scene.materials.push_back(mat);
+        out_scene.uv_transforms.push_back(uv);
         return idx;
     }
 
     aiMaterial *ai_mat = scene->mMaterials[mesh->mMaterialIndex];
 
-    parse_pbr_metallic_roughness(ai_mat, out_scene, mat);
+    parse_pbr_metallic_roughness(ai_mat, out_scene, mat, uv);
     parse_khr_transmission(ai_mat, out_scene, mat);
     parse_khr_ior(ai_mat, mat);
     parse_khr_volume(ai_mat, mat);
@@ -182,6 +178,7 @@ u32 parse_material(const aiScene *scene, aiMesh *mesh, SceneData &out_scene, std
         emissive_out = emissive_vec;
     u32 idx = out_scene.materials.size();
     out_scene.materials.push_back(mat);
+    out_scene.uv_transforms.push_back(uv);
 
     return idx;
 }

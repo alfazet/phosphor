@@ -4,8 +4,8 @@
 // the work group with id wg_id scans cell_counts[wg_id * SCAN_CHUNK_SIZE .. (wg_id + 1) * SCAN_CHUNK_SIZE] into
 // cell_start, the sum of the entire chunk is also written to chunk_sums[wg_id] in preparation for scan_big_chunks
 __kernel __attribute__((reqd_work_group_size(SCAN_WG_SIZE, 1, 1))) void
-scan_small_chunks(__global const u32 *cell_counts, __global u32 *cell_start, __global u32 *chunk_sums,
-                  const u32 n_cells) {
+scan_small_chunks(__global const u32 *cell_counts, const u32 n_cells, __global u32 *cell_start,
+                  __global u32 *chunk_sums) {
     __local u32 sh_mem[SCAN_CHUNK_SIZE];
     __local u32 sums[SCAN_WG_SIZE];
 

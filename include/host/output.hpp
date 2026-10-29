@@ -1,7 +1,6 @@
 #ifndef PHOSPHOR_OUTPUT_HPP
 #define PHOSPHOR_OUTPUT_HPP
 
-#include "common/pixel.h"
 #include "common/typedefs.h"
 #include "host/cmd_args.hpp"
 
@@ -35,9 +34,9 @@ class ImageWriter {
 
     ~ImageWriter();
 
-    void submit(const std::filesystem::path &path, u32 width, u32 height, f32 exposure,
-                const std::vector<Pixel> &pixels, const std::vector<float4> &total_radiance, u64 total_photons,
-                u32 sppm_rounds, const std::string &metadata);
+    void submit(const std::filesystem::path &path, u32 width, u32 height, f32 exposure, const std::vector<float4> &flux,
+                const std::vector<float4> &total_radiance, u64 total_photons, u32 sppm_rounds,
+                const std::string &metadata);
 
     void flush();
 

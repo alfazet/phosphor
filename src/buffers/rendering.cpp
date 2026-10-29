@@ -29,50 +29,49 @@ void RenderingBuffers::alloc_image_buffers(ClContext &ctx, const CameraParams &c
     this->image_buf.alloc(ctx);
 }
 
-void RenderingBuffers::set_emit_photons_args(cl::Kernel &kernel, u32 batch_offset, u32 photons_to_emit,
-                                             u32 max_photon_bounces, u32 seed, u32 batch_max_photons,
-                                             cl::Buffer &out_photon_pos, cl::Buffer &out_photon_power,
-                                             cl::Buffer &out_photon_dir, cl::Buffer &out_n_photons) const {
-    const auto &g = this->geometry_buf;
-    const auto &s = this->shading_buf;
-    set_kernel_args(kernel, out_photon_pos, out_photon_power, out_photon_dir, out_n_photons, s.d_lights, s.n_lights,
-                    batch_max_photons, batch_offset, photons_to_emit, max_photon_bounces, seed, g.d_bvh_nodes,
-                    g.d_tri_v0, g.d_tri_v1, g.d_tri_v2, g.d_tri_n0, g.d_tri_n1, g.d_tri_n2, g.d_tri_uv0, g.d_tri_uv1,
-                    g.d_tri_uv2, g.d_tri_t0, g.d_tri_t1, g.d_tri_t2, g.d_tri_mat_index, g.n_triangles, g.d_etri_v0,
-                    g.d_etri_v1, g.d_etri_v2, g.d_etri_n0, g.d_etri_n1, g.d_etri_n2, g.d_etri_uv0, g.d_etri_uv1,
-                    g.d_etri_uv2, g.d_etri_mat_index, s.d_materials, s.d_tex_meta, s.d_tex_atlas, s.d_lum_pref_sum,
-                    s.total_lum, s.scene_center, s.scene_radius);
-}
-
 void RenderingBuffers::set_trace_rays_args(cl::Kernel &kernel, u32 seed, u32 direct_samples) const {
     const auto &g = this->geometry_buf;
     const auto &s = this->shading_buf;
     const auto &i = this->image_buf;
-    set_kernel_args(kernel, i.camera, i.image_width, i.image_height, seed, direct_samples, g.d_tri_v0, g.d_tri_v1,
-                    g.d_tri_v2, g.d_tri_n0, g.d_tri_n1, g.d_tri_n2, g.d_tri_uv0, g.d_tri_uv1, g.d_tri_uv2, g.d_tri_t0,
-                    g.d_tri_t1, g.d_tri_t2, g.d_bvh_nodes, g.d_tri_mat_index, g.n_triangles, s.d_materials,
-                    s.d_tex_meta, s.d_tex_atlas, s.d_lights, s.n_lights, s.d_lum_pref_sum, s.total_lum, s.scene_center,
-                    s.scene_radius, g.d_etri_v0, g.d_etri_v1, g.d_etri_v2, g.d_etri_n0, g.d_etri_n1, g.d_etri_n2,
-                    g.d_etri_uv0, g.d_etri_uv1, g.d_etri_uv2, g.d_etri_mat_index, i.d_hit_points, s.d_envmap_data,
-                    s.envmap_width, s.envmap_height, s.has_envmap);
+    set_kernel_args(kernel, i.camera, i.image_width, i.image_height, seed, direct_samples, g.d_tri_verts,
+                    g.d_tri_normals, g.d_tri_tangents, g.d_tri_uvs, g.d_bvh_nodes, g.d_tri_mat_index, g.n_triangles,
+                    s.d_materials, s.d_uv_transforms, s.d_tex_meta, s.d_tex_atlas, s.d_lights, s.n_lights,
+                    s.d_lum_pref_sum, s.total_lum, s.scene_center, s.scene_radius, g.d_etri_verts, g.d_etri_normals,
+                    g.d_etri_uvs, g.d_etri_mat_index, s.d_envmap_data, s.envmap_width, s.envmap_height, s.has_envmap,
+                    i.d_hp_pos, i.d_hp_normal, i.d_hp_throughput, i.d_hp_base_color, i.d_hp_direct, i.d_hp_emission);
 }
 
-void RenderingBuffers::set_hash_photons_args(cl::Kernel &kernel, cl::Buffer &raw_photon_pos, u32 n_photons_count,
+void RenderingBuffers::set_emit_photons_args(cl::Kernel &kernel, u32 batch_offset, u32 photons_to_emit,
+                                             u32 max_photon_bounces, u32 seed, u32 max_photons,
+                                             cl::Buffer &out_photon_pos, cl::Buffer &out_photon_power,
+                                             cl::Buffer &out_photon_dir, cl::Buffer &out_n_photons) const {
+    const auto &g = this->geometry_buf;
+    const auto &s = this->shading_buf;
+    set_kernel_args(kernel, s.d_lights, s.n_lights, max_photons, batch_offset, photons_to_emit, max_photon_bounces,
+                    seed, g.d_bvh_nodes, g.d_tri_verts, g.d_tri_normals, g.d_tri_tangents, g.d_tri_uvs,
+                    g.d_tri_mat_index, g.n_triangles, g.d_etri_verts, g.d_etri_normals, g.d_etri_uvs,
+                    g.d_etri_mat_index, s.d_materials, s.d_uv_transforms, s.d_tex_meta, s.d_tex_atlas, s.d_lum_pref_sum,
+                    s.total_lum, s.scene_center, s.scene_radius, out_photon_pos, out_photon_power, out_photon_dir,
+                    out_n_photons);
+}
+
+void RenderingBuffers::set_hash_photons_args(cl::Kernel &kernel, const cl::Buffer &photon_pos, u32 n_photons,
                                              PhotonHashData data) const {
     const auto &p = this->photon_buf;
-    set_kernel_args(kernel, raw_photon_pos, p.d_photon_hashes, p.d_cell_counts, n_photons_count, data);
+    set_kernel_args(kernel, photon_pos, n_photons, data, p.d_photon_hashes, p.d_cell_counts);
 }
 
-void RenderingBuffers::set_scatter_args(cl::Kernel &kernel, cl::Buffer &raw_photon_pos, cl::Buffer &raw_photon_power,
-                                        cl::Buffer &raw_photon_dir, u32 n_photons_count) const {
+void RenderingBuffers::set_scatter_args(cl::Kernel &kernel, cl::Buffer &photon_pos, cl::Buffer &photon_power,
+                                        cl::Buffer &photon_dir, u32 n_photons) const {
     const auto &p = this->photon_buf;
-    set_kernel_args(kernel, raw_photon_pos, raw_photon_power, raw_photon_dir, p.d_photon_hashes, p.d_photon_pos,
-                    p.d_photon_power, p.d_photon_dir, p.d_cell_end, n_photons_count);
+    set_kernel_args(kernel, photon_pos, photon_power, photon_dir, p.d_photon_hashes, p.d_cell_end, n_photons,
+                    p.d_photon_pos, p.d_photon_power, p.d_photon_dir);
 }
 
 void RenderingBuffers::set_gather_flux_args(cl::Kernel &kernel, PhotonHashData data, f32 sppm_alpha) const {
     const auto &p = this->photon_buf;
     const auto &i = this->image_buf;
-    set_kernel_args(kernel, i.d_hit_points, i.d_pixels, i.d_total_radiance, i.n_pixels, p.d_photon_pos,
-                    p.d_photon_power, p.d_photon_dir, p.n_photons, p.d_cell_start, p.d_cell_end, data, sppm_alpha);
+    set_kernel_args(kernel, i.d_hp_pos, i.d_hp_normal, i.d_hp_throughput, i.d_hp_base_color, i.d_hp_direct,
+                    i.d_hp_emission, i.n_pixels, p.d_photon_pos, p.d_photon_power, p.d_photon_dir, p.n_photons,
+                    p.d_cell_start, p.d_cell_end, data, sppm_alpha, i.d_flux, i.d_photon_weight, i.d_radiance);
 }
