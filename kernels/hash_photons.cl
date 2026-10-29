@@ -1,8 +1,8 @@
 #include "common/photon_hash.h"
 #include "common/typedefs.h"
 
-__kernel void hash_photons(__global const float4 *photon_pos, __global u32 *photon_hashes, __global u32 *cell_counts,
-                           const u32 n_photons, const PhotonHashData data) {
+__kernel void hash_photons(__global const float4 *photon_pos, const u32 n_photons, const PhotonHashData data,
+                           __global u32 *photon_hashes, __global u32 *cell_counts) {
     u32 tid = get_global_id(0);
     if (tid >= n_photons)
         return;

@@ -9,7 +9,7 @@
 #include <CL/opencl.hpp>
 #include <string>
 
-constexpr const char *KERNEL_COMPILATION_FLAGS = "-I./include/common -I./include/device";
+constexpr const char *KERNEL_COMPILATION_FLAGS = "-I./include/";
 
 struct ClContext {
     explicit ClContext();

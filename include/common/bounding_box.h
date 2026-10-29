@@ -4,9 +4,9 @@
 #include "common/constants.h"
 #include "common/typedefs.h"
 
-typedef struct BoundingBox {
-    float4 bbox_min;
-    float4 bbox_max;
+typedef struct GPU_ALIGN BoundingBox {
+    float4 min;
+    float4 max;
 } BoundingBox;
 
 #ifndef __OPENCL_C_VERSION__
@@ -17,32 +17,32 @@ typedef struct BoundingBox {
 static inline bool check_inf(f32 value) { return (value >= INF || value <= -INF); }
 
 static inline void check_bbox_inf(const BoundingBox bbox) {
-    if (check_inf(bbox.bbox_min.x) || check_inf(bbox.bbox_min.y) || check_inf(bbox.bbox_min.z) ||
-        check_inf(bbox.bbox_max.x) || check_inf(bbox.bbox_max.y) || check_inf(bbox.bbox_max.z))
+    if (check_inf(bbox.min.x) || check_inf(bbox.min.y) || check_inf(bbox.min.z) ||
+        check_inf(bbox.max.x) || check_inf(bbox.max.y) || check_inf(bbox.max.z))
         LOG_FATAL("bounding box contains an infinity");
 }
 
 static inline void check_bbox_width(const BoundingBox bbox) {
-    if (bbox.bbox_min.x == bbox.bbox_max.x || bbox.bbox_min.y == bbox.bbox_max.y || bbox.bbox_min.z == bbox.bbox_max.z)
+    if (bbox.min.x == bbox.max.x || bbox.min.y == bbox.max.y || bbox.min.z == bbox.max.z)
         LOG_FATAL("object has no width");
 }
 
 static inline void expand(BoundingBox &bbox) {
-    bbox.bbox_min.x -= BBOX_EPS;
-    bbox.bbox_min.y -= BBOX_EPS;
-    bbox.bbox_min.z -= BBOX_EPS;
-    bbox.bbox_max.x += BBOX_EPS;
-    bbox.bbox_max.y += BBOX_EPS;
-    bbox.bbox_max.z += BBOX_EPS;
+    bbox.min.x -= BBOX_EPS;
+    bbox.min.y -= BBOX_EPS;
+    bbox.min.z -= BBOX_EPS;
+    bbox.max.x += BBOX_EPS;
+    bbox.max.y += BBOX_EPS;
+    bbox.max.z += BBOX_EPS;
 }
 
 static inline void expand_aabb(BoundingBox &bbox, const float4 p) {
-    bbox.bbox_min.x = std::min(bbox.bbox_min.x, p.x);
-    bbox.bbox_min.y = std::min(bbox.bbox_min.y, p.y);
-    bbox.bbox_min.z = std::min(bbox.bbox_min.z, p.z);
-    bbox.bbox_max.x = std::max(bbox.bbox_max.x, p.x);
-    bbox.bbox_max.y = std::max(bbox.bbox_max.y, p.y);
-    bbox.bbox_max.z = std::max(bbox.bbox_max.z, p.z);
+    bbox.min.x = std::min(bbox.min.x, p.x);
+    bbox.min.y = std::min(bbox.min.y, p.y);
+    bbox.min.z = std::min(bbox.min.z, p.z);
+    bbox.max.x = std::max(bbox.max.x, p.x);
+    bbox.max.y = std::max(bbox.max.y, p.y);
+    bbox.max.z = std::max(bbox.max.z, p.z);
 }
 
 inline BoundingBox get_bounding_box(const Triangle &tri) {
@@ -61,9 +61,9 @@ inline BoundingBox get_bounding_box(const Triangle &tri) {
 }
 
 inline u32 get_longest_axis(const BoundingBox bbox) {
-    f32 x_size = bbox.bbox_max.x - bbox.bbox_min.x;
-    f32 y_size = bbox.bbox_max.y - bbox.bbox_min.y;
-    f32 z_size = bbox.bbox_max.z - bbox.bbox_min.z;
+    f32 x_size = bbox.max.x - bbox.min.x;
+    f32 y_size = bbox.max.y - bbox.min.y;
+    f32 z_size = bbox.max.z - bbox.min.z;
     if (x_size > y_size) {
         if (x_size > z_size) {
             return 0;
@@ -79,12 +79,12 @@ inline u32 get_longest_axis(const BoundingBox bbox) {
 
 inline BoundingBox merge(const BoundingBox &a, const BoundingBox &b) {
     BoundingBox result;
-    result.bbox_min.x = std::min(a.bbox_min.x, b.bbox_min.x);
-    result.bbox_min.y = std::min(a.bbox_min.y, b.bbox_min.y);
-    result.bbox_min.z = std::min(a.bbox_min.z, b.bbox_min.z);
-    result.bbox_max.x = std::max(a.bbox_max.x, b.bbox_max.x);
-    result.bbox_max.y = std::max(a.bbox_max.y, b.bbox_max.y);
-    result.bbox_max.z = std::max(a.bbox_max.z, b.bbox_max.z);
+    result.min.x = std::min(a.min.x, b.min.x);
+    result.min.y = std::min(a.min.y, b.min.y);
+    result.min.z = std::min(a.min.z, b.min.z);
+    result.max.x = std::max(a.max.x, b.max.x);
+    result.max.y = std::max(a.max.y, b.max.y);
+    result.max.z = std::max(a.max.z, b.max.z);
 
     return result;
 }

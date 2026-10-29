@@ -6,8 +6,8 @@
 
 struct PhotonBuffers {
     cl::Buffer d_photon_pos;
-    cl::Buffer d_photon_power;
-    cl::Buffer d_photon_dir;
+    cl::Buffer d_photon_power; // RGBE encoded
+    cl::Buffer d_photon_dir; // octahedral encoded
     cl::Buffer d_photon_hashes;
 
     cl::Buffer d_cell_counts;

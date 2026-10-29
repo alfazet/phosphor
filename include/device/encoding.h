@@ -1,10 +1,10 @@
-#ifndef PHOSPHOR_PHOTON_H
-#define PHOSPHOR_PHOTON_H
+#ifndef PHOSPHOR_ENCODING_H
+#define PHOSPHOR_ENCODING_H
+
+#ifdef __OPENCL_C_VERSION__
 
 #include "common/constants.h"
 #include "common/typedefs.h"
-
-#ifdef __OPENCL_C_VERSION__
 
 // https://www.graphics.cornell.edu/%7Ebjw/rgbe/rgbe.c
 u32 encode_rgbe(float4 power) {
@@ -75,4 +75,4 @@ float4 decode_oct(u32 packed) {
 
 #endif // __OPENCL_C_VERSION__
 
-#endif // PHOSPHOR_PHOTON_H
+#endif // PHOSPHOR_ENCODING_H

@@ -22,6 +22,7 @@ struct SceneData {
     std::vector<Triangle> triangles;
     std::vector<Triangle> emissive_triangles;
     std::vector<Material> materials;
+    std::vector<UvTransformBlock> uv_transforms;
     std::vector<Light> lights;
     std::vector<f32> lum_pref_sum;
     std::vector<Camera> cameras;

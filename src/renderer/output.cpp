@@ -45,7 +45,7 @@ static inline f32 tone_map(f32 x, f32 exposure) {
     return std::clamp(out, 0.0f, 1.0f);
 }
 
-static std::vector<u8> apply_tonemap(u32 width, u32 height, f32 exposure, const std::vector<Pixel> &pixels,
+static std::vector<u8> apply_tonemap(u32 width, u32 height, f32 exposure, const std::vector<float4> &flux,
                                      const std::vector<float4> &total_radiance, u64 total_photons, u32 sppm_rounds) {
     u32 n_pixels = width * height;
     std::vector<u8> ldr(n_pixels * 3);
@@ -55,21 +55,21 @@ static std::vector<u8> apply_tonemap(u32 width, u32 height, f32 exposure, const 
     std::vector<u32> indices(n_pixels);
     std::iota(indices.begin(), indices.end(), 0);
     std::for_each(std::execution::par_unseq, indices.begin(), indices.end(), [&](u32 p) {
-        const Pixel &px = pixels[p];
-        f32 r_sq = px.radius_sq;
+        float4 flux_and_r_sq = flux[p];
+        f32 area = PI * flux_and_r_sq.w;
 
         f32 indirect_r = 0.0f, indirect_g = 0.0f, indirect_b = 0.0f;
-        if (r_sq > 0.0f) {
-            f32 inv_area = inv_photons / (PI * r_sq);
-            indirect_r = px.flux.x * inv_area;
-            indirect_g = px.flux.y * inv_area;
-            indirect_b = px.flux.z * inv_area;
+        if (area > 0.0f) {
+            f32 per_area = inv_photons / area;
+            indirect_r = flux_and_r_sq.x * per_area;
+            indirect_g = flux_and_r_sq.y * per_area;
+            indirect_b = flux_and_r_sq.z * per_area;
         }
 
-        const float4 &x = total_radiance[p];
-        f32 r = x.x * inv_rounds + indirect_r;
-        f32 g = x.y * inv_rounds + indirect_g;
-        f32 b = x.z * inv_rounds + indirect_b;
+        const float4 &rad = total_radiance[p];
+        f32 r = rad.x * inv_rounds + indirect_r;
+        f32 g = rad.y * inv_rounds + indirect_g;
+        f32 b = rad.z * inv_rounds + indirect_b;
         ldr[p * 3 + 0] = static_cast<u8>(tone_map(r, exposure) * 255.0f);
         ldr[p * 3 + 1] = static_cast<u8>(tone_map(g, exposure) * 255.0f);
         ldr[p * 3 + 2] = static_cast<u8>(tone_map(b, exposure) * 255.0f);
@@ -107,9 +107,9 @@ ImageWriter::~ImageWriter() {
 }
 
 void ImageWriter::submit(const std::filesystem::path &path, u32 width, u32 height, f32 exposure,
-                         const std::vector<Pixel> &pixels, const std::vector<float4> &total_radiance,
-                         u64 total_photons, u32 sppm_rounds, const std::string &metadata) {
-    std::vector<u8> ldr = apply_tonemap(width, height, exposure, pixels, total_radiance, total_photons, sppm_rounds);
+                         const std::vector<float4> &flux, const std::vector<float4> &total_radiance, u64 total_photons,
+                         u32 sppm_rounds, const std::string &metadata) {
+    std::vector<u8> ldr = apply_tonemap(width, height, exposure, flux, total_radiance, total_photons, sppm_rounds);
 
     WriteJob job{path, width, height, metadata, std::move(ldr)};
     {

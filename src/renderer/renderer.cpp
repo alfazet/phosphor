@@ -52,7 +52,7 @@ void Renderer::set_scene(SceneData &scene) {
     this->d_big_chunk_sums = cl::Buffer(this->ctx.context, CL_MEM_READ_WRITE, n_scan_chunks * sizeof(u32));
 
     this->rng = pcg_seed(this->args.seed);
-    this->h_pixels.resize(this->buffers.n_pixels());
+    this->h_flux.resize(this->buffers.n_pixels());
     this->h_total_radiance.resize(this->buffers.n_pixels());
 }
 
@@ -77,9 +77,9 @@ void Renderer::run() {
 
         total_photons_emitted += photons_per_round;
         if ((this->args.save_snapshots && is_pow2(round)) || round == this->args.sppm_rounds) {
-            this->ctx.queue.enqueueReadBuffer(this->buffers.d_pixels(), CL_TRUE, 0,
-                                              this->buffers.n_pixels() * sizeof(Pixel), this->h_pixels.data());
-            this->ctx.queue.enqueueReadBuffer(this->buffers.d_total_radiance(), CL_TRUE, 0,
+            this->ctx.queue.enqueueReadBuffer(this->buffers.d_flux(), CL_TRUE, 0,
+                                              this->buffers.n_pixels() * sizeof(float4), this->h_flux.data());
+            this->ctx.queue.enqueueReadBuffer(this->buffers.d_radiance(), CL_TRUE, 0,
                                               this->buffers.n_pixels() * sizeof(float4), this->h_total_radiance.data());
             this->save_snapshot(round, total_photons_emitted);
         }
@@ -131,16 +131,16 @@ void Renderer::hash_and_sort_photons() {
                                          cl::NDRange(global_size(n_photons, this->workgroup_size)),
                                          cl::NDRange(this->workgroup_size));
 
-    set_kernel_args(this->k_scan_small_chunks, p.d_cell_counts, p.d_cell_start, this->d_small_chunk_sums,
-                    this->bucket_count);
+    set_kernel_args(this->k_scan_small_chunks, p.d_cell_counts, this->bucket_count, p.d_cell_start,
+                    this->d_small_chunk_sums);
     this->ctx.queue.enqueueNDRangeKernel(this->k_scan_small_chunks, cl::NullRange,
                                          cl::NDRange(n_scan_chunks * SCAN_WG_SIZE), cl::NDRange(SCAN_WG_SIZE));
 
-    set_kernel_args(this->k_scan_big_chunks, this->d_small_chunk_sums, this->d_big_chunk_sums, n_scan_chunks);
+    set_kernel_args(this->k_scan_big_chunks, this->d_small_chunk_sums, n_scan_chunks, this->d_big_chunk_sums);
     this->ctx.queue.enqueueNDRangeKernel(this->k_scan_big_chunks, cl::NullRange, cl::NDRange(SCAN_WG_SIZE),
                                          cl::NDRange(SCAN_WG_SIZE));
 
-    set_kernel_args(this->k_scan_add_offsets, p.d_cell_start, this->d_big_chunk_sums, this->bucket_count);
+    set_kernel_args(this->k_scan_add_offsets, this->d_big_chunk_sums, this->bucket_count, p.d_cell_start);
     this->ctx.queue.enqueueNDRangeKernel(this->k_scan_add_offsets, cl::NullRange,
                                          cl::NDRange(n_scan_chunks * SCAN_WG_SIZE), cl::NDRange(SCAN_WG_SIZE));
 
@@ -163,6 +163,6 @@ void Renderer::gather_flux() {
 void Renderer::save_snapshot(u32 round, u64 total_photons_emitted) {
     std::filesystem::path image_path = this->output_dir / std::format("{:06d}.png", round);
     this->writer.submit(image_path, this->render_size.width, this->render_size.height, this->args.exposure,
-                        this->h_pixels, this->h_total_radiance, total_photons_emitted, round, this->image_metadata);
+                        this->h_flux, this->h_total_radiance, total_photons_emitted, round, this->image_metadata);
     LOG_INFO("rendered image after {} SPPM rounds enqueued for writing: {}", round, image_path.c_str());
 }

@@ -8,6 +8,7 @@
 
 struct ShadingBuffers {
     cl::Buffer d_materials;
+    cl::Buffer d_uv_transforms;
     u32 n_materials = 0;
 
     cl::Buffer d_lights;
