@@ -10,7 +10,7 @@
 
 constexpr u32 DEFAULT_WIDTH = 1024;
 constexpr u32 DEFAULT_HEIGHT = 1024;
-constexpr f32 DEFAULT_EXPOSURE = 1.0f;
+constexpr f32 DEFAULT_EXPOSURE = 0.66f;
 
 constexpr u32 DEFAULT_MAX_PHOTONS_PER_BATCH = (1 << 20);
 constexpr u32 DEFAULT_WORKGROUP_SIZE = 32;
