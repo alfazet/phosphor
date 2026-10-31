@@ -41,6 +41,7 @@ static inline f32 tone_map(f32 x, f32 exposure) {
     x *= exposure;
     f32 a = 2.51f, b = 0.03f, c = 2.43f, d = 0.59f, e = 0.14f;
     f32 out = (x * (a * x + b)) / (x * (c * x + d) + e);
+    out = std::pow(out, 1.0f / 2.2f);
 
     return std::clamp(out, 0.0f, 1.0f);
 }

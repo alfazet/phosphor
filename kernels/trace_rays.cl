@@ -101,12 +101,12 @@ __kernel void trace_rays(
             sample_bsdf(&rng, &ctx, ctx.shading_normal, surf_hit.normal, view, &ior_stack, surf_hit.front_face);
 
         if (bsdf.event == BSDF_DIFFUSE) {
-            float4 direct_sum = BLACK;
+            float4 diffuse_sum = BLACK;
             for (u32 d = 0; d < direct_samples; d++) {
-                direct_sum += direct_lighting(&rng, surf_hit.position, ctx.shading_normal, ctx.base_color, lights,
-                                              n_lights, lum_pref_sum, total_lum, scene_center, scene_radius, etri_verts,
-                                              etri_normals, etri_uvs, etri_mat_index, materials, uv_transforms,
-                                              tex_meta, tex_atlas, bvh_nodes, tri_verts, tri_mat_index, n_triangles);
+                diffuse_sum += direct_lighting_diffuse(
+                    &rng, surf_hit.position, ctx.shading_normal, ctx.base_color, lights, n_lights, lum_pref_sum,
+                    total_lum, scene_center, scene_radius, etri_verts, etri_normals, etri_uvs, etri_mat_index,
+                    materials, uv_transforms, tex_meta, tex_atlas, bvh_nodes, tri_verts, tri_mat_index, n_triangles);
             }
 
             emission = (float4)(emission.xyz, 1.0f);
@@ -114,8 +114,35 @@ __kernel void trace_rays(
             normal = surf_hit.normal;
             throughput = throughput;
             base_color = ctx.base_color;
-            direct = throughput * ctx.occlusion * (direct_sum / (f32)direct_samples);
+            direct = throughput * ctx.occlusion * (diffuse_sum / (f32)direct_samples);
             break;
+        }
+
+        if (bsdf.event == BSDF_METALLIC) {
+            float4 specular_sum = BLACK;
+            for (u32 d = 0; d < direct_samples; d++) {
+                specular_sum += direct_lighting_specular(
+                    &rng, surf_hit.position, ctx.shading_normal, view, ctx.base_color, ctx.roughness, lights, n_lights,
+                    lum_pref_sum, total_lum, scene_center, scene_radius, etri_verts, etri_normals, etri_uvs,
+                    etri_mat_index, materials, uv_transforms, tex_meta, tex_atlas, bvh_nodes, tri_verts, tri_mat_index,
+                    n_triangles);
+            }
+            emission += throughput * (specular_sum / (f32)direct_samples);
+        }
+
+        if (bsdf.event == BSDF_FRESNEL) {
+            f32 ior_ratio = (curr_ior - ctx.ior) / (curr_ior + ctx.ior);
+            f32 r0 = ior_ratio * ior_ratio;
+            float4 f0 = (float4)(r0, r0, r0, 0.0f);
+            float4 fresnel_sum = BLACK;
+            for (u32 d = 0; d < direct_samples; d++) {
+                fresnel_sum += direct_lighting_specular(&rng, surf_hit.position, ctx.shading_normal, view, f0,
+                                                        ctx.roughness, lights, n_lights, lum_pref_sum, total_lum,
+                                                        scene_center, scene_radius, etri_verts, etri_normals, etri_uvs,
+                                                        etri_mat_index, materials, uv_transforms, tex_meta, tex_atlas,
+                                                        bvh_nodes, tri_verts, tri_mat_index, n_triangles);
+            }
+            emission += throughput * (fresnel_sum / (f32)direct_samples);
         }
 
         throughput *= bsdf.throughput;
