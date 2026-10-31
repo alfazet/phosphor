@@ -83,34 +83,41 @@ inline f32 smith_g1_ggx(f32 cos_theta, f32 alpha) {
 }
 
 // Schlick's approximation for the Fresnel reflectance of a dielectric
-inline f32 fresnel(f32 R_0, float4 incoming, float4 normal) {
+inline f32 fresnel(f32 r0, float4 incoming, float4 normal) {
     f32 cos_theta = fabs(dot(incoming, normal));
-    return R_0 + (1.0f - R_0) * pow(1.0f - cos_theta, 5);
+    return r0 + (1.0f - r0) * pow(1.0f - cos_theta, 5);
 }
 
-inline float4 fresnel4(float4 R_0, float4 incoming, float4 normal) {
+inline float4 fresnel4(float4 r0, float4 incoming, float4 normal) {
     f32 cos_theta = fabs(dot(incoming, normal));
-    return R_0 + (1.0f - R_0) * pow(1.0f - cos_theta, 5);
+    return r0 + (1.0f - r0) * pow(1.0f - cos_theta, 5);
 }
 
 inline f32 fresnel_refracted(f32 ior_1, f32 ior_2, float4 incoming, float4 normal) {
-    f32 R_0 = pow((ior_1 - ior_2) / (ior_1 + ior_2), 2);
-    return fresnel(R_0, incoming, normal);
+    f32 r0 = pow((ior_1 - ior_2) / (ior_1 + ior_2), 2);
+    return fresnel(r0, incoming, normal);
 }
 
 inline float4 refract(float4 incoming, float4 normal, f32 eta1, f32 eta2, bool *is_tir) {
     f32 eta = eta1 / eta2;
-    f32 cos_i = dot(incoming, normal);
-    f32 sin_t2 = eta * eta * (1.0f - cos_i * cos_i);
+    f32 n_dot_i = dot(incoming, normal);
+    f32 sin_t2 = eta * eta * (1.0f - n_dot_i * n_dot_i);
 
     if (sin_t2 > 1.0f) {
         *is_tir = true;
         return reflect(incoming, normal);
     }
     *is_tir = false;
-    float4 refracted = eta * incoming - (eta * cos_i + sqrt(1.0f - sin_t2)) * normal;
+    float4 refracted = eta * incoming - (eta * n_dot_i + sqrt(1.0f - sin_t2)) * normal;
 
     return normalize(refracted);
+}
+
+// GGX normal distribution function
+inline f32 ggx_ndf(f32 n_dot_h, f32 alpha) {
+    f32 alpha_sq = alpha * alpha;
+    f32 d = n_dot_h * n_dot_h * (alpha_sq - 1.0f) + 1.0f;
+    return alpha_sq / fmax(PI * d * d, EPS);
 }
 
 #endif // __OPENCL_C_VERSION__

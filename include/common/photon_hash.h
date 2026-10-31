@@ -93,7 +93,7 @@ inline void gather_photon_flux(const float4 pos, const float4 surf_normal, const
 
             max_dist_sq = fmax(max_dist_sq, d_sq);
             // gaussian filter, see constants definition for reference
-            f32 w = GAUSS_ALPHA * (1.0f - (1.0f - native_exp(-GAUSS_BETA * d_sq / (2.0f * max_dist_sq))) / GAUSS_DENOM);
+            f32 w = GAUSS_ALPHA * (1.0f - (1.0f - native_exp(-GAUSS_BETA * d_sq / (2.0f * search_r_sq))) / GAUSS_DENOM);
             *out_flux += w * decode_rgbe(photon_power[p_idx]);
             *out_found += w;
         }
