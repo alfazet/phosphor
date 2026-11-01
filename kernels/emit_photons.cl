@@ -57,7 +57,7 @@ __kernel void emit_photons(
 
         float4 vol_trans = WHITE;
         f32 curr_ior = current_ior(&ior_stack);
-        if (curr_ior != AIR_IOR && mat.thickness > 0.0f && mat.att_dist > EPS) {
+        if (curr_ior != AIR_IOR && mat.thickness > EPS && mat.att_dist > EPS) {
             vol_trans = beer_lambert(mat.att_color, mat.att_dist, surf_hit.t);
             power *= vol_trans;
             throughput *= vol_trans;
