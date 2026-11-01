@@ -13,6 +13,7 @@
 #include "common/utils.h"
 #include "device/bsdfs.h"
 #include "device/hit.h"
+#include "device/shading.h"
 
 typedef struct Bary {
     f32 u, v, w;
@@ -300,18 +301,29 @@ sample_light_fragment(RngState *rng, float4 pos, float4 normal, __global const L
 
 static inline float4 shadow_transmittance(float4 origin, float4 dir, f32 dist, __global const Material *materials,
                                           __global const BvhNode *tree, __global const TriangleVertices *tri_verts,
-                                          __global const u32 *tri_mat_index, u32 n_tris) {
+                                          __global const TriangleNormals *tri_normals,
+                                          __global const TriangleUvs *tri_uvs, __global const u32 *tri_mat_index,
+                                          u32 n_tris, __global const TextureMeta *tex_meta,
+                                          __global const u8 *tex_atlas,
+                                          __global const UvTransformBlock *uv_transforms) {
     float4 trans = WHITE;
     f32 t_min = EPS, t_max = dist - EPS;
     for (u32 depth = 0; depth < MAX_RAY_BOUNCES; depth++) {
         HitRecord hit_rec;
         if (!scene_intersect(tree, tri_verts, tri_mat_index, n_tris, origin, dir, t_min, t_max, &hit_rec))
             break;
-
         Material mat = materials[hit_rec.mat_index];
         if (mat.transmission < EPS)
             return BLACK;
-        trans *= mat.base_color * mat.transmission;
+        float4 base_color = mat.base_color;
+        if (mat.diff_index != NO_TEXTURE) {
+            SurfaceHit sh = process_hit(&hit_rec, origin, dir, tri_normals, tri_uvs);
+            base_color *= srgb_to_linear(sample_texture_uv(tex_meta, tex_atlas, uv_transforms, hit_rec.mat_index,
+                                                           mat.diff_index, sh.uv, UV_SLOT_DIFF));
+        }
+        if (mat.att_dist > EPS)
+            trans *= beer_lambert(mat.att_color, mat.att_dist, hit_rec.t - t_min);
+        trans *= base_color * mat.transmission;
         if (dot(trans, trans) < EPS)
             return BLACK;
         t_min = hit_rec.t + EPS;
@@ -328,12 +340,14 @@ direct_lighting_diffuse(RngState *rng, float4 pos, float4 normal, float4 base_co
                         __global const u32 *etri_mat_index, __global const Material *materials,
                         __global const UvTransformBlock *uv_transforms, __global const TextureMeta *tex_meta,
                         __global const u8 *tex_atlas, __global const BvhNode *tree,
-                        __global const TriangleVertices *tri_verts, __global const u32 *tri_mat_index, u32 n_tris) {
+                        __global const TriangleVertices *tri_verts, __global const TriangleNormals *tri_normals,
+                        __global const TriangleUvs *tri_uvs, __global const u32 *tri_mat_index, u32 n_tris) {
     LightFragment frag;
     if (!sample_light_fragment(rng, pos, normal, lights, n_lights, lum_pref_sum, total_lum, etri_verts, etri_normals,
                                etri_uvs, etri_mat_index, uv_transforms, tex_meta, tex_atlas, &frag))
         return BLACK;
-    float4 trans = shadow_transmittance(pos, frag.dir, frag.dist, materials, tree, tri_verts, tri_mat_index, n_tris);
+    float4 trans = shadow_transmittance(pos, frag.dir, frag.dist, materials, tree, tri_verts, tri_normals, tri_uvs,
+                                        tri_mat_index, n_tris, tex_meta, tex_atlas, uv_transforms);
 
     return frag.radiance * (base_color / PI) * trans;
 }
@@ -346,7 +360,8 @@ direct_lighting_specular(RngState *rng, float4 pos, float4 normal, float4 view, 
                          __global const u32 *etri_mat_index, __global const Material *materials,
                          __global const UvTransformBlock *uv_transforms, __global const TextureMeta *tex_meta,
                          __global const u8 *tex_atlas, __global const BvhNode *tree,
-                         __global const TriangleVertices *tri_verts, __global const u32 *tri_mat_index, u32 n_tris) {
+                         __global const TriangleVertices *tri_verts, __global const TriangleNormals *tri_normals,
+                         __global const TriangleUvs *tri_uvs, __global const u32 *tri_mat_index, u32 n_tris) {
     f32 n_dot_v = dot(view, normal);
     if (n_dot_v < EPS)
         return BLACK;
@@ -368,7 +383,8 @@ direct_lighting_specular(RngState *rng, float4 pos, float4 normal, float4 view, 
     float4 specular = frag.radiance * ggx_term * fresnel_term * smith_term / (4.0f * frag.n_dot_dir * n_dot_v);
     if (dot(specular, specular) < EPS * EPS)
         return BLACK;
-    float4 trans = shadow_transmittance(pos, frag.dir, frag.dist, materials, tree, tri_verts, tri_mat_index, n_tris);
+    float4 trans = shadow_transmittance(pos, frag.dir, frag.dist, materials, tree, tri_verts, tri_normals, tri_uvs,
+                                        tri_mat_index, n_tris, tex_meta, tex_atlas, uv_transforms);
 
     return specular * trans;
 }
