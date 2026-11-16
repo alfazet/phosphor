@@ -34,9 +34,9 @@ class ImageWriter {
 
     ~ImageWriter();
 
-    void submit(const std::filesystem::path &path, u32 width, u32 height, f32 exposure, const std::vector<float4> &flux,
-                const std::vector<float4> &total_radiance, u64 total_photons, u32 sppm_rounds,
-                const std::string &metadata);
+    void submit(const std::filesystem::path &path, u32 width, u32 height, f32 exposure, bool tonemap,
+                const std::vector<float4> &flux, const std::vector<float4> &total_radiance, u64 total_photons,
+                u32 sppm_rounds, const std::string &metadata);
 
     void flush();
 

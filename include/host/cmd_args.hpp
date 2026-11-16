@@ -31,12 +31,14 @@ constexpr const char *DEFAULT_OUTPUT_DIR = "./phosphor_output";
 constexpr const char *DEFAULT_LOG_FILENAME = "./phosphor.log";
 constexpr const char *DEFAULT_ENVMAP = ""; // no envmap by default
 constexpr const bool DEFAULT_SNAPSHOTS = false;
+constexpr const bool DEFAULT_TONEMAP = false;
 
 #define ARG_TABLE(X)                                                                                                   \
     X("--help", help, bool, parse_bool, false, "show help?")                                                           \
     X("-w", width, u32, parse_u32, DEFAULT_WIDTH, "image width (px)")                                                  \
     X("-h", height, u32, parse_u32, DEFAULT_HEIGHT, "image height (px)")                                               \
     X("--exposure", exposure, f32, f32_non_neg(), DEFAULT_EXPOSURE, "color exposure multiplier")                       \
+    X("--tonemap", tonemap, bool, parse_bool, DEFAULT_TONEMAP, "apply tone mapping (off by default)")                  \
     X("--batch-size", max_photons_per_batch, u32, parse_u32, DEFAULT_MAX_PHOTONS_PER_BATCH,                            \
       "max. number of photons emitted in a single batch")                                                              \
     X("--workgroup", workgroup_size, u32, u32_range(1, 1024), DEFAULT_WORKGROUP_SIZE,                                  \
