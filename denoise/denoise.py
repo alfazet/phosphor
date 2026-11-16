@@ -102,6 +102,7 @@ if len(sys.argv) > 1:
 app = QApplication(sys.argv)
 
 window = uic.loadUi("window.ui")
+window.setWindowTitle("Phosphor denoiser")
 menubar = window.menubar
 filters_menu = menubar.addMenu("Algorithms")
 
