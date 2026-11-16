@@ -46,7 +46,7 @@ def parse_finished_times(log_path):
 
 def render(cfg, glb, seed, out_dir, suite_args):
     log = out_dir / "renderer.log"
-    args = {**suite_args, "-m": str(glb), "--seed": seed, "-o": str(out_dir), "--logs": log}
+    args = {**suite_args, "-m": str(glb), "--seed": seed, "-o": str(out_dir), "--log": log}
     cmd = [cfg["renderer"]] + [t for k, v in args.items() for t in (k, str(v))]
     out_dir.mkdir(parents=True, exist_ok=True)
 
