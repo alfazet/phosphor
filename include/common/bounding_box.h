@@ -16,17 +16,6 @@ typedef struct GPU_ALIGN BoundingBox {
 
 static inline bool check_inf(f32 value) { return (value >= INF || value <= -INF); }
 
-static inline void check_bbox_inf(const BoundingBox bbox) {
-    if (check_inf(bbox.min.x) || check_inf(bbox.min.y) || check_inf(bbox.min.z) ||
-        check_inf(bbox.max.x) || check_inf(bbox.max.y) || check_inf(bbox.max.z))
-        LOG_FATAL("bounding box contains an infinity");
-}
-
-static inline void check_bbox_width(const BoundingBox bbox) {
-    if (bbox.min.x == bbox.max.x || bbox.min.y == bbox.max.y || bbox.min.z == bbox.max.z)
-        LOG_FATAL("object has no width");
-}
-
 static inline void expand(BoundingBox &bbox) {
     bbox.min.x -= BBOX_EPS;
     bbox.min.y -= BBOX_EPS;
@@ -53,9 +42,11 @@ inline BoundingBox get_bounding_box(const Triangle &tri) {
     expand_aabb(res, tri.v0);
     expand_aabb(res, tri.v1);
     expand_aabb(res, tri.v2);
-    check_bbox_inf(res);
+    ASSERT(!check_inf(res.min.x) && !check_inf(res.min.y) && !check_inf(res.min.z) && !check_inf(res.max.x) &&
+               !check_inf(res.max.y) && !check_inf(res.max.z),
+           "bounding box contains an infinity");
     expand(res);
-    check_bbox_width(res);
+    ASSERT(res.min.x != res.max.x && res.min.y != res.max.y && res.min.z != res.max.z, "object has no width");
 
     return res;
 }

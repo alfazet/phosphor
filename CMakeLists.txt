@@ -100,11 +100,15 @@ if (BUILD_TESTING)
     set(CATCH_INSTALL_EXTRAS OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(Catch2)
 
-    add_executable(unit_tests
-        tests/unit/test_photon_hash.cpp
-    )
+    file(GLOB UNIT_TEST_SOURCES CONFIGURE_DEPENDS
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/unit/test_*.cpp)
+    if (NOT UNIT_TEST_SOURCES)
+        message(FATAL_ERROR "no unit tests matched tests/unit/test_*.cpp")
+    endif ()
+    add_executable(unit_tests ${UNIT_TEST_SOURCES})
     target_link_libraries(unit_tests PRIVATE phosphor_core Catch2::Catch2WithMain)
     target_include_directories(unit_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+    target_compile_options(unit_tests PRIVATE -Wall -Wextra)
 
     include(Catch)
     catch_discover_tests(unit_tests
