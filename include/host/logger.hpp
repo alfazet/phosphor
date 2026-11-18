@@ -255,8 +255,8 @@ class ProgressScope {
   public:
     ProgressScope(std::string_view name, usize total,
                   std::chrono::milliseconds min_update_interval = std::chrono::milliseconds{250})
-        : name_(name), total_(total), start_(std::chrono::steady_clock::now()), min_interval_(min_update_interval),
-          first_render_(true), last_render_(start_) {
+        : name_(name), total_(total), start_(std::chrono::steady_clock::now()), first_render_(true),
+          last_render_(start_), min_interval_(min_update_interval) {
         render();
     }
 
@@ -329,11 +329,11 @@ class ProgressScope {
 
     std::string name_;
     usize total_;
-    bool first_render_;
     std::chrono::steady_clock::time_point start_;
+    bool first_render_;
+    std::chrono::steady_clock::time_point last_render_;
     std::chrono::milliseconds min_interval_;
     std::atomic<usize> current_{0};
-    std::chrono::steady_clock::time_point last_render_;
     std::mutex render_mutex_;
 };
 
