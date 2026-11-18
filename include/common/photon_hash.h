@@ -4,8 +4,6 @@
 #include "common/bounding_box.h"
 #include "common/constants.h"
 #include "common/typedefs.h"
-#include "common/utils.h"
-#include "device/encoding.h"
 
 // https://courses.csail.mit.edu/18.337/2012/projects/sherry_wu_paper.pdf
 typedef struct GPU_ALIGN PhotonHashData {
@@ -38,6 +36,8 @@ inline u32 get_hash(const float4 pos, const PhotonHashData data) {
 
 #ifndef __OPENCL_C_VERSION__
 
+#include "host/glm_bundle.hpp"
+
 inline PhotonHashData build_photon_hash_info(const BoundingBox &bbox, u32 grid_res) {
     PhotonHashData data{};
     data.grid_res = grid_res;
@@ -52,6 +52,9 @@ inline PhotonHashData build_photon_hash_info(const BoundingBox &bbox, u32 grid_r
 #endif // __OPENCL_C_VERSION__
 
 #ifdef __OPENCL_C_VERSION__
+
+#include "common/utils.h"
+#include "device/encoding.h"
 
 inline void gather_photon_flux(const float4 pos, const float4 surf_normal, const PhotonHashData data,
                                __global const u32 *cell_start, __global const u32 *cell_end,
