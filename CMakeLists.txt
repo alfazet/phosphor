@@ -101,7 +101,7 @@ if (BUILD_TESTING)
     FetchContent_MakeAvailable(Catch2)
 
     file(GLOB UNIT_TEST_SOURCES CONFIGURE_DEPENDS
-            ${CMAKE_CURRENT_SOURCE_DIR}/tests/unit/test_*.cpp)
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/unit/test_*.cpp)
     if (NOT UNIT_TEST_SOURCES)
         message(FATAL_ERROR "no unit tests matched tests/unit/test_*.cpp")
     endif ()
@@ -115,16 +115,21 @@ if (BUILD_TESTING)
         TEST_PREFIX "unit."
         PROPERTIES LABELS unit)
 
-    # option(PHOSPHOR_BUILD_DEVICE_TESTS "Build tests that require an OpenCL device" ON)
-    # if (PHOSPHOR_BUILD_DEVICE_TESTS)
-    #     add_executable(device_tests
-    #         tests/device/test_photon_gather.cpp
-    #     )
-    #     target_link_libraries(device_tests PRIVATE phosphor_core Catch2::Catch2WithMain)
-    #     target_compile_definitions(device_tests PRIVATE
-    #         PHOSPHOR_KERNEL_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
-    #     catch_discover_tests(device_tests
-    #         TEST_PREFIX "device."
-    #         PROPERTIES LABELS "device;requires-opencl")
-    # endif ()
+    option(PHOSPHOR_BUILD_DEVICE_TESTS "Build tests that require an OpenCL device" ON)
+    if (PHOSPHOR_BUILD_DEVICE_TESTS)
+        file(GLOB DEVICE_TEST_SOURCES CONFIGURE_DEPENDS
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/device/test_*.cpp)
+        if (NOT DEVICE_TEST_SOURCES)
+            message(FATAL_ERROR "no device tests matched tests/device/test_*.cpp")
+        endif ()
+        add_executable(device_tests ${DEVICE_TEST_SOURCES})
+        target_link_libraries(device_tests PRIVATE phosphor_core Catch2::Catch2WithMain)
+        target_include_directories(device_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+        target_compile_definitions(device_tests PRIVATE PHOSPHOR_KERNEL_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+        target_compile_options(device_tests PRIVATE -Wall -Wextra)
+
+        catch_discover_tests(device_tests
+            TEST_PREFIX "device."
+            PROPERTIES LABELS "device;requires-opencl")
+    endif ()
 endif ()

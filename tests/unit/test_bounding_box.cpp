@@ -5,7 +5,7 @@
 
 #include "common/bounding_box.h"
 #include "common/constants.h"
-#include "utils.hpp"
+#include "../utils.hpp"
 
 using Catch::Approx;
 using namespace ts;
