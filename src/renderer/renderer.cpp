@@ -163,6 +163,7 @@ void Renderer::gather_flux() {
 void Renderer::save_snapshot(u32 round, u64 total_photons_emitted) {
     std::filesystem::path image_path = this->output_dir / std::format("{:06d}.png", round);
     this->writer.submit(image_path, this->render_size.width, this->render_size.height, this->args.exposure,
-                        this->h_flux, this->h_total_radiance, total_photons_emitted, round, this->image_metadata);
+                        this->args.tonemap, this->h_flux, this->h_total_radiance, total_photons_emitted, round,
+                        this->image_metadata);
     LOG_INFO("rendered image after {} SPPM rounds enqueued for writing: {}", round, image_path.c_str());
 }

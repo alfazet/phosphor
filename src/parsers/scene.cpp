@@ -204,7 +204,6 @@ static void parse_node(aiNode *ai_node, const aiScene *ai_scene, SceneData &out_
 }
 
 SceneData read_gltf_scene(const char *file_name) {
-    TimerScope timer_scope("loading scene");
 
     SceneData scene{};
     Assimp::Importer importer;

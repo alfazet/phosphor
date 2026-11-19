@@ -37,16 +37,19 @@ RenderSize resolve_render_size(const ArgsList &args, f32 base_aspect) {
 }
 
 // https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve
-static inline f32 tone_map(f32 x, f32 exposure) {
+static inline f32 tone_map(f32 x, f32 exposure, bool tonemap) {
     x *= exposure;
-    f32 a = 2.51f, b = 0.03f, c = 2.43f, d = 0.59f, e = 0.14f;
-    f32 out = (x * (a * x + b)) / (x * (c * x + d) + e);
+    f32 out = x;
+    if (tonemap) {
+        f32 a = 2.51f, b = 0.03f, c = 2.43f, d = 0.59f, e = 0.14f;
+        out = (x * (a * x + b)) / (x * (c * x + d) + e);
+    }
     out = std::pow(out, 1.0f / 2.2f);
 
     return std::clamp(out, 0.0f, 1.0f);
 }
 
-static std::vector<u8> apply_tonemap(u32 width, u32 height, f32 exposure, const std::vector<float4> &flux,
+static std::vector<u8> apply_tonemap(u32 width, u32 height, f32 exposure, bool tonemap, const std::vector<float4> &flux,
                                      const std::vector<float4> &total_radiance, u64 total_photons, u32 sppm_rounds) {
     u32 n_pixels = width * height;
     std::vector<u8> ldr(n_pixels * 3);
@@ -71,9 +74,9 @@ static std::vector<u8> apply_tonemap(u32 width, u32 height, f32 exposure, const 
         f32 r = rad.x * inv_rounds + indirect_r;
         f32 g = rad.y * inv_rounds + indirect_g;
         f32 b = rad.z * inv_rounds + indirect_b;
-        ldr[p * 3 + 0] = static_cast<u8>(tone_map(r, exposure) * 255.0f);
-        ldr[p * 3 + 1] = static_cast<u8>(tone_map(g, exposure) * 255.0f);
-        ldr[p * 3 + 2] = static_cast<u8>(tone_map(b, exposure) * 255.0f);
+        ldr[p * 3 + 0] = static_cast<u8>(tone_map(r, exposure, tonemap) * 255.0f);
+        ldr[p * 3 + 1] = static_cast<u8>(tone_map(g, exposure, tonemap) * 255.0f);
+        ldr[p * 3 + 2] = static_cast<u8>(tone_map(b, exposure, tonemap) * 255.0f);
     });
 
     return ldr;
@@ -83,7 +86,7 @@ void write_job(const WriteJob &job) {
     stbi_write_png(job.path.c_str(), static_cast<i32>(job.width), static_cast<i32>(job.height), 3, job.ldr.data(),
                    static_cast<i32>(job.width) * 3);
 
-    // TODO: replace with something less insane
+    // TODO: replace with something less insane (jk its good)
     std::ostringstream cmd;
     cmd << "exiftool -q -overwrite_original "
         << "-Comment=\"" << job.metadata << "\" "
@@ -107,10 +110,11 @@ ImageWriter::~ImageWriter() {
         worker.join();
 }
 
-void ImageWriter::submit(const std::filesystem::path &path, u32 width, u32 height, f32 exposure,
+void ImageWriter::submit(const std::filesystem::path &path, u32 width, u32 height, f32 exposure, bool tonemap,
                          const std::vector<float4> &flux, const std::vector<float4> &total_radiance, u64 total_photons,
                          u32 sppm_rounds, const std::string &metadata) {
-    std::vector<u8> ldr = apply_tonemap(width, height, exposure, flux, total_radiance, total_photons, sppm_rounds);
+    std::vector<u8> ldr =
+        apply_tonemap(width, height, exposure, tonemap, flux, total_radiance, total_photons, sppm_rounds);
 
     WriteJob job{path, width, height, metadata, std::move(ldr)};
     {
