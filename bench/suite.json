@@ -1,6 +1,6 @@
 {
   "renderer": "./build/release/phosphor",
-  "models_dir": "models/test",
+  "models_dir": "models/",
   "runs_dir": "bench/runs",
   "seeds": [2137, 42],
   "timeout_s": 256,
@@ -17,6 +17,7 @@
     "ssim_std_max": 0.01
   },
   "scenes": [
-    {"name": "cornell-box"}
+    {"name": "cornell-box-empty-point"},
+    {"name": "cornell-box-empty"}
   ]
 }
