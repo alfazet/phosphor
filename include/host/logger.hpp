@@ -186,7 +186,7 @@ class Logger {
 
   private:
     Level min_level_ = Level::Info;
-    std::unique_ptr<Sink> sink_;
+    std::unique_ptr<Sink> sink_ = std::make_unique<ConsoleSink>();
     std::mutex mutex_;
 };
 } // namespace logger
