@@ -5,31 +5,10 @@
 #include <cstddef>
 #include <set>
 
+#include "../utils.hpp"
 #include "common/photon_hash.h"
 
 using Catch::Approx;
-
-namespace {
-
-float4 f4(f32 x, f32 y, f32 z, f32 w = 0.0f) {
-    float4 v{};
-    v.x = x;
-    v.y = y;
-    v.z = z;
-    v.w = w;
-    return v;
-}
-
-BoundingBox make_bbox(f32 x0, f32 y0, f32 z0, f32 x1, f32 y1, f32 z1) {
-    BoundingBox b{};
-    b.min.x = x0;
-    b.min.y = y0;
-    b.min.z = z0;
-    b.max.x = x1;
-    b.max.y = y1;
-    b.max.z = z1;
-    return b;
-}
 
 PhotonHashData make_hash(f32 ox, f32 oy, f32 oz, f32 cx, f32 cy, f32 cz, u32 res) {
     PhotonHashData d{};
@@ -43,8 +22,6 @@ float4 cell_center(const PhotonHashData &d, u32 x, u32 y, u32 z) {
     return f4(d.origin.x + ((f32)x + 0.5f) * d.cell_sizes.x, d.origin.y + ((f32)y + 0.5f) * d.cell_sizes.y,
               d.origin.z + ((f32)z + 0.5f) * d.cell_sizes.z);
 }
-
-} // namespace
 
 TEST_CASE("PhotonHashData layout is stable", "[photon_hash][layout]") {
     STATIC_REQUIRE(sizeof(PhotonHashData) == 48);

@@ -36,9 +36,10 @@ struct ClContext {
     cl::CommandQueue queue;
 };
 
-template <typename... Args> void set_kernel_args(cl::Kernel &kernel, Args &&...args) {
+template <typename... Args> usize set_kernel_args(cl::Kernel &kernel, Args &&...args) {
     u32 index = 0;
     (kernel.setArg(index++, std::forward<Args>(args)), ...);
+    return index;
 }
 
 #endif // PHOSPHOR_OPENCL_CTX_HPP

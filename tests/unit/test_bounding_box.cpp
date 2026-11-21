@@ -8,7 +8,6 @@
 #include "../utils.hpp"
 
 using Catch::Approx;
-using namespace ts;
 
 TEST_CASE("BoundingBox layout is stable", "[bbox][layout]") {
     STATIC_REQUIRE(sizeof(BoundingBox) == 32);

@@ -125,7 +125,10 @@ if (BUILD_TESTING)
         add_executable(device_tests ${DEVICE_TEST_SOURCES})
         target_link_libraries(device_tests PRIVATE phosphor_core Catch2::Catch2WithMain)
         target_include_directories(device_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
-        target_compile_definitions(device_tests PRIVATE PHOSPHOR_KERNEL_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src")
+        target_compile_definitions(device_tests PRIVATE
+            PHOSPHOR_KERNEL_DIR="${CMAKE_CURRENT_SOURCE_DIR}/include"
+            PHOSPHOR_TEST_KERNEL_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/device"
+        )
         target_compile_options(device_tests PRIVATE -Wall -Wextra)
 
         catch_discover_tests(device_tests
