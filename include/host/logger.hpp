@@ -185,7 +185,7 @@ class Logger {
     void flush() { sink_->flush(); }
 
   private:
-    Level min_level_ = Level::Info;
+    Level min_level_ = Level::Debug;
     std::unique_ptr<Sink> sink_ = std::make_unique<ConsoleSink>();
     std::mutex mutex_;
 };

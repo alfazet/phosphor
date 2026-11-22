@@ -5,6 +5,7 @@
 #define CL_HPP_ENABLE_EXCEPTIONS
 
 #include "common/typedefs.h"
+#include "host/logger.hpp"
 
 #include <CL/opencl.hpp>
 #include <string>
@@ -39,6 +40,10 @@ struct ClContext {
 template <typename... Args> usize set_kernel_args(cl::Kernel &kernel, Args &&...args) {
     u32 index = 0;
     (kernel.setArg(index++, std::forward<Args>(args)), ...);
+
+#ifndef NDEBUG
+    ASSERT(index == kernel.getInfo<CL_KERNEL_NUM_ARGS>(), "kernel argument count mismatch");
+#endif
     return index;
 }
 

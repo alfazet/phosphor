@@ -100,7 +100,7 @@ if (BUILD_TESTING)
     set(CATCH_INSTALL_EXTRAS OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(Catch2)
 
-    file(GLOB UNIT_TEST_SOURCES CONFIGURE_DEPENDS
+    file(GLOB_RECURSE UNIT_TEST_SOURCES CONFIGURE_DEPENDS
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/unit/test_*.cpp)
     if (NOT UNIT_TEST_SOURCES)
         message(FATAL_ERROR "no unit tests matched tests/unit/test_*.cpp")
@@ -117,7 +117,7 @@ if (BUILD_TESTING)
 
     option(PHOSPHOR_BUILD_DEVICE_TESTS "Build tests that require an OpenCL device" ON)
     if (PHOSPHOR_BUILD_DEVICE_TESTS)
-        file(GLOB DEVICE_TEST_SOURCES CONFIGURE_DEPENDS
+        file(GLOB_RECURSE DEVICE_TEST_SOURCES CONFIGURE_DEPENDS
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/device/test_*.cpp)
         if (NOT DEVICE_TEST_SOURCES)
             message(FATAL_ERROR "no device tests matched tests/device/test_*.cpp")

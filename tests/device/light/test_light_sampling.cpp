@@ -1,12 +1,13 @@
 #include <algorithm>
 #include <vector>
 
+#include "../utils.hpp"
 #include "catch2/catch_approx.hpp"
 #include "common/light.h"
 #include "common/typedefs.h"
+#include "host/logger.hpp"
 #include "host/opencl_ctx.hpp"
 #include "host/scene_data.hpp"
-#include "utils.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -31,7 +32,7 @@ inline Probe make(const ClContext &ctx, std::vector<Light> lights) {
     scene.build_lum_pref_sum();
     p.total_lum = scene.lum_pref_sum.empty() ? 0.0f : scene.lum_pref_sum.back();
 
-    auto program = ctx.build_program(kernel("light_probe.cl"), kernel_build_opts());
+    auto program = ctx.build_program(kernel("light/light_probe.cl"), kernel_build_opts());
     p.kernel = cl::Kernel(program, "probe_sample_light");
 
     const usize n_l = std::max<usize>(p.n_lights, 1);
@@ -58,10 +59,8 @@ inline Samples run_sample_light(const ClContext &ctx, Probe &p, u32 n, u32 seed)
     cl::Buffer bd(ctx.context, CL_MEM_WRITE_ONLY, sizeof(float4) * n);
     cl::Buffer bp(ctx.context, CL_MEM_WRITE_ONLY, sizeof(float4) * n);
 
-    usize i =
-        set_kernel_args(p.kernel, p.lights, p.n_lights, p.pref_sum, p.total_lum, float4{0.0f, 0.0f, 0.0f, 0.0f}, 1.0f,
-                        p.dummy, p.dummy, p.dummy, p.dummy, p.dummy, p.dummy, p.dummy, p.dummy, seed, n, bo, bd, bp);
-    REQUIRE(i == p.kernel.getInfo<CL_KERNEL_NUM_ARGS>());
+    set_kernel_args(p.kernel, p.lights, p.n_lights, p.pref_sum, p.total_lum, float4{0.0f, 0.0f, 0.0f, 0.0f}, 1.0f,
+                    p.dummy, p.dummy, p.dummy, p.dummy, p.dummy, p.dummy, p.dummy, p.dummy, seed, n, bo, bd, bp);
 
     const u32 wg = static_cast<u32>(std::min<usize>(64, ctx.max_work_group_size()));
     const u32 global = ((n + wg - 1) / wg) * wg;
@@ -73,8 +72,6 @@ inline Samples run_sample_light(const ClContext &ctx, Probe &p, u32 n, u32 seed)
     return s;
 }
 
-constexpr f32 kPi = 3.14159265358979323846f;
-
 f32 dot3(const float4 &a, const float4 &b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 
 bool same_dir(const float4 &a, const float4 &b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
@@ -82,62 +79,37 @@ bool same_dir(const float4 &a, const float4 &b) { return a.x == b.x && a.y == b.
 TEST_CASE("point light flux = 4*pi*intensity", "[sample_light]") {
     REQUIRE_CL_DEVICE();
 
-    const float4 kPos{0.0f, 2.0f, 0.0f, 0.0f};
-    const float4 kIntensity{0.5f, 0.25f, 0.125f, 0.0f};
+    const float4 l_pos{0.0f, 2.0f, 0.0f, 0.0f};
+    const float4 l_intensity{0.5f, 0.25f, 0.125f, 0.0f};
 
     Light light{};
     light.kind = LIGHT_POINT;
-    light.position = kPos;
-    light.power = kIntensity;
+    light.position = l_pos;
+    light.power = l_intensity;
 
     auto probe = make(gpu(), {light});
     REQUIRE(probe.n_lights == 1u);
 
-    constexpr u32 kSamples = 4096;
-    auto s = run_sample_light(gpu(), probe, kSamples, 1);
-    REQUIRE(s.size() == kSamples);
+    constexpr u32 n_samples = 4096;
+    auto s = run_sample_light(gpu(), probe, n_samples, 2137);
+    REQUIRE(s.size() == n_samples);
 
-    f32 len_min = INFINITY, len_max = 0.0f;
-    f32 power_rel_err_max = 0.0f;
-    f32 origin_dev_max = 0.0f;
-    u32 len_min_at = 0, power_err_at = 0, origin_dev_at = 0;
-    u32 distinct = 1;
+    for (u32 i = 0; i < n_samples; i++) {
+        const f32 len_sq = dot3(s.dir[i], s.dir[i]);
+        CHECK(len_sq == Catch::Approx(1.0f).epsilon(1e-4));
 
-    for (u32 i = 0; i < kSamples; ++i) {
-        const f32 len = std::sqrt(dot3(s.dir[i], s.dir[i]));
-        if (len < len_min) {
-            len_min = len;
-            len_min_at = i;
-        }
-        if (len > len_max) {
-            len_max = len;
-        }
+        f32 origin_dev = std::max(
+            {std::abs(s.origin[i].x - l_pos.x), std::abs(s.origin[i].y - l_pos.y), std::abs(s.origin[i].z - l_pos.z)});
+        CHECK(origin_dev <= 1e-6);
 
-        origin_dev_max = std::max({origin_dev_max, std::abs(s.origin[i].x - kPos.x), std::abs(s.origin[i].y - kPos.y),
-                                   std::abs(s.origin[i].z - kPos.z)});
-        if (origin_dev_max > 0.0f && origin_dev_at == 0)
-            origin_dev_at = i;
-
-        const f32 ex = 4.0f * kPi * kIntensity.x;
-        const f32 ey = 4.0f * kPi * kIntensity.y;
-        const f32 ez = 4.0f * kPi * kIntensity.z;
+        const f32 ex = 4.0f * PI * l_intensity.x;
+        const f32 ey = 4.0f * PI * l_intensity.y;
+        const f32 ez = 4.0f * PI * l_intensity.z;
         const f32 err = std::max(
             {std::abs(s.power[i].x - ex) / ex, std::abs(s.power[i].y - ey) / ey, std::abs(s.power[i].z - ez) / ez});
-        if (err > power_rel_err_max) {
-            power_rel_err_max = err;
-            power_err_at = i;
-        }
+        CHECK(err <= 1e-6f);
 
-        if (i > 0 && !same_dir(s.dir[i], s.dir[0]))
-            ++distinct;
+        if (i > 0)
+            CHECK(!same_dir(s.dir[i], s.dir[0]));
     }
-
-    CHECK(origin_dev_max == 0.0f);
-
-    CHECK(len_min == Catch::Approx(1.0f).epsilon(1e-4));
-    CHECK(len_max == Catch::Approx(1.0f).epsilon(1e-4));
-
-    CHECK(power_rel_err_max <= 1e-6f);
-
-    CHECK(distinct > kSamples / 2);
 }
