@@ -188,12 +188,16 @@ static inline void sample_textured_light(RngState *rng, Light *light, __global c
 static inline void sample_directional_light(RngState *rng, Light *light, float4 center, f32 radius, float4 *origin,
                                             float4 *dir, float4 *power) {
     // https://stackoverflow.com/questions/5837572/generate-a-random-point-within-a-circle-uniformly
+    float4 d = normalize(light->direction);
+    float4 tangent, bitangent;
+    make_tbn(d, &tangent, &bitangent);
+
     f32 r1 = radius * sqrt(random_float(rng));
     f32 r2 = 2.0f * PI * random_float(rng);
-    float4 disk_offset = r1 * (cos(r2) * light->tangent + sin(r2) * light->bitangent);
+    float4 disk_offset = r1 * (cos(r2) * tangent + sin(r2) * bitangent);
 
-    *dir = light->direction;
-    *origin = center - light->direction * 2.0f * radius + disk_offset;
+    *dir = d;
+    *origin = center - d * 2.0f * radius + disk_offset;
     *power = light->power * PI * radius * radius;
 }
 
