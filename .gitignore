@@ -1,6 +1,8 @@
 .idea/
 .cache/
 .phosphor/
+.venv/
+
 build/
 phosphor_output_*/
 /*.png

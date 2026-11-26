@@ -152,14 +152,13 @@ static void parse_light(const aiLight *ai_light, SceneData &out_scene, mat4 glob
     vec3 position =
         vec3(global_transform * vec4(ai_light->mPosition.x, ai_light->mPosition.y, ai_light->mPosition.z, 1.0f));
     mat3 global_rotation(global_transform);
-    // diffuse/specular values are pre-multiplied by light intensity I (in candelas) taken from the gltf file
-    // assuming a light with power P (in watts, as specified in Blender), and luminous efficacy K = 683 cd * sr / W,
-    // we have I = (P * K) / (4 * pi) = 54.35 * P
-    // so, for example, a 1000 W pure red light will be represented as approx. (54350, 0, 0)
 
-    // mColorDiffuse is the same as mColorSpecular in gltf
-    vec3 power =
-        vec3(ai_light->mColorDiffuse.r, ai_light->mColorDiffuse.g, ai_light->mColorDiffuse.b) / LUMINOUS_EFFICACY;
+    // glTF stores luminous intensity (in candelas = lumen / steradian)
+    vec3 lum_intensity = vec3(ai_light->mColorDiffuse.r, ai_light->mColorDiffuse.g, ai_light->mColorDiffuse.b);
+    // the conversion is done so that every light stores its total power emitted over all directions (in watts)
+    // first multiply by 4pi to get luminous flux (flux = intensity per unit angle * the angle of the entire sphere),
+    // then divide by the constant to adjust for the fact that only a part of the spectrum is visible
+    vec3 power = lum_intensity * (4.0f * PI) / LUMINOUS_EFFICACY;
 
     if (ai_light->mType == aiLightSource_POINT) {
         out_scene.lights.push_back(make_point_light(position, power));

@@ -17,7 +17,9 @@
     "ssim_std_max": 0.01
   },
   "scenes": [
-    {"name": "cornell-box-empty-point"},
-    {"name": "cornell-box-empty"}
+    {"name": "cornell-box-dragon"},
+    {"name": "cornell-box-emissive"},
+    {"name": "cornell-box-point"},
+    {"name": "cornell-box-water"}
   ]
 }
