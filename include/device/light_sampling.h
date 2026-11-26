@@ -141,7 +141,7 @@ static inline u32 select_light(RngState *rng, __global const f32 *pref_sum, u32 
 static inline void sample_point_light(RngState *rng, Light *light, float4 *origin, float4 *dir, float4 *power) {
     *origin = light->position;
     *dir = random_unit_vector(rng);
-    *power = light->power * (4.0f * PI);
+    *power = light->power;
 }
 
 static inline void sample_spot_light(RngState *rng, Light *light, float4 *origin, float4 *dir, float4 *power) {
@@ -163,7 +163,19 @@ static inline void sample_spot_light(RngState *rng, Light *light, float4 *origin
 
     f32 falloff = spotlight_falloff(cos_theta, cos_inner, cos_outer);
     f32 solid_angle = 2.0f * PI * (1.0f - cos_outer);
-    *power = light->power * falloff * solid_angle;
+    *power = light->power * falloff;
+}
+
+static inline void sample_directional_light(RngState *rng, Light *light, float4 center, f32 radius, float4 *origin,
+                                            float4 *dir, float4 *power) {
+    // https://stackoverflow.com/questions/5837572/generate-a-random-point-within-a-circle-uniformly
+    f32 r1 = radius * sqrt(random_float(rng));
+    f32 r2 = 2.0f * PI * random_float(rng);
+    float4 disk_offset = r1 * (cos(r2) * light->tangent + sin(r2) * light->bitangent);
+
+    *dir = light->direction;
+    *origin = center - light->direction * 2.0f * radius + disk_offset;
+    *power = light->power;
 }
 
 static inline void sample_textured_light(RngState *rng, Light *light, __global const TriangleVertices *etri_verts,
@@ -183,18 +195,6 @@ static inline void sample_textured_light(RngState *rng, Light *light, __global c
     *origin = p.pos + EPS * *dir;
     *power =
         apply_emissive_texture(light->power, tex_idx, &p, etri_uvs, etri_mat_index, uv_transforms, tex_meta, tex_atlas);
-}
-
-static inline void sample_directional_light(RngState *rng, Light *light, float4 center, f32 radius, float4 *origin,
-                                            float4 *dir, float4 *power) {
-    // https://stackoverflow.com/questions/5837572/generate-a-random-point-within-a-circle-uniformly
-    f32 r1 = radius * sqrt(random_float(rng));
-    f32 r2 = 2.0f * PI * random_float(rng);
-    float4 disk_offset = r1 * (cos(r2) * light->tangent + sin(r2) * light->bitangent);
-
-    *dir = light->direction;
-    *origin = center - light->direction * 2.0f * radius + disk_offset;
-    *power = light->power * PI * radius * radius;
 }
 
 inline void sample_light(RngState *rng, __global const Light *lights, u32 n_lights, __global const f32 *lum_pref_sum,
@@ -228,12 +228,14 @@ inline void sample_light(RngState *rng, __global const Light *lights, u32 n_ligh
 
 // selects a light source and evaluates its contribution to lighting at the given fragment
 // with `pos` and `normal`, the returned bool denotes if the source contributes or not
-static inline bool
-sample_light_fragment(RngState *rng, float4 pos, float4 normal, __global const Light *lights, u32 n_lights,
-                      __global const f32 *lum_pref_sum, f32 total_lum, __global const TriangleVertices *etri_verts,
-                      __global const TriangleNormals *etri_normals, __global const TriangleUvs *etri_uvs,
-                      __global const u32 *etri_mat_index, __global const UvTransformBlock *uv_transforms,
-                      __global const TextureMeta *tex_meta, __global const u8 *tex_atlas, LightFragment *out) {
+static inline bool sample_light_fragment(RngState *rng, float4 pos, float4 normal, __global const Light *lights,
+                                         u32 n_lights, __global const f32 *lum_pref_sum, f32 total_lum,
+                                         f32 scene_radius, __global const TriangleVertices *etri_verts,
+                                         __global const TriangleNormals *etri_normals,
+                                         __global const TriangleUvs *etri_uvs, __global const u32 *etri_mat_index,
+                                         __global const UvTransformBlock *uv_transforms,
+                                         __global const TextureMeta *tex_meta, __global const u8 *tex_atlas,
+                                         LightFragment *out) {
     if (n_lights == 0 || total_lum < EPS)
         return false;
 
@@ -255,20 +257,23 @@ sample_light_fragment(RngState *rng, float4 pos, float4 normal, __global const L
         f32 cone_factor = 1.0f;
         if (light.kind == LIGHT_SPOT) {
             f32 cos_dir = dot(-dir, normalize(light.direction));
-            cone_factor = spotlight_falloff(cos_dir, cos(light.aux.x), cos(light.aux.y));
+            f32 cos_inner = cos(light.aux.x);
+            f32 cos_outer = cos(light.aux.y);
+            cone_factor = spotlight_falloff(cos_dir, cos_inner, cos_outer);
             if (cone_factor < EPS)
                 return false;
+            f32 solid_angle = 2.0f * PI * (1.0f - cos_outer);
+            radiance = flux * (cone_factor / solid_angle) * n_dot_dir / dist_sq;
+        } else {
+            radiance = flux * n_dot_dir / (4.0f * PI * dist_sq);
         }
-        radiance = flux * cone_factor * n_dot_dir / dist_sq;
-
     } else if (light.kind == LIGHT_DIRECTIONAL) {
         dir = normalize(-light.direction);
         dist = INF;
         n_dot_dir = dot(dir, normal);
         if (n_dot_dir <= 0.0f)
             return false;
-        radiance = flux * n_dot_dir;
-
+        radiance = flux * n_dot_dir / (PI * scene_radius * scene_radius);
     } else {
         u32 tex_index = as_uint(light.aux.x);
         u32 start = as_uint(light.aux.y);
@@ -343,8 +348,8 @@ direct_lighting_diffuse(RngState *rng, float4 pos, float4 normal, float4 base_co
                         __global const TriangleVertices *tri_verts, __global const TriangleNormals *tri_normals,
                         __global const TriangleUvs *tri_uvs, __global const u32 *tri_mat_index, u32 n_tris) {
     LightFragment frag;
-    if (!sample_light_fragment(rng, pos, normal, lights, n_lights, lum_pref_sum, total_lum, etri_verts, etri_normals,
-                               etri_uvs, etri_mat_index, uv_transforms, tex_meta, tex_atlas, &frag))
+    if (!sample_light_fragment(rng, pos, normal, lights, n_lights, lum_pref_sum, total_lum, scene_radius, etri_verts,
+                               etri_normals, etri_uvs, etri_mat_index, uv_transforms, tex_meta, tex_atlas, &frag))
         return BLACK;
     float4 trans = shadow_transmittance(pos, frag.dir, frag.dist, materials, tree, tri_verts, tri_normals, tri_uvs,
                                         tri_mat_index, n_tris, tex_meta, tex_atlas, uv_transforms);
@@ -367,8 +372,8 @@ direct_lighting_specular(RngState *rng, float4 pos, float4 normal, float4 view, 
         return BLACK;
 
     LightFragment frag;
-    if (!sample_light_fragment(rng, pos, normal, lights, n_lights, lum_pref_sum, total_lum, etri_verts, etri_normals,
-                               etri_uvs, etri_mat_index, uv_transforms, tex_meta, tex_atlas, &frag))
+    if (!sample_light_fragment(rng, pos, normal, lights, n_lights, lum_pref_sum, total_lum, scene_radius, etri_verts,
+                               etri_normals, etri_uvs, etri_mat_index, uv_transforms, tex_meta, tex_atlas, &frag))
         return BLACK;
     if (frag.n_dot_dir < EPS)
         return BLACK;
