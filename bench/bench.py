@@ -17,10 +17,12 @@ def load(path):
         img = np.stack([img] * 3, axis=-1)
     return img[..., :3]
 
+
 def final_frame_name(out_dir):
     pngs = list(Path(out_dir).glob("*.png"))
     # assuming the oldest png in output dir is the render
     return max(pngs, key=lambda p: p.stat().st_mtime) if pngs else None
+
 
 def scene_settings(cfg, name):
     over = next((s for s in cfg.get("scenes", []) if s.get("name") == name), {})
@@ -34,7 +36,12 @@ def scene_settings(cfg, name):
             sc[k] = v
     return sc
 
-_FINISHED_RE = re.compile(r"finished\s+(?P<name>.+?),\s*took\s+(?P<ms>\d+(?:\.\d+)?)\s*ms")
+
+_FINISHED_RE = re.compile(
+    r"finished\s+(?P<name>.+?),\s*took\s+(?P<ms>\d+(?:\.\d+)?)\s*ms"
+)
+
+
 def parse_finished_times(log_path):
     results = []
     with Path(log_path).open("r", encoding="utf-8", errors="replace") as f:
@@ -44,16 +51,31 @@ def parse_finished_times(log_path):
                 results.append((m.group("name"), float(m.group("ms"))))
     return results
 
+
 def render(cfg, glb, seed, out_dir, suite_args):
     log = out_dir / "renderer.log"
-    args = {**suite_args, "-m": str(glb), "--seed": seed, "-o": str(out_dir), "--log": log}
+    args = {
+        **suite_args,
+        "-m": str(glb),
+        "--seed": seed,
+        "-o": str(out_dir),
+        "--log": log,
+    }
     cmd = [cfg["renderer"]] + [t for k, v in args.items() for t in (k, str(v))]
     out_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=cfg["timeout_s"])
+        p = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=cfg["timeout_s"]
+        )
     except subprocess.TimeoutExpired:
-        return None, "timeout", -1, -1, -1,
+        return (
+            None,
+            "timeout",
+            -1,
+            -1,
+            -1,
+        )
 
     ms = [v for _, v in parse_finished_times(log)] if log.exists() else []
     t0 = ms[0] if len(ms) > 0 else -1
@@ -71,33 +93,45 @@ def render(cfg, glb, seed, out_dir, suite_args):
         return None, f"missing {png.name}", t0, t1, t2
     return png, "", t0, t1, t2
 
+
 def find_models(cfg, only=None, exclude=None):
     root = Path(cfg["models_dir"])
     if not root.exists():
         return []
-    return [d for d in sorted(root.iterdir()) if d.is_dir()
-            and (not only or (d.name in only))
-            and (not exclude or (d.name not in exclude))]
+    return [
+        d
+        for d in sorted(root.iterdir())
+        if d.is_dir()
+        and (not only or (d.name in only))
+        and (not exclude or (d.name not in exclude))
+    ]
+
 
 def pick_file(folder, suffix, ext, name):
     if not folder.is_dir():
         return None, f"{folder} is not a directory"
 
     cands = sorted(
-            (p for p in folder.iterdir()
-             if p.is_file() and p.suffix.lower() == suffix and not p.name.startswith(".")),
-            key=lambda p: p.name.lower(),
-            )
+        (
+            p
+            for p in folder.iterdir()
+            if p.is_file() and p.suffix.lower() == suffix and not p.name.startswith(".")
+        ),
+        key=lambda p: p.name.lower(),
+    )
     if not cands:
         return None, f"no {ext} (*{suffix}) in {folder}"
     if len(cands) > 1:
         # prefer the file named after the folder
         named = [p for p in cands if p.stem.lower() == name.lower()]
         chosen = named[0] if named else cands[0]
-        print(f"WARNING [{name}]: {len(cands)} {ext} files in {folder}, using {chosen.name}",
-              file=sys.stderr)
+        print(
+            f"WARNING [{name}]: {len(cands)} {ext} files in {folder}, using {chosen.name}",
+            file=sys.stderr,
+        )
         return chosen, None
     return cands[0], None
+
 
 def run_suite(cfg, only, exclude):
     models = find_models(cfg, only, exclude)
@@ -124,25 +158,48 @@ def run_suite(cfg, only, exclude):
         ssims, mses = [], []
 
         for seed in cfg["seeds"]:
-            png, err, t0, t1, t2 = render(cfg, glb, seed, run_dir / name / f"seed{seed}", cfg["args"])
-            row = {"run": run_dir.name, "model": name, "seed": seed, "time reading": round(t0, 2), "time structs": round(t1, 2), "time render": round(t2, 2),
-                   "ssim": "", "mse": "", "status": err or "ok"}
+            png, err, t0, t1, t2 = render(
+                cfg, glb, seed, run_dir / name / f"seed{seed}", cfg["args"]
+            )
+            row = {
+                "run": run_dir.name,
+                "model": name,
+                "seed": seed,
+                "time reading": round(t0, 2),
+                "time structs": round(t1, 2),
+                "time render": round(t2, 2),
+                "ssim": "",
+                "mse": "",
+                "status": err or "ok",
+            }
             if not err:
                 img = load(png)
                 if img.shape != ref.shape:
                     row["status"] = f"shape {img.shape} != ref {ref.shape}"
                 else:
-                    row["ssim"], row["mse"] = round(ssim(img, ref), 5), round(mse(img, ref), 6)
-                    ssims.append(row["ssim"]); mses.append(row["mse"])
+                    row["ssim"], row["mse"] = (
+                        round(ssim(img, ref), 5),
+                        round(mse(img, ref), 6),
+                    )
+                    ssims.append(row["ssim"])
+                    mses.append(row["mse"])
             if row["status"] != "ok":
                 failures.append(f"{name} seed {seed}: {row['status']}")
             rows.append(row)
-            print(f"{name:16s} seed {seed:<6d} {row['status']:8s} "
-                  f"SSIM {row['ssim']}  MSE {row['mse']}  ({row['time reading']} s) ({row['time structs']} s) ({row['time render']} s)")
+            print(
+                f"{name:16s} seed {seed:<6d} {row['status']:8s} "
+                f"SSIM {row['ssim']}  MSE {row['mse']}  ({row['time reading']} s) ({row['time structs']} s) ({row['time render']} s)"
+            )
 
         if ssims:
-            m_ssim, s_ssim, m_mse = float(np.mean(ssims)), float(np.std(ssims)), float(np.mean(mses))
-            print(f"{name:16s} mean SSIM {m_ssim:.4f} (std {s_ssim:.4f})  mean MSE {m_mse:.6f}\n")
+            m_ssim, s_ssim, m_mse = (
+                float(np.mean(ssims)),
+                float(np.std(ssims)),
+                float(np.mean(mses)),
+            )
+            print(
+                f"{name:16s} mean SSIM {m_ssim:.4f} (std {s_ssim:.4f})  mean MSE {m_mse:.6f}\n"
+            )
             if m_ssim < th["ssim_min"]:
                 failures.append(f"{name}: mean SSIM {m_ssim:.4f} < {th['ssim_min']}")
             if m_mse > th["mse_max"]:
@@ -151,7 +208,17 @@ def run_suite(cfg, only, exclude):
                 failures.append(f"{name}: SSIM std {s_ssim:.4f} > {th['ssim_std_max']}")
 
     run_dir.mkdir(parents=True, exist_ok=True)
-    fields = ["run", "model", "seed", "time reading", "time structs", "time render", "ssim", "mse", "status"]
+    fields = [
+        "run",
+        "model",
+        "seed",
+        "time reading",
+        "time structs",
+        "time render",
+        "ssim",
+        "mse",
+        "status",
+    ]
     with open(run_dir / "results.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fields)
         w.writeheader()
@@ -179,4 +246,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-
